@@ -41,6 +41,8 @@
 .msg-result{display:block;margin-top:10px;font-size:12.5px;color:var(--mut);min-height:18px}
 .paging{display:flex;align-items:center;gap:14px;justify-content:flex-end;margin-top:14px;color:var(--mut);font-size:12.5px;font-family:var(--mono)}
 .btn-row{display:flex;gap:8px;margin-top:16px;flex-wrap:wrap}
+.bulk-row{display:flex;gap:8px;align-items:center}
+.bulk-row input{width:110px;font-family:var(--mono)}
 
 @media (max-width:1000px){
   .pipeline{grid-template-columns:1fr}.pipe-arrow{display:none}
@@ -125,9 +127,12 @@
         <label for="content">메시지 내용</label>
         <textarea id="content" placeholder="보낼 내용을 입력하세요"></textarea>
         <div class="btn-row">
-          <button class="btn btn-amber" onclick="sendOne()">발송 요청</button>
-          <button class="btn btn-ghost" onclick="sendBulk(10)">10건 테스트</button>
-          <button class="btn btn-ghost" onclick="sendBulk(50)">50건 테스트</button>
+          <button class="btn btn-amber" onclick="sendOne()">단건 요청</button>
+        </div>
+        <label for="bulkCount">다중 요청 건수 (1~200)</label>
+        <div class="bulk-row">
+          <input type="number" id="bulkCount" min="1" max="200" value="10">
+          <button class="btn btn-ghost" onclick="sendBulkInput()">다중 요청</button>
         </div>
         <span class="msg-result" id="sendResult"></span>
       </div>
@@ -177,6 +182,17 @@ async function sendOne(){
   if(res.ok) $('content').value = '';
   refreshAll();
 }
+
+/* 입력 필드 값(1~200)만큼 다중 요청 */
+function sendBulkInput(){
+  const n = parseInt($('bulkCount').value, 10);
+  if(!n || n < 1 || n > 200){
+    $('sendResult').textContent = '다중 요청 건수는 1~200 사이로 입력하세요';
+    return;
+  }
+  sendBulk(n);
+}
+
 async function sendBulk(n){
   $('sendResult').textContent = n + '건 적재 중...';
   const reqs = [];
