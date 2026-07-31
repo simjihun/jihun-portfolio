@@ -40,6 +40,13 @@
             <artifactId>spring-boot-starter-validation</artifactId>
         </dependency>
 
+        <!-- RSS 파싱 (뉴스 수집용) -->
+        <dependency>
+            <groupId>com.rometools</groupId>
+            <artifactId>rome</artifactId>
+            <version>2.1.0</version>
+        </dependency>
+
         <!-- 인메모리 DB (로컬 개발용, 기본 프로파일) -->
         <dependency>
             <groupId>com.h2database</groupId>
