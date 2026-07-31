@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI 뉴스 · hunit 포트폴리오</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/base.css">
+<style>
+/* 뉴스 보드 전용 스타일 */
+.fetch-info{font-family:var(--mono);font-size:11.5px;color:var(--dim)}
+
+/* 속보 스트립 */
+.breaking{border-left:3px solid var(--red);margin-bottom:16px}
+.breaking h2{color:var(--red)}
+.breaking a{display:flex;gap:10px;align-items:baseline;padding:7px 2px;border-bottom:1px dashed var(--line);font-size:13.5px}
+.breaking a:last-child{border-bottom:0}
+.breaking a:hover .t{color:var(--red)}
+.breaking .time{font-family:var(--mono);font-size:11px;color:var(--dim);flex:none}
+.breaking .t{color:var(--ink)}
+
+/* 주요 뉴스 카드 */
+.hl-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px}
+.hl{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:8px;transition:border-color .15s}
+.hl:hover{border-color:var(--amber)}
+.hl .cat{font-size:10.5px;font-weight:700;color:var(--amber);letter-spacing:.4px}
+.hl .t{font-size:13.5px;line-height:1.55;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;flex:1}
+.hl .meta{font-family:var(--mono);font-size:10.5px;color:var(--dim)}
+
+/* 카테고리 탭 */
+.tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+.tab{padding:7px 16px;border-radius:999px;border:1px solid var(--line);background:transparent;color:var(--mut);font-size:13px;cursor:pointer}
+.tab:hover{color:var(--ink);border-color:var(--mut)}
+.tab.on{background:rgba(242,169,59,.12);border-color:var(--amber);color:var(--amber);font-weight:600}
+
+/* 기사 리스트 */
+.news-list a{display:flex;gap:14px;align-items:baseline;padding:11px 4px;border-bottom:1px solid var(--line);font-size:14px}
+.news-list a:hover .t{color:var(--amber)}
+.news-list .time{font-family:var(--mono);font-size:11.5px;color:var(--dim);flex:none;width:82px}
+.news-list .press{font-size:11.5px;color:var(--dim);flex:none;width:64px}
+.news-list .t{color:var(--ink);line-height:1.5}
+.news-list .bk{color:var(--red);font-weight:700;font-size:11px;margin-right:6px}
+
+@media (max-width:1000px){
+  .hl-grid{grid-template-columns:repeat(2,1fr)}
+  .news-list .press{display:none}
+}
+</style>
+</head>
+<body>
+<div class="shell">
+  <aside>
+    <a class="logo" href="/">
+      <div class="logo-mark">JH</div>
+      <div><b>hunit</b><small>portfolio</small></div>
+    </a>
+
+    <a class="nav-item" href="/">◈&ensp;홈</a>
+
+    <details class="nav-group" open>
+      <summary>개발완료</summary>
+      <a class="nav-item" href="/mms">✉&ensp;MMS<span class="tag live">LIVE</span></a>
+      <a class="nav-item on" href="/news">📈&ensp;AI 뉴스<span class="tag live">LIVE</span></a>
+    </details>
+
+    <details class="nav-group" open>
+      <summary>개발예정</summary>
+      <span class="nav-item soon">🎮&ensp;웹 게임<span class="tag">예정</span></span>
+      <span class="nav-item soon">🗺&ensp;지도 연동<span class="tag">예정</span></span>
+      <span class="nav-item soon">🛒&ensp;가격 비교<span class="tag">예정</span></span>
+    </details>
+
+    <div class="side-foot">
+      수집 기사 <b id="footTotal" style="font-family:var(--mono)">-</b>건<br>
+      30분 주기 자동 수집
+    </div>
+  </aside>
+
+  <main>
+    <header class="page">
+      <h1>AI 뉴스</h1>
+      <div class="fetch-info">마지막 수집 <span id="lastFetch">-</span></div>
+    </header>
+
+    <!-- 속보 (있을 때만 표시) -->
+    <div class="panel breaking" id="breakingPanel" style="display:none">
+      <h2>속보</h2>
+      <div id="breakingList"></div>
+    </div>
+
+    <!-- 주요 뉴스 -->
+    <div class="section-titleish" style="font-size:12px;color:var(--mut);font-weight:600;letter-spacing:.6px;text-transform:uppercase;margin:0 0 12px">주요 뉴스</div>
+    <div class="hl-grid" id="hlGrid"></div>
+
+    <!-- 카테고리별 -->
+    <div class="panel">
+      <div class="tabs" id="tabs"></div>
+      <div class="news-list" id="newsList"></div>
+      <div class="empty" id="newsEmpty" style="display:none">아직 수집된 기사가 없습니다. 첫 수집은 서버 시작 후 약 10초 뒤 시작됩니다.</div>
+    </div>
+
+    <p style="margin-top:14px;color:var(--dim);font-size:11.5px">기사 제목 클릭 시 해당 언론사 원문으로 이동합니다. 출처: 한국경제 · 매일경제 RSS</p>
+  </main>
+</div>
+
+<script>
+const API = '/api/news';
+let curCat = 'POLITICS';
+const $ = id => document.getElementById(id);
+const esc = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+const fmtT = t => t ? t.replace('T',' ').substring(5,16) : '-';
+
+async function loadTabs(){
+  const cats = await fetch(API + '/categories').then(r => r.json());
+  $('tabs').innerHTML = cats.map(c =>
+    `<button class="tab ${c.code === curCat ? 'on' : ''}" data-cat="${c.code}" onclick="selectCat('${c.code}')">${c.label}</button>`
+  ).join('');
+}
+
+function selectCat(code){
+  curCat = code;
+  document.querySelectorAll('.tab').forEach(b => b.classList.toggle('on', b.dataset.cat === code));
+  loadList();
+}
+
+async function loadList(){
+  const list = await fetch(API + '/articles?category=' + curCat).then(r => r.json());
+  $('newsEmpty').style.display = list.length ? 'none' : 'block';
+  $('newsList').innerHTML = list.map(a => `
+    <a href="${esc(a.link)}" target="_blank" rel="noopener">
+      <span class="time">${fmtT(a.publishedAt)}</span>
+      <span class="press">${esc(a.press)}</span>
+      <span class="t">${a.breaking ? '<span class="bk">속보</span>' : ''}${esc(a.title)}</span>
+    </a>`).join('');
+}
+
+async function loadHighlights(){
+  try{
+    const h = await fetch(API + '/highlights').then(r => r.json());
+    $('footTotal').textContent = h.total;
+    $('lastFetch').textContent = h.lastFetchAt ? fmtT(h.lastFetchAt) : '준비 중';
+
+    const bk = h.breaking || [];
+    $('breakingPanel').style.display = bk.length ? 'block' : 'none';
+    $('breakingList').innerHTML = bk.map(a => `
+      <a href="${esc(a.link)}" target="_blank" rel="noopener">
+        <span class="time">${fmtT(a.publishedAt)}</span>
+        <span class="t">${esc(a.title)}</span>
+      </a>`).join('');
+
+    $('hlGrid').innerHTML = (h.latest || []).map(a => `
+      <a class="hl" href="${esc(a.link)}" target="_blank" rel="noopener">
+        <span class="cat">${a.categoryLabel}</span>
+        <span class="t">${esc(a.title)}</span>
+        <span class="meta">${esc(a.press)} · ${fmtT(a.publishedAt)}</span>
+      </a>`).join('');
+  }catch(e){/* 서버 재시작 등 순간 오류 무시 */}
+}
+
+async function init(){
+  await loadTabs();
+  loadHighlights();
+  loadList();
+}
+init();
+// 5분마다 자동 갱신
+setInterval(() => { loadHighlights(); loadList(); }, 5 * 60 * 1000);
+</script>
+</body>
+</html>
