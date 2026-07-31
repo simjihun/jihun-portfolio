@@ -1,0 +1,84 @@
+/* =========================================
+   hunit 포트폴리오 공통 스타일
+   ========================================= */
+:root{
+  --bg:#0B101B; --panel:#131A2A; --panel-2:#0F1522; --line:#243149;
+  --ink:#DEE5F2; --mut:#7E8DA9; --dim:#4E5B75;
+  --amber:#F2A93B; --green:#3ECF8E; --red:#F16063; --blue:#5AA2FF;
+  --mono:'JetBrains Mono',monospace; --sans:'Pretendard Variable',Pretendard,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:14px}
+a{color:inherit;text-decoration:none}
+button{font-family:var(--sans)}
+
+/* ===== 레이아웃 ===== */
+.shell{display:grid;grid-template-columns:228px 1fr;min-height:100vh}
+aside{background:var(--panel-2);border-right:1px solid var(--line);padding:20px 14px;display:flex;flex-direction:column;gap:2px}
+.logo{display:flex;align-items:center;gap:10px;padding:6px 10px 20px}
+.logo-mark{width:32px;height:32px;border-radius:8px;background:var(--amber);display:grid;place-items:center;color:#131A2A;font-family:var(--mono);font-weight:700;font-size:13px;flex:none}
+.logo b{font-size:15px;letter-spacing:-.2px}
+.logo small{display:block;color:var(--mut);font-size:11px;font-weight:400}
+
+/* 사이드바 메뉴: 대분류(그룹) → 소분류(항목) */
+.nav-group{margin-top:6px}
+.nav-group>summary{list-style:none;cursor:pointer;padding:8px 12px;color:var(--dim);font-size:11px;font-weight:600;letter-spacing:.8px;text-transform:uppercase;display:flex;justify-content:space-between;align-items:center;user-select:none}
+.nav-group>summary::-webkit-details-marker{display:none}
+.nav-group>summary::after{content:'›';font-size:13px;transition:transform .15s}
+.nav-group[open]>summary::after{transform:rotate(90deg)}
+.nav-item{display:flex;align-items:center;gap:9px;width:100%;padding:9px 12px;border:0;border-radius:8px;background:transparent;color:var(--mut);font-size:13.5px;cursor:pointer}
+.nav-item:hover{color:var(--ink);background:rgba(255,255,255,.04)}
+.nav-item.on{background:rgba(242,169,59,.12);color:var(--amber);font-weight:600}
+.nav-item.soon{cursor:default;color:var(--dim)}
+.nav-item.soon:hover{background:transparent;color:var(--dim)}
+.nav-item .tag{margin-left:auto;font-size:10px;padding:1px 7px;border-radius:999px;background:rgba(255,255,255,.06);color:var(--dim)}
+.nav-item .tag.live{background:rgba(62,207,142,.14);color:var(--green)}
+.side-foot{margin-top:auto;padding:12px 10px;border-top:1px solid var(--line);color:var(--dim);font-size:11.5px;line-height:1.8}
+.side-foot a{color:var(--mut)}
+.side-foot a:hover{color:var(--amber)}
+
+main{padding:24px 30px;max-width:1200px;width:100%}
+header.page{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:20px}
+header.page h1{font-size:20px;letter-spacing:-.3px}
+.live{display:flex;align-items:center;gap:8px;color:var(--mut);font-size:12px;font-family:var(--mono)}
+.live-dot{width:7px;height:7px;border-radius:50%;background:var(--green);animation:pulse 1.6s infinite}
+@keyframes pulse{50%{opacity:.25}}
+@media (prefers-reduced-motion:reduce){.live-dot,.lane-dot{animation:none!important}}
+
+/* ===== 패널/카드 ===== */
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px 20px}
+.panel h2{font-size:12px;color:var(--mut);font-weight:600;letter-spacing:.6px;text-transform:uppercase;margin-bottom:14px}
+.c-green{color:var(--green)}.c-red{color:var(--red)}.c-amber{color:var(--amber)}.c-blue{color:var(--blue)}
+
+/* ===== 폼 ===== */
+label{display:block;font-size:12px;color:var(--mut);margin:12px 0 6px}
+input,textarea,select{width:100%;background:var(--panel-2);border:1px solid var(--line);border-radius:8px;color:var(--ink);padding:10px 12px;font-size:14px;font-family:var(--sans)}
+input:focus,textarea:focus,select:focus{outline:2px solid var(--amber);outline-offset:-1px;border-color:transparent}
+textarea{resize:vertical;min-height:76px}
+.btn{padding:10px 20px;border:0;border-radius:8px;font-size:13.5px;font-weight:600;cursor:pointer}
+.btn:focus-visible,.nav-item:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+.btn-amber{background:var(--amber);color:#131A2A}
+.btn-amber:hover{filter:brightness(1.08)}
+.btn-ghost{background:transparent;border:1px solid var(--line);color:var(--mut)}
+.btn-ghost:hover{color:var(--ink);border-color:var(--mut)}
+
+/* ===== 테이블/뱃지 ===== */
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{color:var(--mut);font-weight:500;font-size:11.5px;text-transform:uppercase;letter-spacing:.4px}
+th,td{padding:9px 10px;border-bottom:1px solid var(--line);text-align:left}
+td{font-family:var(--mono);font-size:12.5px}
+td.txt{font-family:var(--sans);font-size:13px;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.badge{padding:2px 9px;border-radius:999px;font-size:11px;font-weight:600;font-family:var(--sans)}
+.PENDING{background:rgba(242,169,59,.14);color:var(--amber)}
+.SENDING{background:rgba(90,162,255,.14);color:var(--blue)}
+.SENT{background:rgba(62,207,142,.14);color:var(--green)}
+.FAILED{background:rgba(241,96,99,.14);color:var(--red)}
+.mini{padding:4px 10px;border-radius:6px;border:1px solid var(--line);background:transparent;color:var(--mut);font-size:11.5px;cursor:pointer}
+.mini:hover{color:var(--amber);border-color:var(--amber)}
+.empty{padding:28px;text-align:center;color:var(--dim);font-size:13px}
+
+@media (max-width:900px){
+  .shell{grid-template-columns:1fr}
+  aside{flex-direction:column}
+  main{padding:16px}
+}

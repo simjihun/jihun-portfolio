@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>hunit 포트폴리오</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/base.css">
+<style>
+/* 홈 전용 스타일 */
+.hero{margin:8px 0 28px}
+.hero h1{font-size:34px;letter-spacing:-.8px;line-height:1.2}
+.hero h1 .dot{color:var(--amber)}
+.hero p{margin-top:10px;color:var(--mut);font-size:14.5px;line-height:1.8;max-width:640px}
+.hero .stack{margin-top:14px;display:flex;flex-wrap:wrap;gap:8px}
+.stack span{font-family:var(--mono);font-size:11px;color:var(--mut);border:1px solid var(--line);border-radius:999px;padding:3px 11px}
+
+.section-title{font-size:12px;color:var(--mut);font-weight:600;letter-spacing:.6px;text-transform:uppercase;margin:26px 0 14px}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px;display:flex;flex-direction:column;gap:10px;transition:border-color .15s, transform .15s}
+a.card:hover{border-color:var(--amber);transform:translateY(-2px)}
+.card-top{display:flex;align-items:center;justify-content:space-between}
+.card-icon{width:38px;height:38px;border-radius:9px;display:grid;place-items:center;font-size:18px;background:var(--panel-2);border:1px solid var(--line)}
+.card b{font-size:15.5px}
+.card p{color:var(--mut);font-size:13px;line-height:1.7;flex:1}
+.card .meta{font-family:var(--mono);font-size:11px;color:var(--dim)}
+.pill{font-size:10.5px;font-weight:700;padding:2px 9px;border-radius:999px}
+.pill.live{background:rgba(62,207,142,.14);color:var(--green)}
+.pill.soon{background:rgba(255,255,255,.06);color:var(--dim)}
+.card.soon{opacity:.75}
+</style>
+</head>
+<body>
+<div class="shell">
+  <aside>
+    <a class="logo" href="/">
+      <div class="logo-mark">JH</div>
+      <div><b>hunit</b><small>jihun project</small></div>
+    </a>
+
+    <a class="nav-item on" href="/">◈&ensp;홈</a>
+
+    <details class="nav-group" open>
+      <summary>Messaging</summary>
+      <a class="nav-item" href="/message.html">✉&ensp;Message (MMS)<span class="tag live">LIVE</span></a>
+    </details>
+
+    <details class="nav-group" open>
+      <summary>Coming soon</summary>
+      <span class="nav-item soon">🎮&ensp;웹 게임<span class="tag">예정</span></span>
+      <span class="nav-item soon">🗺&ensp;지도 연동<span class="tag">예정</span></span>
+      <span class="nav-item soon">🛒&ensp;가격 비교<span class="tag">예정</span></span>
+      <span class="nav-item soon">📈&ensp;AI 뉴스 요약<span class="tag">예정</span></span>
+    </details>
+
+    <div class="side-foot">
+      Java 21 · Spring Boot · AWS<br>
+      <a href="https://github.com/simjihun/jihun-portfolio" target="_blank">github.com/simjihun ↗</a>
+    </div>
+  </aside>
+
+  <main>
+    <div class="hero">
+      <h1>jihun project<span class="dot">.</span></h1>
+      <p>직접 만들고, 직접 배포하고, 직접 운영하는 기능들을 하나씩 쌓아가는 공간입니다.
+      모든 기능은 이 서버(AWS EC2)에서 실제로 동작하며, git push 한 번으로 자동 배포됩니다.</p>
+      <div class="stack">
+        <span>Java 21</span><span>Spring Boot 3.5</span><span>JPA</span><span>MySQL (RDS)</span>
+        <span>AWS EC2</span><span>nginx + HTTPS</span><span>GitHub Actions CI/CD</span>
+      </div>
+    </div>
+
+    <div class="section-title">Projects</div>
+    <div class="cards">
+      <a class="card" href="/message.html">
+        <div class="card-top"><div class="card-icon">✉</div><span class="pill live">LIVE</span></div>
+        <b>Message (MMS)</b>
+        <p>이동통신 메시징 시스템의 축소판. 멀티쓰레드 워커가 큐에서 메시지를 꺼내
+        비동기 발송하고, 실패 시 자동 재시도합니다. 실시간 관제 대시보드 포함.</p>
+        <div class="meta">BlockingQueue · 멀티쓰레드 데몬 · 자동 재시도 · Chart.js</div>
+      </a>
+
+      <div class="card soon">
+        <div class="card-top"><div class="card-icon">🎮</div><span class="pill soon">예정</span></div>
+        <b>웹 게임</b>
+        <p>브라우저에서 바로 즐기는 미니 게임. 점수 기록과 랭킹 시스템을 붙일 예정입니다.</p>
+        <div class="meta">Canvas · 랭킹 API</div>
+      </div>
+
+      <div class="card soon">
+        <div class="card-top"><div class="card-icon">🗺</div><span class="pill soon">예정</span></div>
+        <b>지도 연동</b>
+        <p>카카오맵/네이버맵 API를 연동한 위치 기반 기능을 실험합니다.</p>
+        <div class="meta">Kakao Map API</div>
+      </div>
+
+      <div class="card soon">
+        <div class="card-top"><div class="card-icon">🛒</div><span class="pill soon">예정</span></div>
+        <b>가격 비교</b>
+        <p>쇼핑몰 상품 링크를 분석해 가격을 비교해주는 도구를 구상 중입니다.</p>
+        <div class="meta">크롤링 · 오픈 API</div>
+      </div>
+
+      <div class="card soon">
+        <div class="card-top"><div class="card-icon">📈</div><span class="pill soon">예정</span></div>
+        <b>AI 뉴스 요약</b>
+        <p>주식·경제 뉴스를 수집해 AI로 요약해서 보여주는 서비스를 구상 중입니다.</p>
+        <div class="meta">스케줄러 · AI API</div>
+      </div>
+    </div>
+  </main>
+</div>
+</body>
+</html>

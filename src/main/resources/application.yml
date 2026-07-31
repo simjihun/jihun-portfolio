@@ -1,0 +1,30 @@
+server:
+  # 환경변수 SERVER_PORT가 있으면 그 값을, 없으면 8081 사용 (로컬 개발용)
+  port: ${SERVER_PORT:8081}
+
+spring:
+  application:
+    name: jihun-portfolio
+
+  datasource:
+    # 인메모리 H2 → 앱을 끄면 데이터가 사라짐 (로컬 개발용)
+    url: jdbc:h2:mem:portfoliodb
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+
+app:
+  worker:
+    count: 3              # 발송 워커 쓰레드 개수
+    send-delay-ms: 1000   # 발송 시뮬레이션 소요 시간(ms)
+    max-retry: 2          # 발송 실패 시 자동 재시도 횟수

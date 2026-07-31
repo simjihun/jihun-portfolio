@@ -1,0 +1,56 @@
+name: Deploy to EC2
+
+# main 브랜치에 push되면 자동 실행 + Actions 탭에서 수동 실행도 가능
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: corretto
+          java-version: '21'
+          cache: maven
+
+      - name: Build with Maven
+        run: mvn -B clean package -DskipTests
+
+      - name: Upload jar to EC2
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ec2-user
+          key: ${{ secrets.EC2_SSH_KEY }}
+          source: target/jihun-portfolio-0.0.1-SNAPSHOT.jar
+          target: /home/jihun/libs/
+          strip_components: 1
+
+      - name: Restart & health check
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ec2-user
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            cd /home/jihun
+            ./killall.sh
+            ./Start.sh
+            echo "앱 기동 대기 중..."
+            for i in $(seq 1 12); do
+              sleep 5
+              if curl -sf http://localhost:8080/healthz > /dev/null; then
+                echo "배포 성공 - 헬스체크 통과"
+                exit 0
+              fi
+            done
+            echo "헬스체크 실패 - 최근 로그:"
+            tail -n 50 logs/app.log
+            exit 1
