@@ -47,6 +47,13 @@
             <version>2.1.0</version>
         </dependency>
 
+        <!-- HTML 파싱 (기사 OpenGraph 미리보기용) -->
+        <dependency>
+            <groupId>org.jsoup</groupId>
+            <artifactId>jsoup</artifactId>
+            <version>1.18.3</version>
+        </dependency>
+
         <!-- 인메모리 DB (로컬 개발용, 기본 프로파일) -->
         <dependency>
             <groupId>com.h2database</groupId>

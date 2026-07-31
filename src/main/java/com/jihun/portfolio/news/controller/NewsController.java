@@ -1,9 +1,13 @@
 package com.jihun.portfolio.news.controller;
 
+import com.jihun.portfolio.news.domain.NewsBriefing;
 import com.jihun.portfolio.news.domain.NewsArticle;
 import com.jihun.portfolio.news.domain.NewsCategory;
+import com.jihun.portfolio.news.repository.NewsBriefingRepository;
 import com.jihun.portfolio.news.repository.NewsRepository;
 import com.jihun.portfolio.news.service.NewsFetchService;
+import com.jihun.portfolio.news.service.NewsPreviewService;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -14,22 +18,25 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
-/**
- * 뉴스 보드 API.
- */
 @RestController
 @RequestMapping("/api/news")
 public class NewsController {
 
     private final NewsRepository newsRepository;
+    private final NewsBriefingRepository briefingRepository;
     private final NewsFetchService fetchService;
+    private final NewsPreviewService previewService;
 
-    public NewsController(NewsRepository newsRepository, NewsFetchService fetchService) {
+    public NewsController(NewsRepository newsRepository,
+                          NewsBriefingRepository briefingRepository,
+                          NewsFetchService fetchService,
+                          NewsPreviewService previewService) {
         this.newsRepository = newsRepository;
+        this.briefingRepository = briefingRepository;
         this.fetchService = fetchService;
+        this.previewService = previewService;
     }
 
-    /** 카테고리 목록 (탭 구성용: 코드 + 한글 라벨) */
     @GetMapping("/categories")
     public List<Map<String, String>> categories() {
         return Arrays.stream(NewsCategory.values())
@@ -37,13 +44,11 @@ public class NewsController {
                 .toList();
     }
 
-    /** 카테고리별 최신 기사 */
     @GetMapping("/articles")
     public List<NewsArticle> articles(@RequestParam NewsCategory category) {
         return newsRepository.findTop30ByCategoryOrderByPublishedAtDesc(category);
     }
 
-    /** 상단 하이라이트: 최근 24시간 속보 + 전체 최신 주요 뉴스 */
     @GetMapping("/highlights")
     public Map<String, Object> highlights() {
         return Map.of(
@@ -53,5 +58,18 @@ public class NewsController {
                 "lastFetchAt", fetchService.getLastFetchAt(),
                 "total", newsRepository.count()
         );
+    }
+
+    /** 카테고리별 AI 3줄 브리핑 전체 */
+    @GetMapping("/briefings")
+    public List<NewsBriefing> briefings() {
+        return briefingRepository.findAll();
+    }
+
+    /** 기사 링크 미리보기 (OpenGraph 메타데이터) */
+    @GetMapping("/preview")
+    public ResponseEntity<NewsPreviewService.Preview> preview(@RequestParam Long id) {
+        NewsPreviewService.Preview p = previewService.getPreview(id);
+        return p == null ? ResponseEntity.notFound().build() : ResponseEntity.ok(p);
     }
 }

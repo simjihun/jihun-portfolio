@@ -8,13 +8,12 @@
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/css/base.css">
 <style>
-/* 뉴스 보드 전용 스타일 */
 .fetch-info{font-family:var(--mono);font-size:11.5px;color:var(--dim)}
 
-/* 속보 스트립 */
+/* 속보 */
 .breaking{border-left:3px solid var(--red);margin-bottom:16px}
 .breaking h2{color:var(--red)}
-.breaking a{display:flex;gap:10px;align-items:baseline;padding:7px 2px;border-bottom:1px dashed var(--line);font-size:13.5px}
+.breaking a{display:flex;gap:10px;align-items:baseline;padding:7px 2px;border-bottom:1px dashed var(--line);font-size:13.5px;cursor:pointer}
 .breaking a:last-child{border-bottom:0}
 .breaking a:hover .t{color:var(--red)}
 .breaking .time{font-family:var(--mono);font-size:11px;color:var(--dim);flex:none}
@@ -22,7 +21,7 @@
 
 /* 주요 뉴스 카드 */
 .hl-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px}
-.hl{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:8px;transition:border-color .15s}
+.hl{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:8px;transition:border-color .15s;cursor:pointer}
 .hl:hover{border-color:var(--amber)}
 .hl .cat{font-size:10.5px;font-weight:700;color:var(--amber);letter-spacing:.4px}
 .hl .t{font-size:13.5px;line-height:1.55;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;flex:1}
@@ -34,13 +33,39 @@
 .tab:hover{color:var(--ink);border-color:var(--mut)}
 .tab.on{background:rgba(242,169,59,.12);border-color:var(--amber);color:var(--amber);font-weight:600}
 
+/* AI 3줄 브리핑 */
+.brief{background:var(--panel-2);border:1px solid var(--line);border-left:3px solid var(--amber);border-radius:10px;padding:14px 16px;margin-bottom:14px;display:none}
+.brief-head{font-size:11.5px;font-weight:700;color:var(--amber);letter-spacing:.4px;margin-bottom:8px}
+.brief-lines{display:flex;flex-direction:column;gap:5px}
+.brief-lines span{font-size:13.5px;line-height:1.65;color:var(--ink)}
+.brief-lines span::before{content:'—';color:var(--dim);margin-right:8px}
+.brief-meta{margin-top:8px;font-family:var(--mono);font-size:10.5px;color:var(--dim)}
+
 /* 기사 리스트 */
-.news-list a{display:flex;gap:14px;align-items:baseline;padding:11px 4px;border-bottom:1px solid var(--line);font-size:14px}
+.news-list a{display:flex;gap:14px;align-items:baseline;padding:11px 4px;border-bottom:1px solid var(--line);font-size:14px;cursor:pointer}
 .news-list a:hover .t{color:var(--amber)}
 .news-list .time{font-family:var(--mono);font-size:11.5px;color:var(--dim);flex:none;width:82px}
 .news-list .press{font-size:11.5px;color:var(--dim);flex:none;width:64px}
 .news-list .t{color:var(--ink);line-height:1.5}
 .news-list .bk{color:var(--red);font-weight:700;font-size:11px;margin-right:6px}
+
+/* 미리보기 모달 */
+.modal-bg{position:fixed;inset:0;background:rgba(5,8,15,.72);display:none;place-items:center;z-index:100;padding:20px}
+.modal-bg.show{display:grid}
+.modal{background:var(--panel);border:1px solid var(--line);border-radius:14px;max-width:560px;width:100%;overflow:hidden;position:relative}
+.modal-x{position:absolute;top:10px;right:10px;width:32px;height:32px;border-radius:8px;border:0;background:rgba(0,0,0,.45);color:#fff;font-size:16px;cursor:pointer;z-index:2}
+.modal-x:hover{background:rgba(0,0,0,.7)}
+.modal .img-wrap{background:var(--panel-2);max-height:300px;overflow:hidden;display:none}
+.modal .img-wrap img{width:100%;display:block;object-fit:cover}
+.modal .body{padding:18px 20px}
+.modal .cat{font-size:11px;font-weight:700;color:var(--amber)}
+.modal h3{font-size:17px;line-height:1.5;margin:6px 0 10px}
+.modal .desc{color:var(--mut);font-size:13.5px;line-height:1.8}
+.modal .loading{color:var(--dim);font-size:13px;padding:30px;text-align:center}
+.modal-foot{border-top:1px solid var(--line);padding:12px 20px;display:flex;align-items:center;gap:10px;font-size:12.5px}
+.modal-foot .src{color:var(--dim);flex:none}
+.modal-foot a{color:var(--blue);font-family:var(--mono);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.modal-foot a:hover{text-decoration:underline}
 
 @media (max-width:1000px){
   .hl-grid{grid-template-columns:repeat(2,1fr)}
@@ -55,22 +80,18 @@
       <div class="logo-mark">JH</div>
       <div><b>hunit</b><small>portfolio</small></div>
     </a>
-
     <a class="nav-item" href="/">◈&ensp;홈</a>
-
     <details class="nav-group" open>
       <summary>개발완료</summary>
       <a class="nav-item" href="/mms">✉&ensp;MMS<span class="tag live">LIVE</span></a>
       <a class="nav-item on" href="/news">📈&ensp;AI 뉴스<span class="tag live">LIVE</span></a>
     </details>
-
     <details class="nav-group" open>
       <summary>개발예정</summary>
       <span class="nav-item soon">🎮&ensp;웹 게임<span class="tag">예정</span></span>
       <span class="nav-item soon">🗺&ensp;지도 연동<span class="tag">예정</span></span>
       <span class="nav-item soon">🛒&ensp;가격 비교<span class="tag">예정</span></span>
     </details>
-
     <div class="side-foot">
       수집 기사 <b id="footTotal" style="font-family:var(--mono)">-</b>건<br>
       30분 주기 자동 수집
@@ -83,32 +104,58 @@
       <div class="fetch-info">마지막 수집 <span id="lastFetch">-</span></div>
     </header>
 
-    <!-- 속보 (있을 때만 표시) -->
     <div class="panel breaking" id="breakingPanel" style="display:none">
       <h2>속보</h2>
       <div id="breakingList"></div>
     </div>
 
-    <!-- 주요 뉴스 -->
-    <div class="section-titleish" style="font-size:12px;color:var(--mut);font-weight:600;letter-spacing:.6px;text-transform:uppercase;margin:0 0 12px">주요 뉴스</div>
+    <div style="font-size:12px;color:var(--mut);font-weight:600;letter-spacing:.6px;text-transform:uppercase;margin:0 0 12px">주요 뉴스</div>
     <div class="hl-grid" id="hlGrid"></div>
 
-    <!-- 카테고리별 -->
     <div class="panel">
       <div class="tabs" id="tabs"></div>
+
+      <!-- AI 3줄 브리핑 -->
+      <div class="brief" id="briefBox">
+        <div class="brief-head">✨ AI 3줄 브리핑</div>
+        <div class="brief-lines" id="briefLines"></div>
+        <div class="brief-meta" id="briefMeta"></div>
+      </div>
+
       <div class="news-list" id="newsList"></div>
       <div class="empty" id="newsEmpty" style="display:none">아직 수집된 기사가 없습니다. 첫 수집은 서버 시작 후 약 10초 뒤 시작됩니다.</div>
     </div>
 
-    <p style="margin-top:14px;color:var(--dim);font-size:11.5px">기사 제목 클릭 시 해당 언론사 원문으로 이동합니다. 출처: 한국경제 · 매일경제 RSS</p>
+    <p style="margin-top:14px;color:var(--dim);font-size:11.5px">기사 클릭 시 미리보기가 표시되며, 전문은 출처 링크를 통해 언론사 원문에서 볼 수 있습니다. 출처: 한국경제 · 매일경제 RSS</p>
   </main>
+</div>
+
+<!-- 기사 미리보기 모달 -->
+<div class="modal-bg" id="modalBg">
+  <div class="modal">
+    <button class="modal-x" onclick="closePreview()" aria-label="닫기">✕</button>
+    <div class="img-wrap" id="pvImgWrap"><img id="pvImg" alt=""></div>
+    <div class="body">
+      <div class="loading" id="pvLoading">미리보기 불러오는 중...</div>
+      <div id="pvContent" style="display:none">
+        <span class="cat" id="pvMeta"></span>
+        <h3 id="pvTitle"></h3>
+        <p class="desc" id="pvDesc"></p>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <span class="src">출처:</span>
+      <a id="pvLink" href="#" target="_blank" rel="noopener"></a>
+    </div>
+  </div>
 </div>
 
 <script>
 const API = '/api/news';
 let curCat = 'POLITICS';
+let briefings = {};
 const $ = id => document.getElementById(id);
-const esc = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+const esc = s => (s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 const fmtT = t => t ? t.replace('T',' ').substring(5,16) : '-';
 
 async function loadTabs(){
@@ -122,13 +169,32 @@ function selectCat(code){
   curCat = code;
   document.querySelectorAll('.tab').forEach(b => b.classList.toggle('on', b.dataset.cat === code));
   loadList();
+  renderBriefing();
+}
+
+async function loadBriefings(){
+  try{
+    const list = await fetch(API + '/briefings').then(r => r.json());
+    briefings = {};
+    list.forEach(b => briefings[b.category] = b);
+    renderBriefing();
+  }catch(e){}
+}
+
+function renderBriefing(){
+  const b = briefings[curCat];
+  if(!b){ $('briefBox').style.display = 'none'; return; }
+  $('briefBox').style.display = 'block';
+  $('briefLines').innerHTML = b.content.split('\n').filter(l => l.trim())
+    .map(l => `<span>${esc(l.trim())}</span>`).join('');
+  $('briefMeta').textContent = 'Gemini 생성 · ' + fmtT(b.generatedAt) + ' · 헤드라인 기반 요약';
 }
 
 async function loadList(){
   const list = await fetch(API + '/articles?category=' + curCat).then(r => r.json());
   $('newsEmpty').style.display = list.length ? 'none' : 'block';
   $('newsList').innerHTML = list.map(a => `
-    <a href="${esc(a.link)}" target="_blank" rel="noopener">
+    <a onclick="openPreview(${a.id})">
       <span class="time">${fmtT(a.publishedAt)}</span>
       <span class="press">${esc(a.press)}</span>
       <span class="t">${a.breaking ? '<span class="bk">속보</span>' : ''}${esc(a.title)}</span>
@@ -140,32 +206,61 @@ async function loadHighlights(){
     const h = await fetch(API + '/highlights').then(r => r.json());
     $('footTotal').textContent = h.total;
     $('lastFetch').textContent = h.lastFetchAt ? fmtT(h.lastFetchAt) : '준비 중';
-
     const bk = h.breaking || [];
     $('breakingPanel').style.display = bk.length ? 'block' : 'none';
     $('breakingList').innerHTML = bk.map(a => `
-      <a href="${esc(a.link)}" target="_blank" rel="noopener">
+      <a onclick="openPreview(${a.id})">
         <span class="time">${fmtT(a.publishedAt)}</span>
         <span class="t">${esc(a.title)}</span>
       </a>`).join('');
-
     $('hlGrid').innerHTML = (h.latest || []).map(a => `
-      <a class="hl" href="${esc(a.link)}" target="_blank" rel="noopener">
+      <div class="hl" onclick="openPreview(${a.id})">
         <span class="cat">${a.categoryLabel}</span>
         <span class="t">${esc(a.title)}</span>
         <span class="meta">${esc(a.press)} · ${fmtT(a.publishedAt)}</span>
-      </a>`).join('');
-  }catch(e){/* 서버 재시작 등 순간 오류 무시 */}
+      </div>`).join('');
+  }catch(e){}
 }
+
+async function openPreview(id){
+  $('modalBg').classList.add('show');
+  $('pvLoading').style.display = 'block';
+  $('pvContent').style.display = 'none';
+  $('pvImgWrap').style.display = 'none';
+  $('pvLink').textContent = '';
+  try{
+    const res = await fetch(API + '/preview?id=' + id);
+    if(!res.ok) throw new Error();
+    const p = await res.json();
+    if(p.image){ $('pvImg').src = p.image; $('pvImgWrap').style.display = 'block'; }
+    $('pvMeta').textContent = p.press + ' · ' + fmtT(p.publishedAt);
+    $('pvTitle').textContent = p.title;
+    $('pvDesc').textContent = p.description || '';
+    $('pvDesc').style.display = p.description ? 'block' : 'none';
+    $('pvLink').textContent = p.link;
+    $('pvLink').href = p.link;
+    $('pvLoading').style.display = 'none';
+    $('pvContent').style.display = 'block';
+  }catch(e){
+    $('pvLoading').textContent = '미리보기를 불러오지 못했습니다. 하단 출처 링크로 원문을 확인하세요.';
+  }
+}
+
+function closePreview(){
+  $('modalBg').classList.remove('show');
+  $('pvLoading').textContent = '미리보기 불러오는 중...';
+}
+$('modalBg').addEventListener('click', e => { if(e.target === $('modalBg')) closePreview(); });
+document.addEventListener('keydown', e => { if(e.key === 'Escape') closePreview(); });
 
 async function init(){
   await loadTabs();
   loadHighlights();
   loadList();
+  loadBriefings();
 }
 init();
-// 5분마다 자동 갱신
-setInterval(() => { loadHighlights(); loadList(); }, 5 * 60 * 1000);
+setInterval(() => { loadHighlights(); loadList(); loadBriefings(); }, 5 * 60 * 1000);
 </script>
 </body>
 </html>
