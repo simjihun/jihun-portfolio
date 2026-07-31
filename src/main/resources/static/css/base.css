@@ -82,3 +82,10 @@ td.txt{font-family:var(--sans);font-size:13px;max-width:220px;overflow:hidden;te
   aside{flex-direction:column}
   main{padding:16px}
 }
+
+/* ===== 사이드바 하단 아이콘 ===== */
+.foot-icons{display:flex;gap:8px;margin-top:10px}
+.icon-btn{display:grid;place-items:center;width:30px;height:30px;border-radius:8px;border:1px solid var(--line);color:var(--mut);transition:color .15s,border-color .15s}
+.icon-btn:hover{color:var(--ink);border-color:var(--mut)}
+.icon-btn.tistory{font-family:var(--mono);font-weight:700;font-size:14px}
+.icon-btn.tistory:hover{color:#EB531F;border-color:#EB531F}

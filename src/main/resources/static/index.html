@@ -9,14 +9,30 @@
 <link rel="stylesheet" href="/css/base.css">
 <style>
 /* 홈 전용 스타일 */
-.hero{margin:8px 0 28px}
+.hero{margin:8px 0 30px}
 .hero h1{font-size:34px;letter-spacing:-.8px;line-height:1.2}
 .hero h1 .dot{color:var(--amber)}
 .hero p{margin-top:10px;color:var(--mut);font-size:14.5px;line-height:1.8;max-width:640px}
-.hero .stack{margin-top:14px;display:flex;flex-wrap:wrap;gap:8px}
+.hero .stack{margin-top:16px;display:flex;flex-wrap:wrap;gap:8px;max-width:680px}
 .stack span{font-family:var(--mono);font-size:11px;color:var(--mut);border:1px solid var(--line);border-radius:999px;padding:3px 11px}
 
 .section-title{font-size:12px;color:var(--mut);font-weight:600;letter-spacing:.6px;text-transform:uppercase;margin:26px 0 14px}
+
+/* Dev Log 타임라인 */
+.timeline{list-style:none;max-width:640px}
+.timeline li{position:relative;padding:0 0 22px 26px;border-left:1px solid var(--line);margin-left:6px}
+.timeline li:last-child{padding-bottom:4px}
+.timeline li::before{content:'';position:absolute;left:-5px;top:4px;width:9px;height:9px;border-radius:50%;background:var(--amber);border:2px solid var(--bg)}
+.timeline li.plan::before{background:var(--dim)}
+.timeline .date{font-family:var(--mono);font-size:11px;color:var(--dim);display:block;margin-bottom:3px}
+.timeline b{font-size:14px;font-weight:600}
+.timeline p{color:var(--mut);font-size:13px;line-height:1.7;margin-top:3px}
+
+/* Backlog 칩 */
+.chips{display:flex;flex-wrap:wrap;gap:8px;max-width:640px}
+.chips span{font-size:12.5px;color:var(--mut);background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:6px 14px}
+
+/* 카드 (현재 숨김, 추후 부활용 스타일 유지) */
 .cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px}
 .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px;display:flex;flex-direction:column;gap:10px;transition:border-color .15s, transform .15s}
 a.card:hover{border-color:var(--amber);transform:translateY(-2px)}
@@ -55,22 +71,63 @@ a.card:hover{border-color:var(--amber);transform:translateY(-2px)}
     </details>
 
     <div class="side-foot">
-      Java 21 · Spring Boot · AWS<br>
-      <a href="https://github.com/simjihun/jihun-portfolio" target="_blank">github.com/simjihun ↗</a>
+      Java 21 · Spring Boot · AWS
+      <div class="foot-icons">
+        <a class="icon-btn" href="https://github.com/simjihun" target="_blank" rel="noopener" aria-label="GitHub" title="GitHub">
+          <svg viewBox="0 0 16 16" width="17" height="17" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
+        </a>
+        <a class="icon-btn tistory" href="https://hunit.tistory.com" target="_blank" rel="noopener" aria-label="Tistory 블로그" title="Tistory 블로그">T</a>
+      </div>
     </div>
   </aside>
 
   <main>
     <div class="hero">
       <h1>jihun project<span class="dot">.</span></h1>
-      <p>직접 만들고, 직접 배포하고, 직접 운영하는 기능들을 하나씩 쌓아가는 공간입니다.
-      모든 기능은 이 서버(AWS EC2)에서 실제로 동작하며, git push 한 번으로 자동 배포됩니다.</p>
+      <p>직접 만들고, 직접 배포하고, 직접 운영하는 기능들을 하나씩 쌓아가는 공간입니다.<br>
+      Java를 중심으로 장르를 가리지 않고 만듭니다 — 완성된 기능은 왼쪽 메뉴에 하나씩 추가됩니다.</p>
       <div class="stack">
-        <span>Java 21</span><span>Spring Boot 3.5</span><span>JPA</span><span>MySQL (RDS)</span>
-        <span>AWS EC2</span><span>nginx + HTTPS</span><span>GitHub Actions CI/CD</span>
+        <span>Java</span><span>Spring Framework</span><span>Spring Data JPA</span><span>Netty</span>
+        <span>TCP/IP 소켓통신</span><span>REST API</span><span>MySQL</span><span>MariaDB</span>
+        <span>Oracle</span><span>Vue.js</span><span>Linux</span><span>Git</span>
       </div>
     </div>
 
+    <div class="section-title">Dev Log</div>
+    <ul class="timeline">
+      <li class="plan">
+        <span class="date">예정</span>
+        <b>다음 기능 준비 중</b>
+        <p>Backlog에서 하나를 골라 만드는 중입니다.</p>
+      </li>
+      <li>
+        <span class="date">2026.07</span>
+        <b>첫 번째 기능 오픈</b>
+        <p>비동기 큐와 멀티쓰레드 워커로 동작하는 발송 시스템을 관제 화면과 함께 공개했습니다.</p>
+      </li>
+      <li>
+        <span class="date">2026.07</span>
+        <b>자동 배포 파이프라인 구축</b>
+        <p>push 한 번으로 빌드부터 배포·헬스체크까지 이어지는 CI/CD를 구성했습니다.</p>
+      </li>
+      <li>
+        <span class="date">2026.07</span>
+        <b>hunit.kr 오픈</b>
+        <p>도메인을 연결하고 HTTPS를 적용해 포트폴리오 사이트 문을 열었습니다.</p>
+      </li>
+    </ul>
+
+    <div class="section-title">Backlog</div>
+    <div class="chips">
+      <span>🎮 웹 게임</span>
+      <span>🗺 지도 연동</span>
+      <span>🛒 가격 비교</span>
+      <span>📈 AI 뉴스 요약</span>
+      <span>💡 + 계속 추가 예정</span>
+    </div>
+
+    <!-- =====================================================
+         프로젝트 카드 (기능이 여러 개 쌓이면 부활 예정)
     <div class="section-title">Projects</div>
     <div class="cards">
       <a class="card" href="/message.html">
@@ -80,35 +137,8 @@ a.card:hover{border-color:var(--amber);transform:translateY(-2px)}
         비동기 발송하고, 실패 시 자동 재시도합니다. 실시간 관제 대시보드 포함.</p>
         <div class="meta">BlockingQueue · 멀티쓰레드 데몬 · 자동 재시도 · Chart.js</div>
       </a>
-
-      <div class="card soon">
-        <div class="card-top"><div class="card-icon">🎮</div><span class="pill soon">예정</span></div>
-        <b>웹 게임</b>
-        <p>브라우저에서 바로 즐기는 미니 게임. 점수 기록과 랭킹 시스템을 붙일 예정입니다.</p>
-        <div class="meta">Canvas · 랭킹 API</div>
-      </div>
-
-      <div class="card soon">
-        <div class="card-top"><div class="card-icon">🗺</div><span class="pill soon">예정</span></div>
-        <b>지도 연동</b>
-        <p>카카오맵/네이버맵 API를 연동한 위치 기반 기능을 실험합니다.</p>
-        <div class="meta">Kakao Map API</div>
-      </div>
-
-      <div class="card soon">
-        <div class="card-top"><div class="card-icon">🛒</div><span class="pill soon">예정</span></div>
-        <b>가격 비교</b>
-        <p>쇼핑몰 상품 링크를 분석해 가격을 비교해주는 도구를 구상 중입니다.</p>
-        <div class="meta">크롤링 · 오픈 API</div>
-      </div>
-
-      <div class="card soon">
-        <div class="card-top"><div class="card-icon">📈</div><span class="pill soon">예정</span></div>
-        <b>AI 뉴스 요약</b>
-        <p>주식·경제 뉴스를 수집해 AI로 요약해서 보여주는 서비스를 구상 중입니다.</p>
-        <div class="meta">스케줄러 · AI API</div>
-      </div>
     </div>
+    ===================================================== -->
   </main>
 </div>
 </body>
