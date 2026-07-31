@@ -18,16 +18,6 @@
 
 .section-title{font-size:12px;color:var(--mut);font-weight:600;letter-spacing:.6px;text-transform:uppercase;margin:26px 0 14px}
 
-/* Dev Log 타임라인 */
-.timeline{list-style:none;max-width:640px}
-.timeline li{position:relative;padding:0 0 22px 26px;border-left:1px solid var(--line);margin-left:6px}
-.timeline li:last-child{padding-bottom:4px}
-.timeline li::before{content:'';position:absolute;left:-5px;top:4px;width:9px;height:9px;border-radius:50%;background:var(--amber);border:2px solid var(--bg)}
-.timeline li.plan::before{background:var(--dim)}
-.timeline .date{font-family:var(--mono);font-size:11px;color:var(--dim);display:block;margin-bottom:3px}
-.timeline b{font-size:14px;font-weight:600}
-.timeline p{color:var(--mut);font-size:13px;line-height:1.7;margin-top:3px}
-
 /* Backlog 칩 */
 .chips{display:flex;flex-wrap:wrap;gap:8px;max-width:640px}
 .chips span{font-size:12.5px;color:var(--mut);background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:6px 14px}
@@ -52,18 +42,18 @@ a.card:hover{border-color:var(--amber);transform:translateY(-2px)}
   <aside>
     <a class="logo" href="/">
       <div class="logo-mark">JH</div>
-      <div><b>hunit</b><small>jihun project</small></div>
+      <div><b>hunit</b><small>portfolio</small></div>
     </a>
 
     <a class="nav-item on" href="/">◈&ensp;홈</a>
 
     <details class="nav-group" open>
-      <summary>Messaging</summary>
-      <a class="nav-item" href="/message.html">✉&ensp;Message (MMS)<span class="tag live">LIVE</span></a>
+      <summary>개발완료</summary>
+      <a class="nav-item" href="/mms">✉&ensp;MMS<span class="tag live">LIVE</span></a>
     </details>
 
     <details class="nav-group" open>
-      <summary>Coming soon</summary>
+      <summary>개발예정</summary>
       <span class="nav-item soon">🎮&ensp;웹 게임<span class="tag">예정</span></span>
       <span class="nav-item soon">🗺&ensp;지도 연동<span class="tag">예정</span></span>
       <span class="nav-item soon">🛒&ensp;가격 비교<span class="tag">예정</span></span>
@@ -83,7 +73,7 @@ a.card:hover{border-color:var(--amber);transform:translateY(-2px)}
 
   <main>
     <div class="hero">
-      <h1>jihun project<span class="dot">.</span></h1>
+      <h1>hunit portfolio<span class="dot">.</span></h1>
       <p>직접 만들고, 직접 배포하고, 직접 운영하는 기능들을 하나씩 쌓아가는 공간입니다.<br>
       Java를 중심으로 장르를 가리지 않고 만듭니다 — 완성된 기능은 왼쪽 메뉴에 하나씩 추가됩니다.</p>
       <div class="stack">
@@ -92,30 +82,6 @@ a.card:hover{border-color:var(--amber);transform:translateY(-2px)}
         <span>Oracle</span><span>Vue.js</span><span>Linux</span><span>Git</span>
       </div>
     </div>
-
-    <div class="section-title">Dev Log</div>
-    <ul class="timeline">
-      <li class="plan">
-        <span class="date">예정</span>
-        <b>다음 기능 준비 중</b>
-        <p>Backlog에서 하나를 골라 만드는 중입니다.</p>
-      </li>
-      <li>
-        <span class="date">2026.07</span>
-        <b>첫 번째 기능 오픈</b>
-        <p>비동기 큐와 멀티쓰레드 워커로 동작하는 발송 시스템을 관제 화면과 함께 공개했습니다.</p>
-      </li>
-      <li>
-        <span class="date">2026.07</span>
-        <b>자동 배포 파이프라인 구축</b>
-        <p>push 한 번으로 빌드부터 배포·헬스체크까지 이어지는 CI/CD를 구성했습니다.</p>
-      </li>
-      <li>
-        <span class="date">2026.07</span>
-        <b>hunit.kr 오픈</b>
-        <p>도메인을 연결하고 HTTPS를 적용해 포트폴리오 사이트 문을 열었습니다.</p>
-      </li>
-    </ul>
 
     <div class="section-title">Backlog</div>
     <div class="chips">
@@ -130,11 +96,11 @@ a.card:hover{border-color:var(--amber);transform:translateY(-2px)}
          프로젝트 카드 (기능이 여러 개 쌓이면 부활 예정)
     <div class="section-title">Projects</div>
     <div class="cards">
-      <a class="card" href="/message.html">
+      <a class="card" href="/mms">
         <div class="card-top"><div class="card-icon">✉</div><span class="pill live">LIVE</span></div>
-        <b>Message (MMS)</b>
-        <p>이동통신 메시징 시스템의 축소판. 멀티쓰레드 워커가 큐에서 메시지를 꺼내
-        비동기 발송하고, 실패 시 자동 재시도합니다. 실시간 관제 대시보드 포함.</p>
+        <b>MMS</b>
+        <p>멀티쓰레드 워커가 큐에서 메시지를 꺼내 비동기 발송하고,
+        실패 시 자동 재시도합니다. 실시간 관제 대시보드 포함.</p>
         <div class="meta">BlockingQueue · 멀티쓰레드 데몬 · 자동 재시도 · Chart.js</div>
       </a>
     </div>
