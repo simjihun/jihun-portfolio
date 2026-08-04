@@ -6,8 +6,8 @@ import java.util.List;
 /**
  * 장기 규칙 엔진: 기물별 이동 생성, 장군(체크) 판정, 외통수(체크메이트) 판정.
  *
- * 간소화한 점: 차·포·졸(병)의 궁성 대각선 특수 이동은 생략하고,
- * 궁(장)과 사의 궁성 대각선 이동만 구현한다. 기본 이동·장군·외통수 판정은 정확하게 동작한다.
+ * 간소화한 점: 병(졸)의 궁성 대각선 특수 이동만 생략했다.
+ * 궁(장)·사·차·포의 궁성 대각선 이동(포는 대각선 위에서도 반드시 기물 하나를 넘어야 함)은 정확히 구현되어 있다.
  */
 public final class JanggiRules {
 
@@ -106,7 +106,10 @@ public final class JanggiRules {
                 for (int[] d : ORTHO) slide(board, x, y, d[0], d[1], color, moves);
                 addPalaceDiagonalSlides(board, x, y, color, moves);
             }
-            case "C" -> addCannonMoves(board, x, y, color, moves);
+            case "C" -> {
+                addCannonMoves(board, x, y, color, moves);
+                addCannonPalaceDiagonal(board, x, y, color, moves);
+            }
             case "P" -> {
                 int fwd = "H".equals(color) ? 1 : -1;
                 int[][] dirs = {{0, fwd}, {-1, 0}, {1, 0}};
@@ -139,7 +142,7 @@ public final class JanggiRules {
         }
     }
 
-    /** 차(Chariot)의 궁성 대각선 이동: 코너↔중앙↔반대 코너 직선을 타고 미끄럼파럼 이동한다. */
+    /** 차(Chariot)의 궁성 대각선 이동: 코너↔중앙↔반대 코너 직선을 타고 미끄러지듯 이동한다. */
     private static void addPalaceDiagonalSlides(String[][] board, int x, int y, String color, List<int[]> out) {
         PalaceDiag p = palaceOf(x, y);
         if (p == null) return;
@@ -190,6 +193,33 @@ public final class JanggiRules {
                 }
                 nx += d[0]; ny += d[1];
             }
+        }
+    }
+
+    /**
+     * 포(Cannon)의 궁성 대각선 이동. 궁성 대각선은 코너-중앙-코너 3점뿐이라, 코너에 있을 때만
+     * 중앙에 놓인 기물(포가 아닌 것)을 넘어 반대편 코너로 이동/포획할 수 있다.
+     * 중앙에 있을 때는 인접한 코너까지 넘을 기물이 없어(사이 칸이 없음) 대각선 이동이 불가능하다.
+     */
+    private static void addCannonPalaceDiagonal(String[][] board, int x, int y, String color, List<int[]> out) {
+        PalaceDiag p = palaceOf(x, y);
+        if (p == null) return;
+        if (x == p.cx() && y == p.cy()) return; // 중앙에서는 넘을 사이 칸이 없어 이동 불가
+
+        boolean isCorner = false;
+        for (int[] c : p.corners()) if (c[0] == x && c[1] == y) isCorner = true;
+        if (!isCorner) return;
+
+        int dx = Integer.signum(p.cx() - x), dy = Integer.signum(p.cy() - y);
+        int cx = p.cx(), cy = p.cy();
+        String screen = board[cy][cx];
+        if (screen == null || "C".equals(typeOf(screen))) return; // 포는 스스로를 넘을 수 없고, 넘을 기물도 필요
+
+        int fx = cx + dx, fy = cy + dy; // 반대편 코너
+        if (!inBounds(fx, fy)) return;
+        String target = board[fy][fx];
+        if (target == null || (!"C".equals(typeOf(target)) && !colorOf(target).equals(color))) {
+            out.add(new int[]{fx, fy});
         }
     }
 
