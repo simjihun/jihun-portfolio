@@ -41,18 +41,20 @@
 .result-banner.show{display:block}
 @media (max-width:600px){ .board{grid-template-columns:repeat(15,minmax(16px,22px));grid-template-rows:repeat(15,minmax(16px,22px))} }
 
-.jboard{display:grid;grid-template-columns:repeat(9,minmax(28px,40px));grid-template-rows:repeat(10,minmax(28px,40px));background:#D9C08A;border:2px solid #8a6a3f;border-radius:6px;padding:8px}
-.jcell{position:relative;display:flex;align-items:center;justify-content:center;cursor:pointer}
+.jboard{position:relative;display:grid;grid-template-columns:repeat(9,minmax(28px,40px));grid-template-rows:repeat(10,minmax(28px,40px));background:#D9C08A;border:2px solid #8a6a3f;border-radius:6px;padding:8px}
+.jcell{position:relative;z-index:1;display:flex;align-items:center;justify-content:center;cursor:pointer}
 .jcell::before,.jcell::after{content:'';position:absolute;background:#5b4326}
 .jcell::before{left:0;right:0;top:50%;height:1px}
 .jcell::after{top:0;bottom:0;left:50%;width:1px}
 .jcell.palace{background:rgba(91,67,38,.1)}
+.jcell.palace::before{height:2px;background:#4a3319}
+.jcell.palace::after{width:2px;background:#4a3319}
 .jcell.selected{background:rgba(242,169,59,.4)}
 .jcell.dest{background:rgba(62,207,142,.3)}
-.jpiece{width:82%;height:82%;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;z-index:2;box-shadow:0 2px 3px rgba(0,0,0,.35)}
-.jpiece.H{background:radial-gradient(circle at 35% 30%,#e8563f,#a8291a);color:#fff}
-.jpiece.O{background:radial-gradient(circle at 35% 30%,#4a90d9,#1c5aa0);color:#fff}
-@media (max-width:600px){ .jboard{grid-template-columns:repeat(9,minmax(24px,30px));grid-template-rows:repeat(10,minmax(24px,30px))} .jpiece{font-size:12px} }
+.jcell.last-move{box-shadow:inset 0 0 0 3px rgba(242,169,59,.8)}
+.jpalace-svg{position:absolute;top:8px;left:8px;right:8px;bottom:8px;pointer-events:none;z-index:0}
+.jpiece{width:82%;height:82%;object-fit:contain;z-index:2;filter:drop-shadow(0 2px 2px rgba(0,0,0,.35))}
+@media (max-width:600px){ .jboard{grid-template-columns:repeat(9,minmax(24px,30px));grid-template-rows:repeat(10,minmax(24px,30px))} }
 
 .two-col{display:grid;grid-template-columns:1fr 320px;gap:16px;align-items:start}
 .guess-input{display:flex;gap:8px}
@@ -166,6 +168,7 @@
     <p class="game-desc">
       9×10 궁성이 있는 전통 장기판에서 <b>AI와 1:1 대국</b>합니다. 진영을 고르고 시작한 뒤,
       기물을 클릭하면 이동 가능한 칸이 초록색으로 표시됩니다 — 그 칸을 다시 클릭하면 이동합니다.
+      내가 한을 고르면 내 진영이 화면 하단에 오도록 보드가 자동으로 뒤집히고, 직전 수(내 수·AI 수 모두)는 주황색 테두리로 표시됩니다.
       AI는 외부 API 없이 <b>서버에서 직접 계산하는 알고리즘</b>(기물 가치 평가 + 상대 응수 예측)으로 동작합니다.
       차·포·병(졸)의 궁성 대각선 이동은 간소화를 위해 생략했습니다.
     </p>
@@ -174,7 +177,7 @@
       <h2>대국 설정</h2>
       <label>내 진영</label>
       <div class="choice-row" id="jColorRow">
-        <button class="choice on" data-v="H" onclick="jPick('jColorRow','color','H')">🔴 한 (선공, 상단)</button>
+        <button class="choice on" data-v="H" onclick="jPick('jColorRow','color','H')">🔴 한 (선공, 내 진영이 하단으로 표시됨)</button>
         <button class="choice" data-v="O" onclick="jPick('jColorRow','color','O')">🔵 초 (후공, 하단)</button>
       </div>
       <label>난이도</label>
@@ -410,14 +413,9 @@ let janggiGameId = null;
 let jSetup = { color: 'H', diff: 'MEDIUM', time: '' };
 let jTimerHandle = null;
 let jHumanColorGlobal = 'H', jTimeLimitGlobal = null, jTurnStartedGlobal = 0;
-let jSelected = null;      // { x, y }
-let jDestinations = [];    // [[x,y], ...]
+let jSelected = null;      // { x, y } 논리 좌표
+let jDestinations = [];    // [[x,y], ...] 논리 좌표
 let jLastData = null, jLastBoard = null;
-
-const PIECE_LABEL = {
-  H: { K:'궁', A:'사', E:'상', N:'마', R:'차', C:'포', P:'병' },
-  O: { K:'궁', A:'사', E:'상', N:'마', R:'차', C:'포', P:'졸' }
-};
 
 function isPalaceCell(x, y){
   return (x >= 3 && x <= 5) && ((y >= 0 && y <= 2) || (y >= 7 && y <= 9));
@@ -428,11 +426,14 @@ function jPick(rowId, key, value){
   jSetup[key] = value;
 }
 
-function buildJanggiBoard(){
+/** flip=true면 한(H)을 플레이어 하단에 오도록 180도 뒤집어 그린다. 클릭핸들러는 항상 논리(보드 배열) 좌표를 쓴다. */
+function buildJanggiBoard(flip){
   const board = $('jBoard');
-  if (board.children.length) return;
-  for (let y = 0; y < JROWS; y++) {
-    for (let x = 0; x < JCOLS; x++) {
+  board.innerHTML = '';
+  for (let row = 0; row < JROWS; row++) {
+    for (let col = 0; col < JCOLS; col++) {
+      const x = flip ? JCOLS - 1 - col : col;
+      const y = flip ? JROWS - 1 - row : row;
       const cell = document.createElement('div');
       cell.className = 'jcell' + (isPalaceCell(x, y) ? ' palace' : '');
       cell.dataset.x = x; cell.dataset.y = y;
@@ -440,6 +441,28 @@ function buildJanggiBoard(){
       board.appendChild(cell);
     }
   }
+  appendPalaceDiagonals(board);
+}
+
+/** 궁성(보드 상/하단 3x3)에 사·궁이 다닐 수 있는 대각선을 그려준다. 화면상 위치는 flip과 무관하게 항상 최상단/최하단 3줄이라 고정값으로 그린다. */
+function appendPalaceDiagonals(board){
+  const svgNS = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(svgNS, 'svg');
+  svg.setAttribute('viewBox', '0 0 9 10');
+  svg.setAttribute('preserveAspectRatio', 'none');
+  svg.classList.add('jpalace-svg');
+  const addLine = (x1, y1, x2, y2) => {
+    const line = document.createElementNS(svgNS, 'line');
+    line.setAttribute('x1', x1); line.setAttribute('y1', y1);
+    line.setAttribute('x2', x2); line.setAttribute('y2', y2);
+    line.setAttribute('stroke', '#4a3319');
+    line.setAttribute('stroke-width', '0.06');
+    line.setAttribute('vector-effect', 'non-scaling-stroke');
+    svg.appendChild(line);
+  };
+  addLine(3.5, 0.5, 5.5, 2.5); addLine(5.5, 0.5, 3.5, 2.5); // 상단 궁성
+  addLine(3.5, 7.5, 5.5, 9.5); addLine(5.5, 7.5, 3.5, 9.5); // 하단 궁성
+  board.appendChild(svg);
 }
 
 function jBackToSetup(){
@@ -451,7 +474,7 @@ function jBackToSetup(){
 }
 
 async function startJanggi(){
-  buildJanggiBoard();
+  buildJanggiBoard(jSetup.color === 'H'); // 한을 고르면 내 진영이 화면 하단에 오도록 뒤집는다
   const body = {
     humanColor: jSetup.color,
     difficulty: jSetup.diff,
@@ -543,12 +566,14 @@ function renderJanggi(data){
 
 function renderJanggiBoardOnly(){
   if (!jLastBoard) return;
+  const lm = jLastData && jLastData.lastMove;
   document.querySelectorAll('.jcell').forEach(cell => {
     const x = +cell.dataset.x, y = +cell.dataset.y;
     const v = jLastBoard[y][x];
     cell.classList.toggle('selected', !!(jSelected && jSelected.x === x && jSelected.y === y));
     cell.classList.toggle('dest', jDestinations.some(d => d[0] === x && d[1] === y));
-    cell.innerHTML = v ? `<div class="jpiece ${v[0]}">${PIECE_LABEL[v[0]][v[1]]}</div>` : '';
+    cell.classList.toggle('last-move', !!lm && ((x === lm.fromX && y === lm.fromY) || (x === lm.toX && y === lm.toY)));
+    cell.innerHTML = v ? `<img class="jpiece" src="/images/janggi/${v[0]}_${v[1]}.svg" alt="${v}">` : '';
   });
 }
 
