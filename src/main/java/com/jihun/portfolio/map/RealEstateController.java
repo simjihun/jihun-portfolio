@@ -25,6 +25,8 @@ import java.util.Map;
  * - 응답이 XML이라 jsoup의 XML 파서로 파싱한다.
  * - 서비스키는 이미 인코딩된(Encoding) 키를 그대로 쓰므로 URI.create()로 직접 구성해
  *   Spring이 이중으로 인코딩하지 않도록 한다.
+ * - 엔드포인트는 공공데이터포털이 apis.data.go.kr로 통합 이전한 신규 주소를 사용한다.
+ *   (구 주소 openapi.molit.go.kr는 더 이상 서비스되지 않아 404가 발생함)
  */
 @RestController
 @RequestMapping("/api/map")
@@ -32,7 +34,7 @@ public class RealEstateController {
 
     private static final Logger log = LoggerFactory.getLogger(RealEstateController.class);
     private static final String ENDPOINT =
-            "http://openapi.molit.go.kr/OpenAPI_ToolInstallPackage/service/rest/RTMSOBJSvc/getRTMSDataSvcAptTradeDev";
+            "http://apis.data.go.kr/1613000/RTMSDataSvcAptTradeDev/getRTMSDataSvcAptTradeDev";
 
     @Value("${REALESTATE_API_KEY:}")
     private String serviceKey;
