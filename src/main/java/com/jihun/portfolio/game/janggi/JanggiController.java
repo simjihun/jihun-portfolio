@@ -23,7 +23,9 @@ public class JanggiController {
     public Map<String, Object> newGame(@RequestBody NewGameRequest req) {
         String human = "O".equalsIgnoreCase(req.humanColor()) ? "O" : "H";
         String difficulty = req.difficulty() == null ? "MEDIUM" : req.difficulty().toUpperCase();
-        return toResponse(service.create(human, difficulty, req.timeLimitSeconds()));
+        String humanFormation = req.humanFormation() == null ? "MSMS" : req.humanFormation().toUpperCase();
+        String aiFormation = req.aiFormation() == null ? "MSMS" : req.aiFormation().toUpperCase();
+        return toResponse(service.create(human, difficulty, req.timeLimitSeconds(), humanFormation, aiFormation));
     }
 
     @GetMapping("/{id}")
@@ -55,7 +57,8 @@ public class JanggiController {
         return toResponse(service.timeout(id));
     }
 
-    public record NewGameRequest(String humanColor, String difficulty, Integer timeLimitSeconds) {}
+    public record NewGameRequest(String humanColor, String difficulty, Integer timeLimitSeconds,
+                                  String humanFormation, String aiFormation) {}
     public record MoveRequest(int fromX, int fromY, int toX, int toY) {}
 
     private Map<String, Object> toResponse(JanggiGame g) {
