@@ -116,15 +116,16 @@ main{padding-bottom:0}
 <script src="/js/nav.js"></script>
 <script>
 const API = '/api/map';
-let cfgClientId = null;
 let mapFood = null, mapEstate = null;      // 모드별 독립 지도 인스턴스
 let markersFood = [], markersEstate = [];  // 모드별 독립 마커 목록
 let map, markers;                          // 현재 활성 모드를 가리키는 참조
 let infoWindow;
 let curPage = 1, totalPage = 1;
 let mode = 'food';
-let nearCoords = null;      // 맛집 현위치 검색 좌표 {lat,lng}
+let nearCoords = null;      // 맛집 현위치/재검색 좌표 {lat,lng}
 let userDragged = false;    // 사용자가 지도를 직접 움직였는지 (재검색 버튼 노출 판단)
+let suppressAuto = false;   // true인 동안은 프로그램이 지도를 움직인 것으로 간주해 재검색 버튼을 띄우지 않음
+const MAX_AUTO_ZOOM = 16;   // fitBounds로 자동 확대될 때의 최대 확대 단계 (지나친 확대 방지)
 const $ = id => document.getElementById(id);
 const esc = s => (s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 
@@ -137,6 +138,13 @@ function loadView(key) {
     const raw = localStorage.getItem('mapView:' + key);
     return raw ? JSON.parse(raw) : null;
   } catch (e) { return null; }
+}
+
+/** 지도를 프로그램이 직접 옮길 때 사용. 이 안에서 일어난 이동은 "사용자가 드래그/줌 했다"로 치지 않는다. */
+function moveMapSilently(fn) {
+  suppressAuto = true;
+  fn();
+  setTimeout(() => { suppressAuto = false; }, 60);
 }
 
 /* ===== 모드 전환 ===== */
@@ -178,7 +186,6 @@ async function initMap() {
     $('apiWarn').textContent = '관리자 설정 필요 — ' + warns.join(' · ');
   }
   if (!cfg.naverMapClientId) return;
-  cfgClientId = cfg.naverMapClientId;
 
   await new Promise((resolve, reject) => {
     const s = document.createElement('script');
@@ -193,8 +200,9 @@ async function initMap() {
   mapFood = createMap('mapFood', 'food');
   mapEstate = createMap('mapEstate', 'estate');
 
-  // 사용자가 직접 드래그/줌 했을 때만 "이 지역에서 재검색" 버튼 노출 (맛집 모드 한정)
-  naver.maps.Event.addListener(mapFood, 'dragstart', () => { userDragged = true; });
+  // 사용자가 직접 드래그 "또는 마우스 휠로 확대/축소" 했을 때만 재검색 버튼 노출 (맛집 모드 한정)
+  naver.maps.Event.addListener(mapFood, 'dragstart', () => { if (!suppressAuto) userDragged = true; });
+  naver.maps.Event.addListener(mapFood, 'zoom_changed', () => { if (!suppressAuto) userDragged = true; });
   naver.maps.Event.addListener(mapFood, 'idle', () => {
     saveView('food', mapFood.getCenter(), mapFood.getZoom());
     if (userDragged && mode === 'food') $('reSearchBtn').classList.add('show');
@@ -238,10 +246,24 @@ function highlightItem(index) {
   document.querySelectorAll('.result-item').forEach((el, i) => el.classList.toggle('on', i === index));
 }
 
+/** 마커 클릭 이벤트를 그대로 재사용해, 지도는 움직이지 않고 정보창만 미리 보여준다 (리스트 마우스오버용). */
+function previewMarker(index) {
+  const marker = markers[index];
+  if (marker) naver.maps.Event.trigger(marker, 'click');
+}
+
+/** 지도 범위에 맞춰 자동 확대하되, 결과가 몰려있어도 MAX_AUTO_ZOOM보다 더 확대되지 않게 제한한다. */
+function fitBoundsCapped(bounds, padding) {
+  moveMapSilently(() => {
+    map.fitBounds(bounds, { padding });
+    if (map.getZoom() > MAX_AUTO_ZOOM) map.setZoom(MAX_AUTO_ZOOM);
+  });
+}
+
 /* ===================================================
    맛집 지도 (카카오 Local API)
    =================================================== */
-function renderFoodResults(places, page, totalCount) {
+function renderFoodResults(places, page, pageableCount, isEnd, keepView) {
   clearMarkers();
   const panel = $('resultPanel');
   if (!places.length) {
@@ -250,7 +272,7 @@ function renderFoodResults(places, page, totalCount) {
     return;
   }
   panel.innerHTML = places.map((p, i) => `
-    <div class="result-item" onclick="focusMarker(${i})">
+    <div class="result-item" onclick="focusMarker(${i})" onmouseenter="previewMarker(${i})" onmouseleave="infoWindow.close()">
       <div class="name">${i + 1}. ${esc(p.place_name)}</div>
       <div class="cat">${esc(p.category_name?.split(' > ').pop() ?? '')}</div>
       <div class="addr">${esc(p.road_address_name || p.address_name)}</div>
@@ -268,38 +290,46 @@ function renderFoodResults(places, page, totalCount) {
     });
   });
 
-  const bounds = new naver.maps.LatLngBounds(
-    new naver.maps.LatLng(Math.min(...places.map(p => +p.y)), Math.min(...places.map(p => +p.x))),
-    new naver.maps.LatLng(Math.max(...places.map(p => +p.y)), Math.max(...places.map(p => +p.x)))
-  );
-  map.fitBounds(bounds, { padding: 60 });
+  // "이 지역에서 재검색"으로 온 경우는 사용자가 잡은 화면 범위를 그대로 유지하고,
+  // 그 외(첫 검색/현위치)에는 결과가 다 보이도록 자동으로 범위를 맞춘다 (단, 과도한 확대는 제한).
+  if (!keepView) {
+    const bounds = new naver.maps.LatLngBounds(
+      new naver.maps.LatLng(Math.min(...places.map(p => +p.y)), Math.min(...places.map(p => +p.x))),
+      new naver.maps.LatLng(Math.max(...places.map(p => +p.y)), Math.max(...places.map(p => +p.x)))
+    );
+    fitBoundsCapped(bounds, 60);
+  }
 
-  totalPage = Math.ceil(totalCount / 15);
+  // 카카오 로컬 API는 total_count(전체 매칭 수)가 아니라 pageable_count(실제 열람 가능 건수, 최대 45페이지)로
+  // 페이지네이션을 구성해야 실제 넘겨볼 수 있는 페이지 수와 일치한다.
+  totalPage = Math.max(1, Math.ceil(pageableCount / 15));
   curPage = page;
   $('paging').innerHTML = [
     `<button onclick="goPage(${page - 1})" ${page <= 1 ? 'disabled style="opacity:.3"' : ''}>‹ 이전</button>`,
     `<span class="cur">${page} / ${totalPage}</span>`,
-    `<button onclick="goPage(${page + 1})" ${page >= totalPage ? 'disabled style="opacity:.3"' : ''}>다음 ›</button>`
+    `<button onclick="goPage(${page + 1})" ${(page >= totalPage || isEnd) ? 'disabled style="opacity:.3"' : ''}>다음 ›</button>`
   ].join('');
 }
 
 function focusMarker(index) {
   const marker = markers[index];
   if (!marker) return;
-  map.setCenter(marker.getPosition());
-  map.setZoom(16);
+  moveMapSilently(() => {
+    map.setCenter(marker.getPosition());
+    map.setZoom(16);
+  });
   naver.maps.Event.trigger(marker, 'click');
   highlightItem(index);
 }
 
 /** 통합 검색 함수. nearCoords가 설정되어 있으면 그 좌표 기준으로 정렬 요청한다. */
-async function performFoodSearch(page = 1) {
+async function performFoodSearch(page = 1, keepView = false) {
   const kw = $('kw').value.trim();
   if (!kw) return;
   let url = `${API}/search?keyword=${encodeURIComponent(kw)}&page=${page}&size=15`;
   if (nearCoords) url += `&lat=${nearCoords.lat}&lng=${nearCoords.lng}`;
   const data = await fetch(url).then(r => r.json());
-  renderFoodResults(data.documents || [], page, data.meta?.total_count ?? 0);
+  renderFoodResults(data.documents || [], page, data.meta?.pageable_count ?? 0, data.meta?.is_end, keepView);
   userDragged = false;
   $('reSearchBtn').classList.remove('show');
 }
@@ -316,8 +346,10 @@ function searchNear() {
   navigator.geolocation.getCurrentPosition(pos => {
     const { latitude: lat, longitude: lng } = pos.coords;
     nearCoords = { lat, lng };
-    map.setCenter(new naver.maps.LatLng(lat, lng));
-    map.setZoom(15);
+    moveMapSilently(() => {
+      map.setCenter(new naver.maps.LatLng(lat, lng));
+      map.setZoom(15);
+    });
     if (!$('kw').value.trim()) $('kw').value = '맛집';
     performFoodSearch(1);
     btn.classList.remove('busy');
@@ -329,17 +361,17 @@ function searchNear() {
   }, { enableHighAccuracy: true, timeout: 8000 });
 }
 
-/** "이 지역에서 재검색" — 네이버 지도처럼, 지도를 옮긴 뒤 현재 화면 중심 좌표로 다시 검색 */
+/** "이 지역에서 재검색" — 현재 보고 있는 화면 범위를 그대로 유지한 채 그 중심 좌표로 다시 검색 */
 function researchHere() {
   const center = map.getCenter();
   nearCoords = { lat: center.lat(), lng: center.lng() };
   if (!$('kw').value.trim()) $('kw').value = '맛집';
-  performFoodSearch(1);
+  performFoodSearch(1, true); // keepView=true: 지도를 다시 확대/축소하지 않음
 }
 
 function goPage(page) {
   if (page < 1 || page > totalPage) return;
-  if (mode === 'food') performFoodSearch(page);
+  if (mode === 'food') performFoodSearch(page, true); // 페이지 넘길 때도 보던 화면 유지
 }
 
 /* ===================================================
@@ -374,7 +406,7 @@ function renderEstateResults(items, count, avgAmount, region) {
   const panel = $('resultPanel');
 
   if (!items.length) {
-    if (region) { map.setCenter(new naver.maps.LatLng(region.lat, region.lng)); map.setZoom(12); }
+    if (region) moveMapSilently(() => { map.setCenter(new naver.maps.LatLng(region.lat, region.lng)); map.setZoom(12); });
     panel.innerHTML = '<div class="empty-msg">해당 조건의 거래 내역이 없습니다.</div>';
     $('estateStat').style.display = 'none';
     return;
@@ -408,14 +440,14 @@ function renderEstateResults(items, count, avgAmount, region) {
   if (positions.length) {
     const bounds = new naver.maps.LatLngBounds(positions[0], positions[0]);
     positions.forEach(p => bounds.extend(p));
-    map.fitBounds(bounds, { padding: 90 });
+    fitBoundsCapped(bounds, 90);
   } else if (region) {
-    map.setCenter(new naver.maps.LatLng(region.lat, region.lng));
-    map.setZoom(13);
+    moveMapSilently(() => { map.setCenter(new naver.maps.LatLng(region.lat, region.lng)); map.setZoom(13); });
   }
 
   panel.innerHTML = items.map((it, i) => `
-    <div class="result-item" onclick="focusEstateItem(${itemMarkerIdx[i]}, ${i})">
+    <div class="result-item" onclick="focusEstateItem(${itemMarkerIdx[i]}, ${i})"
+         onmouseenter="${itemMarkerIdx[i] >= 0 ? 'previewMarker(' + itemMarkerIdx[i] + ')' : ''}" onmouseleave="infoWindow.close()">
       <div class="name">${esc(it.aptNm)}</div>
       <div class="cat">${esc(it.dong)} · ${esc(it.area)}㎡ · ${esc(it.floor)}층 · ${esc(it.buildYear)}년건축</div>
       <div class="price">${esc(it.dealAmount)}</div>
@@ -429,8 +461,10 @@ function focusEstateItem(markerIdx, listIdx) {
   if (markerIdx < 0) return;
   const marker = markers[markerIdx];
   if (!marker) return;
-  map.setCenter(marker.getPosition());
-  map.setZoom(16);
+  moveMapSilently(() => {
+    map.setCenter(marker.getPosition());
+    map.setZoom(16);
+  });
   naver.maps.Event.trigger(marker, 'click');
 }
 
