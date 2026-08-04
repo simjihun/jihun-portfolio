@@ -10,11 +10,15 @@ import java.util.Map;
 /**
  * 장기 AI 엔진.
  *
- * 오목과 동일하게 외부 AI API를 쓰지 않고, 순수 자바 로직(기물 가치 평가 + 간이 미니맥스)만으로 동작한다.
- * - 기물 가치: 차13, 포7, 마5, 상/사3, 병(졸)2, 궁은 승패를 합법수 소진 여부로 판정하므로 평가에서는 큰 값만 부여.
- * - EASY: 잡을 수 있는 수를 종종 선호하되 대체로 무작위.
- * - MEDIUM: 이동 후 보드의 기물가치 합을 평가하는 1수 최선수.
- * - HARD: 잡는 수 위주로 후보를 추려, 상대의 최선 응수까지 내다보는 2플라이 탐색.
+ * 외부 AI API를 쓰지 않고, 순수 자바 로직(기물 가치 평가 + 알파베타 미니맥스)만으로 동작한다.
+ * - 기물 가치: 차13, 포7, 마5, 상/사3, 병(졸)2, 궁은 별도 처리(승패는 합법수 소진 여부로 판정).
+ * - EASY: 잡을 수 있는 수를 종종 선호하되 대체로 무작위 (의도적으로 약한 초급용).
+ * - MEDIUM: 2플라이 완전탐색(내 수 + 상대 최선 응수까지 고려), 알파베타 가지치기.
+ * - HARD: 4플라이 완전탐색(양쪽 한 번씩 더 내다봄), 알파베타 가지치기.
+ *
+ * 이전 버전은 "잡는 수 상위 N개만" 후보를 잘라내는 방식이라, 상대의 조용한 수(비-캡처 응수)를
+ * 아예 못 보고 기물을 헛수로 내주는 문제가 있었다. 지금은 후보를 자르지 않고 전부 탐색하며,
+ * 캡처 우선 정렬은 가지치기 효율을 높이는 용도로만 사용한다.
  */
 @Service
 public class JanggiAiService {
@@ -28,11 +32,12 @@ public class JanggiAiService {
     public JanggiRules.Move pickMove(String[][] board, String aiColor, String humanColor, String difficulty) {
         List<JanggiRules.Move> moves = JanggiRules.legalMoves(board, aiColor);
         if (moves.isEmpty()) return null; // 합법수 없음 = 패배 (서비스단에서 처리)
-        return switch (difficulty == null ? "MEDIUM" : difficulty) {
-            case "EASY" -> pickEasy(board, moves);
-            case "HARD" -> pickHard(board, moves, aiColor, humanColor);
-            default -> pickMedium(board, moves, aiColor);
-        };
+
+        if ("EASY".equals(difficulty)) {
+            return pickEasy(board, moves);
+        }
+        int depth = "HARD".equals(difficulty) ? 4 : 2; // MEDIUM=2플라이, HARD=4플라이
+        return pickBest(board, moves, aiColor, humanColor, depth);
     }
 
     private JanggiRules.Move pickEasy(String[][] board, List<JanggiRules.Move> moves) {
@@ -44,44 +49,57 @@ public class JanggiAiService {
         return moves.get(random.nextInt(moves.size()));
     }
 
-    private JanggiRules.Move pickMedium(String[][] board, List<JanggiRules.Move> moves, String aiColor) {
-        JanggiRules.Move best = moves.get(0);
-        int bestScore = Integer.MIN_VALUE;
-        for (JanggiRules.Move m : moves) {
-            String[][] after = JanggiRules.applied(board, m.fromX(), m.fromY(), m.toX(), m.toY());
-            int score = evaluate(after, aiColor);
-            if (score > bestScore) { bestScore = score; best = m; }
-        }
-        return best;
-    }
-
-    private JanggiRules.Move pickHard(String[][] board, List<JanggiRules.Move> moves, String aiColor, String humanColor) {
+    private JanggiRules.Move pickBest(String[][] board, List<JanggiRules.Move> moves, String aiColor, String humanColor, int depth) {
         JanggiRules.Move best = moves.get(0);
         int bestVal = Integer.MIN_VALUE;
-        List<JanggiRules.Move> top = topByCapture(board, moves, 14);
-
-        for (JanggiRules.Move m : top) {
+        int alpha = Integer.MIN_VALUE;
+        int beta = Integer.MAX_VALUE;
+        for (JanggiRules.Move m : orderMoves(board, moves)) {
             String[][] after = JanggiRules.applied(board, m.fromX(), m.fromY(), m.toX(), m.toY());
-            List<JanggiRules.Move> oppMoves = JanggiRules.legalMoves(after, humanColor);
-            int worstForMe;
-            if (oppMoves.isEmpty()) {
-                worstForMe = evaluate(after, aiColor) + 5_000; // 상대가 응수 불가 = 사실상 승리
-            } else {
-                worstForMe = Integer.MAX_VALUE;
-                for (JanggiRules.Move om : topByCapture(after, oppMoves, 10)) {
-                    String[][] after2 = JanggiRules.applied(after, om.fromX(), om.fromY(), om.toX(), om.toY());
-                    worstForMe = Math.min(worstForMe, evaluate(after2, aiColor));
-                }
-            }
-            if (worstForMe > bestVal) { bestVal = worstForMe; best = m; }
+            int val = minimax(after, humanColor, aiColor, depth - 1, alpha, beta);
+            if (val > bestVal) { bestVal = val; best = m; }
+            alpha = Math.max(alpha, bestVal);
         }
         return best;
     }
 
-    private List<JanggiRules.Move> topByCapture(String[][] board, List<JanggiRules.Move> moves, int n) {
+    /** toMove가 다음에 둘 차례인 국면을 aiColor 기준으로 평가하는 완전탐색 알파베타 미니맥스. */
+    private int minimax(String[][] board, String toMove, String aiColor, int depth, int alpha, int beta) {
+        List<JanggiRules.Move> moves = JanggiRules.legalMoves(board, toMove);
+        if (moves.isEmpty()) {
+            // 둘 수 없으면 그 즉시 패배: toMove가 AI라면 최악, 사람이라면 AI에게 최선
+            return toMove.equals(aiColor) ? -50_000 : 50_000;
+        }
+        if (depth <= 0) return evaluate(board, aiColor);
+
+        boolean maximizing = toMove.equals(aiColor);
+        String next = "H".equals(toMove) ? "O" : "H";
+        if (maximizing) {
+            int value = Integer.MIN_VALUE;
+            for (JanggiRules.Move m : orderMoves(board, moves)) {
+                String[][] after = JanggiRules.applied(board, m.fromX(), m.fromY(), m.toX(), m.toY());
+                value = Math.max(value, minimax(after, next, aiColor, depth - 1, alpha, beta));
+                alpha = Math.max(alpha, value);
+                if (beta <= alpha) break;
+            }
+            return value;
+        } else {
+            int value = Integer.MAX_VALUE;
+            for (JanggiRules.Move m : orderMoves(board, moves)) {
+                String[][] after = JanggiRules.applied(board, m.fromX(), m.fromY(), m.toX(), m.toY());
+                value = Math.min(value, minimax(after, next, aiColor, depth - 1, alpha, beta));
+                beta = Math.min(beta, value);
+                if (beta <= alpha) break;
+            }
+            return value;
+        }
+    }
+
+    /** 잡는 수를 앞쪽으로 정렬해 알파베타 가지치기 효율을 높인다 (수를 버리지 않고 순서만 바꾼다). */
+    private List<JanggiRules.Move> orderMoves(String[][] board, List<JanggiRules.Move> moves) {
         List<JanggiRules.Move> sorted = new ArrayList<>(moves);
         sorted.sort((a, b) -> Integer.compare(captureValue(board, b), captureValue(board, a)));
-        return sorted.subList(0, Math.min(n, sorted.size()));
+        return sorted;
     }
 
     private int captureValue(String[][] board, JanggiRules.Move m) {
