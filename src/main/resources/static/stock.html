@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>주식 AI · hunit 포트폴리오</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/base.css">
+<style>
+.up{color:#f04452}   /* 토스 스타일: 상승=빨강 */
+.down{color:#3182f6} /* 하락=파랑 */
+.flat{color:var(--mut)}
+
+.top-grid{display:grid;grid-template-columns:1fr 320px;gap:14px;margin-bottom:14px}
+@media (max-width:900px){ .top-grid{grid-template-columns:1fr} }
+
+.indicator-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px}
+.ind-card{background:var(--panel-2);border:1px solid var(--line);border-radius:12px;padding:12px 14px;display:flex;gap:10px;align-items:center}
+.ind-card canvas{width:64px;height:34px;flex-shrink:0}
+.ind-info{min-width:0}
+.ind-label{font-size:12px;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ind-price{font-family:var(--mono);font-weight:700;font-size:15.5px;margin:2px 0}
+.ind-change{font-size:12.5px;font-weight:600}
+
+.cal-panel h2,.brief-panel h2,.rank-panel h2{display:flex;align-items:center;gap:8px}
+.cal-list{display:flex;flex-direction:column;gap:8px;max-height:260px;overflow-y:auto}
+.cal-row{display:flex;gap:10px;font-size:13px;padding:7px 10px;background:var(--panel-2);border:1px solid var(--line);border-radius:8px}
+.cal-row .d{color:var(--amber);font-family:var(--mono);flex-shrink:0}
+.cal-row .t{color:var(--ink)}
+
+.brief-panel{margin-bottom:14px}
+.brief-summary{font-size:14px;line-height:1.9;color:var(--ink);background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin-bottom:12px;white-space:pre-line}
+.brief-cols{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+@media (max-width:900px){ .brief-cols{grid-template-columns:1fr} }
+.brief-box{background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+.brief-box h3{font-size:13px;color:var(--amber);margin:0 0 10px}
+.pick-row{padding:8px 0;border-bottom:1px solid var(--line);font-size:13px}
+.pick-row:last-child{border-bottom:0}
+.pick-row b{color:var(--ink)}
+.pick-row .mkt{font-size:11px;color:var(--dim);margin-left:4px}
+.pick-row .reason{color:var(--mut);margin-top:3px;line-height:1.6}
+.flow-row{display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--line);font-size:13px}
+.flow-row:last-child{border-bottom:0}
+.flow-row .who{color:var(--mut)}
+.flow-row .val{font-family:var(--mono);font-weight:600}
+.week-item{padding:7px 0;border-bottom:1px solid var(--line);font-size:13px;color:var(--ink);line-height:1.6}
+.week-item:last-child{border-bottom:0}
+.week-item::before{content:'•';color:var(--amber);margin-right:7px}
+
+.seg{display:flex;gap:6px;background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:4px;width:fit-content}
+.seg button{padding:7px 16px;border-radius:7px;border:0;background:transparent;color:var(--mut);font-size:13px;font-weight:600;cursor:pointer}
+.seg button.on{background:var(--amber);color:#131A2A}
+.rank-controls{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+.refresh-btn{margin-left:auto;display:flex;align-items:center;gap:8px;font-size:12px;color:var(--mut)}
+
+.rank-table{width:100%;border-collapse:collapse;font-size:13.5px}
+.rank-table th{text-align:right;color:var(--dim);font-weight:600;font-size:12px;padding:8px 10px;border-bottom:1px solid var(--line)}
+.rank-table th:nth-child(1),.rank-table th:nth-child(2){text-align:left}
+.rank-table td{padding:9px 10px;border-bottom:1px solid var(--line);text-align:right;font-family:var(--mono)}
+.rank-table td:nth-child(1){color:var(--dim);text-align:left;width:36px}
+.rank-table td:nth-child(2){text-align:left;font-family:inherit;font-weight:600;color:var(--ink)}
+.rank-table td .sym{display:block;font-size:11px;color:var(--dim);font-weight:400}
+.rank-table tr:hover td{background:rgba(255,255,255,.02)}
+.badge-rate{padding:2px 8px;border-radius:6px;font-weight:700;font-size:12.5px}
+.badge-rate.up{background:rgba(240,68,82,.12)}
+.badge-rate.down{background:rgba(49,130,246,.12)}
+.empty-msg{padding:24px;text-align:center;color:var(--dim);font-size:13px}
+.disclaim{font-size:11.5px;color:var(--dim);margin-top:10px;line-height:1.6}
+@media (max-width:700px){ .hide-m{display:none} }
+</style>
+</head>
+<body>
+<div id="site-nav"></div>
+
+<main>
+  <header class="page"><h1>📈 주식 AI 대시보드</h1></header>
+  <p class="game-desc" style="color:var(--mut);font-size:13.5px;line-height:1.8;margin-bottom:16px;max-width:720px">
+    토스증권 Open API 시세를 기반으로 국내·미국 시장 지표, 외국인·기관 수급, 실시간 랭킹을 보여주고
+    Gemini가 시황을 요약합니다. 서버가 데이터를 캐싱하므로(시세 60초, AI 브리핑 30분) 과도한 API 호출 없이 동작합니다.
+  </p>
+
+  <!-- 상단: 지표 + 주요 일정 -->
+  <div class="top-grid">
+    <div class="panel">
+      <h2>시장 지표</h2>
+      <div class="indicator-grid" id="indicatorGrid"><div class="empty-msg">불러오는 중...</div></div>
+    </div>
+    <div class="panel cal-panel">
+      <h2>📅 주요 일정</h2>
+      <div class="cal-list" id="calList"><div class="empty-msg">불러오는 중...</div></div>
+    </div>
+  </div>
+
+  <!-- 중단: AI 브리핑 + 수급 + 주목 종목 -->
+  <div class="panel brief-panel">
+    <h2>🤖 AI 시황 브리핑 <span style="font-size:11.5px;color:var(--dim);font-weight:400" id="briefTime"></span></h2>
+    <div class="brief-summary" id="briefSummary">AI 브리핑을 생성하는 중입니다...</div>
+    <div class="brief-cols">
+      <div class="brief-box">
+        <h3>수급 · 외국인/기관 순매수 (일별)</h3>
+        <div id="flowBox"><div class="empty-msg">-</div></div>
+      </div>
+      <div class="brief-box">
+        <h3>AI 주목 종목 (거래대금 상위 기반)</h3>
+        <div id="picksBox"><div class="empty-msg">-</div></div>
+      </div>
+      <div class="brief-box">
+        <h3>이번 주 체크포인트</h3>
+        <div id="weekBox"><div class="empty-msg">-</div></div>
+      </div>
+    </div>
+    <div class="disclaim">※ AI가 생성한 참고용 요약이며 투자 권유가 아닙니다. 투자 판단과 책임은 본인에게 있습니다.</div>
+  </div>
+
+  <!-- 하단: 랭킹 -->
+  <div class="panel rank-panel">
+    <h2>실시간 랭킹</h2>
+    <div class="rank-controls">
+      <div class="seg" id="countrySeg">
+        <button class="on" data-v="KR" onclick="setCountry('KR')">🇰🇷 국내</button>
+        <button data-v="US" onclick="setCountry('US')">🇺🇸 미국</button>
+      </div>
+      <div class="seg" id="tabSeg">
+        <button class="on" data-v="amount" onclick="setTab('amount')">거래대금</button>
+        <button data-v="gainers" onclick="setTab('gainers')">급상승</button>
+        <button data-v="losers" onclick="setTab('losers')">급하락</button>
+      </div>
+      <div class="refresh-btn">
+        <span id="refreshInfo"></span>
+        <button class="btn btn-ghost" style="padding:6px 14px;font-size:12.5px" onclick="refreshAll(true)">↻ 새로고침</button>
+      </div>
+    </div>
+    <table class="rank-table">
+      <thead><tr>
+        <th>#</th><th>종목명</th><th>현재가</th><th>등락률</th><th class="hide-m">거래대금</th><th class="hide-m">시가총액</th>
+      </tr></thead>
+      <tbody id="rankBody"><tr><td colspan="6"><div class="empty-msg">불러오는 중...</div></td></tr></tbody>
+    </table>
+    <div class="disclaim">거래대금 랭킹은 실시간, 급상승·급하락은 1일 기준입니다 (토스증권 Open API). 데이터는 60초 단위로 갱신됩니다.</div>
+  </div>
+</main>
+
+<script src="/js/nav.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const esc = s => (s ?? '').toString().replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+let country = 'KR', tab = 'amount';
+const REFRESH_MS = 120000; // 2분 자동 갱신 (서버 캐시 60초와 조합해 외부 API 호출 최소화)
+let refreshTimer = null;
+
+/* ===== 포맷터 ===== */
+function fmtPrice(v, currency){
+  if (v == null) return '-';
+  if (currency === 'USD') return '$' + v.toLocaleString('en-US', {maximumFractionDigits: 2});
+  return Math.round(v).toLocaleString('ko-KR') + '원';
+}
+function fmtIndex(v){ return v == null ? '-' : v.toLocaleString('ko-KR', {maximumFractionDigits: 2}); }
+function fmtRate(v){
+  if (v == null) return '';
+  const cls = v > 0 ? 'up' : v < 0 ? 'down' : 'flat';
+  const sign = v > 0 ? '+' : '';
+  return `<span class="${cls}">${sign}${v.toFixed(2)}%</span>`;
+}
+function fmtAmountKR(v, currency){
+  if (v == null) return '-';
+  if (currency === 'USD') {
+    if (v >= 1e9) return '$' + (v/1e9).toFixed(1) + 'B';
+    if (v >= 1e6) return '$' + (v/1e6).toFixed(1) + 'M';
+    return '$' + Math.round(v).toLocaleString();
+  }
+  if (v >= 1e12) return (v/1e12).toFixed(1) + '조';
+  if (v >= 1e8) return Math.round(v/1e8).toLocaleString() + '억';
+  return Math.round(v).toLocaleString() + '원';
+}
+
+/* ===== 스파크라인 ===== */
+function drawSpark(canvas, data, isUp){
+  if (!data || data.length < 2) { canvas.style.display = 'none'; return; }
+  const dpr = window.devicePixelRatio || 1;
+  const w = 64, h = 34;
+  canvas.width = w * dpr; canvas.height = h * dpr;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+  const min = Math.min(...data), max = Math.max(...data), range = max - min || 1;
+  ctx.beginPath();
+  data.forEach((v, i) => {
+    const x = (i / (data.length - 1)) * w;
+    const y = h - 3 - ((v - min) / range) * (h - 6);
+    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+  });
+  ctx.strokeStyle = isUp ? '#f04452' : '#3182f6';
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+}
+
+/* ===== 상단 지표 ===== */
+async function loadDashboard(){
+  const data = await fetch('/api/stock/dashboard').then(r => r.json()).catch(() => null);
+  if (!data) return;
+
+  const ind = data.indicators || {};
+  const items = ind.items || [];
+  if (ind.tossConfigured === false) {
+    $('indicatorGrid').innerHTML = '<div class="empty-msg">토스 Open API 키(TOSS_CLIENT_ID/SECRET)가 서버에 설정되지 않았습니다.</div>';
+  } else if (!items.length) {
+    $('indicatorGrid').innerHTML = '<div class="empty-msg">지표를 불러오지 못했습니다. 토스 허용 IP에 서버 IP가 등록되어 있는지 확인해주세요.</div>';
+  } else {
+    $('indicatorGrid').innerHTML = items.map((it, i) => {
+      const isUp = (it.changeRate ?? 0) >= 0;
+      const priceTxt = ['KOSPI','KOSDAQ'].includes(it.symbol) ? fmtIndex(it.price) : fmtPrice(it.price, it.currency);
+      return `<div class="ind-card">
+        <canvas id="spark${i}"></canvas>
+        <div class="ind-info">
+          <div class="ind-label">${esc(it.label)}</div>
+          <div class="ind-price">${priceTxt}</div>
+          <div class="ind-change">${fmtRate(it.changeRate)}</div>
+        </div></div>`;
+    }).join('');
+    items.forEach((it, i) => drawSpark($('spark' + i), it.spark, (it.changeRate ?? 0) >= 0));
+  }
+
+  // 수급
+  const flow = data.investorTrading || {};
+  const flowHtml = ['KOSPI','KOSDAQ'].filter(k => flow[k]).map(k => {
+    const f = flow[k];
+    const row = (who, v) => {
+      if (v == null) return '';
+      const cls = v > 0 ? 'up' : 'down';
+      const txt = (v > 0 ? '+' : '') + fmtAmountKR(Math.abs(v)) + (v > 0 ? ' 순매수' : ' 순매도');
+      return `<div class="flow-row"><span class="who">${k} · ${who}</span><span class="val ${cls}">${txt}</span></div>`;
+    };
+    return row('외국인', f.foreigner) + row('기관', f.institution) + row('개인', f.individual);
+  }).join('');
+  $('flowBox').innerHTML = flowHtml || '<div class="empty-msg">수급 데이터 없음</div>';
+
+  // 장 캘린더 → 향후 7일 중 특이사항(휴장 등) 위주
+  renderCalendar(data.calendar);
+}
+
+function renderCalendar(cal){
+  if (!cal) return;
+  const today = new Date(); today.setHours(0,0,0,0);
+  const week = new Date(today.getTime() + 7 * 86400000);
+  const rows = [];
+  const scan = (days, flag) => (days || []).forEach(d => {
+    const dateStr = d.date || d.tradingDate || d.dt;
+    if (!dateStr) return;
+    const dt = new Date(dateStr);
+    if (isNaN(dt) || dt < today || dt > week) return;
+    const isOpen = d.open ?? d.isOpen ?? d.marketOpen;
+    const name = d.holidayName || d.name || d.description || '';
+    if (isOpen === false || name) {
+      rows.push({ dt, text: `${flag} ${name || '휴장'}` });
+    }
+  });
+  scan(cal.kr, '🇰🇷'); scan(cal.us, '🇺🇸');
+  rows.sort((a, b) => a.dt - b.dt);
+  const calRows = rows.map(r =>
+    `<div class="cal-row"><span class="d">${r.dt.getMonth()+1}/${r.dt.getDate()}</span><span class="t">${esc(r.text)}</span></div>`);
+  window._calMarket = calRows; // AI 주간 일정과 합칠 때 사용
+  $('calList').innerHTML = calRows.join('') || '<div class="cal-row"><span class="t">향후 7일간 국내·미국 모두 정상 개장 예정입니다.</span></div>';
+}
+
+/* ===== AI 브리핑 ===== */
+async function loadBriefing(){
+  const data = await fetch('/api/stock/briefing').then(r => r.json()).catch(() => null);
+  if (!data) return;
+  $('briefSummary').textContent = data.summary || '-';
+  if (data.generatedAt) {
+    $('briefTime').textContent = '· ' + new Date(data.generatedAt).toLocaleTimeString('ko-KR', {hour:'2-digit',minute:'2-digit'}) + ' 생성 (30분 캐시)';
+  }
+  const picks = data.picks || [];
+  $('picksBox').innerHTML = !picks.length ? '<div class="empty-msg">-</div>' :
+    picks.map(p => `<div class="pick-row"><b>${esc(p.name)}</b><span class="mkt">${esc(p.market || '')} ${esc(p.symbol || '')}</span>
+      <div class="reason">${esc(p.reason)}</div></div>`).join('');
+  const week = data.weekAhead || [];
+  $('weekBox').innerHTML = !week.length ? '<div class="empty-msg">-</div>' :
+    week.map(w => `<div class="week-item">${esc(w)}</div>`).join('');
+  // 주요 일정 패널에도 AI 주간 일정을 병합 표시
+  if (week.length) {
+    const aiRows = week.map(w => `<div class="cal-row"><span class="d">AI</span><span class="t">${esc(w)}</span></div>`);
+    $('calList').innerHTML = (window._calMarket || []).join('') + aiRows.join('');
+  }
+}
+
+/* ===== 랭킹 ===== */
+function setCountry(v){ country = v; segSync('countrySeg', v); loadRankings(); }
+function setTab(v){ tab = v; segSync('tabSeg', v); loadRankings(); }
+function segSync(segId, v){
+  document.querySelectorAll('#' + segId + ' button').forEach(b => b.classList.toggle('on', b.dataset.v === v));
+}
+
+async function loadRankings(){
+  $('rankBody').innerHTML = '<tr><td colspan="6"><div class="empty-msg">불러오는 중...</div></td></tr>';
+  const data = await fetch(`/api/stock/rankings?country=${country}&tab=${tab}`).then(r => r.json()).catch(() => null);
+  const list = data && data.rankings || [];
+  if (!list.length) {
+    $('rankBody').innerHTML = '<tr><td colspan="6"><div class="empty-msg">랭킹 데이터가 없습니다. (장 시간 외이거나 API 설정을 확인해주세요)</div></td></tr>';
+    return;
+  }
+  $('rankBody').innerHTML = list.map(r => {
+    const rate = r.changeRate;
+    const rateCls = rate > 0 ? 'up' : rate < 0 ? 'down' : 'flat';
+    const rateTxt = rate == null ? '-' : (rate > 0 ? '+' : '') + rate.toFixed(2) + '%';
+    return `<tr>
+      <td>${r.rank}</td>
+      <td>${esc(r.name || r.symbol)}<span class="sym">${esc(r.symbol || '')}</span></td>
+      <td>${fmtPrice(r.price, r.currency)}</td>
+      <td><span class="badge-rate ${rateCls}">${rateTxt}</span></td>
+      <td class="hide-m">${fmtAmountKR(r.tradingAmount, r.currency)}</td>
+      <td class="hide-m">${fmtAmountKR(r.marketCap, r.currency)}</td>
+    </tr>`;
+  }).join('');
+  $('refreshInfo').textContent = '마지막 갱신 ' + new Date().toLocaleTimeString('ko-KR', {hour:'2-digit',minute:'2-digit',second:'2-digit'});
+}
+
+/* ===== 갱신 사이클 ===== */
+function refreshAll(manual){
+  loadDashboard();
+  loadRankings();
+  if (manual) loadBriefing(); // AI 브리핑은 30분 서버 캐시라 수동 새로고침 때만 재요청
+  clearTimeout(refreshTimer);
+  refreshTimer = setTimeout(() => refreshAll(false), REFRESH_MS);
+}
+
+loadDashboard();
+loadRankings();
+loadBriefing();
+refreshTimer = setTimeout(() => refreshAll(false), REFRESH_MS);
+</script>
+</body>
+</html>
