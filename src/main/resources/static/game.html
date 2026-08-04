@@ -46,9 +46,8 @@
 .jcell::before,.jcell::after{content:'';position:absolute;background:#5b4326}
 .jcell::before{left:0;right:0;top:50%;height:1px}
 .jcell::after{top:0;bottom:0;left:50%;width:1px}
-.jcell.palace{background:rgba(91,67,38,.1)}
-.jcell.palace::before{height:2px;background:#4a3319}
-.jcell.palace::after{width:2px;background:#4a3319}
+.jcell.palace::before{height:2px;background:#3a2510}
+.jcell.palace::after{width:2px;background:#3a2510}
 .jcell.selected{background:rgba(242,169,59,.4)}
 .jcell.dest{background:rgba(62,207,142,.3)}
 .jcell.last-move{box-shadow:inset 0 0 0 3px rgba(242,169,59,.8)}
@@ -455,8 +454,9 @@ function appendPalaceDiagonals(board){
     const line = document.createElementNS(svgNS, 'line');
     line.setAttribute('x1', x1); line.setAttribute('y1', y1);
     line.setAttribute('x2', x2); line.setAttribute('y2', y2);
-    line.setAttribute('stroke', '#4a3319');
-    line.setAttribute('stroke-width', '0.06');
+    line.setAttribute('stroke', '#3a2510');
+    line.setAttribute('stroke-width', '0.09');
+    line.setAttribute('stroke-linecap', 'round');
     line.setAttribute('vector-effect', 'non-scaling-stroke');
     svg.appendChild(line);
   };
