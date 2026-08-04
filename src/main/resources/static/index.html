@@ -73,14 +73,14 @@ main{max-width:1080px}
 .mock-search div{flex:1;height:30px;background:var(--panel-2);border:1px solid var(--line);border-radius:7px}
 .mock-search span{width:56px;height:30px;background:var(--amber);border-radius:7px;flex:none}
 
-/* 보드게임 목업: 체커보드 형태라 셀 중앙에 말을 놓기만 하면 되어 정렬이 항상 정확함 */
+/* 체스판 목업: 셀 중앙에 유니코드 체스 기물을 배치 (정렬 문제 없이 항상 정확한 위치) */
 .mock-chess{display:grid;grid-template-columns:repeat(8,1fr);border-radius:8px;overflow:hidden;border:1px solid var(--line)}
 .mock-cell{aspect-ratio:1;display:flex;align-items:center;justify-content:center}
 .mock-cell.light{background:#2a3550}
 .mock-cell.dark{background:#1a2033}
-.mock-piece{width:62%;height:62%;border-radius:50%;box-shadow:0 2px 4px rgba(0,0,0,.45)}
-.mock-piece.b{background:radial-gradient(circle at 32% 28%,#666,#0a0a0a)}
-.mock-piece.w{background:radial-gradient(circle at 32% 28%,#fff,#c9c9c9)}
+.mock-piece{font-size:24px;line-height:1;user-select:none}
+.mock-piece.w{color:#f2f2f2;text-shadow:0 1px 2px rgba(0,0,0,.5)}
+.mock-piece.b{color:var(--amber);text-shadow:0 1px 2px rgba(0,0,0,.4)}
 
 /* ===== Backlog / footer ===== */
 .tail{padding:56px 0 64px}
@@ -252,20 +252,27 @@ main{max-width:1080px}
 
 <script src="/js/nav.js"></script>
 <script>
-// 보드게임 목업: 8x4 체커보드에 말 몇 개를 배치 (장식용, 실제 게임과 연동되지 않음)
+// 체스판 목업: 8x4 체스보드에 유니코드 체스 기물을 배치 (장식용, 실제 게임과 연동되지 않음)
 (function(){
   const board = document.getElementById('mockChess');
   if (!board) return;
   const cols = 8, rows = 4;
-  const pieces = { '0,2':'b', '1,2':'b', '1,4':'w', '2,1':'w', '3,3':'b', '2,5':'w' };
+  // key: "row,col" -> { g: 유니코드 기물, t: 진영(w/b, 색상 구분용) }
+  const pieces = {
+    '0,1': { g: '♜', t: 'b' }, '0,4': { g: '♞', t: 'b' }, '0,6': { g: '♝', t: 'b' },
+    '1,2': { g: '♟', t: 'b' }, '1,5': { g: '♟', t: 'b' },
+    '2,2': { g: '♙', t: 'w' }, '2,5': { g: '♙', t: 'w' },
+    '3,1': { g: '♖', t: 'w' }, '3,4': { g: '♘', t: 'w' }, '3,6': { g: '♗', t: 'w' }
+  };
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < cols; c++) {
       const cell = document.createElement('div');
       cell.className = 'mock-cell ' + ((r + c) % 2 === 0 ? 'light' : 'dark');
-      const key = r + ',' + c;
-      if (pieces[key]) {
-        const piece = document.createElement('div');
-        piece.className = 'mock-piece ' + pieces[key];
+      const p = pieces[r + ',' + c];
+      if (p) {
+        const piece = document.createElement('span');
+        piece.className = 'mock-piece ' + p.t;
+        piece.textContent = p.g;
         cell.appendChild(piece);
       }
       board.appendChild(cell);
