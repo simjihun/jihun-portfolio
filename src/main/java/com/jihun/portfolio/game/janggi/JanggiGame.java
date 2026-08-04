@@ -33,6 +33,9 @@ public class JanggiGame {
     private Integer lastToX;
     private Integer lastToY;
 
+    // 현재 장군(체크) 상태 — 장군에 걸린 쪽의 색("H"/"O"), 없으면 null
+    private String checkColor;
+
     public JanggiGame(String id, String humanColor, String aiColor, String difficulty, Integer timeLimitSeconds,
                        String formationH, String formationO) {
         this.id = id;
@@ -106,4 +109,6 @@ public class JanggiGame {
     public Integer getLastFromY() { return lastFromY; }
     public Integer getLastToX() { return lastToX; }
     public Integer getLastToY() { return lastToY; }
+    public String getCheckColor() { return checkColor; }
+    public void setCheckColor(String checkColor) { this.checkColor = checkColor; }
 }
