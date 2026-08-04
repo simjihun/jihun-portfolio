@@ -118,6 +118,8 @@ public class JanggiService {
         g.setLastMove(fromX, fromY, toX, toY);
 
         String next = "H".equals(player) ? "O" : "H";
+        g.setCheckColor(JanggiRules.isInCheck(board, next) ? next : null); // 다음 둘 사람이 장군에 걸렸는지 기록
+
         List<JanggiRules.Move> nextMoves = JanggiRules.legalMoves(board, next);
         if (nextMoves.isEmpty()) {
             g.setStatus("H".equals(player) ? "H_WIN" : "O_WIN");
