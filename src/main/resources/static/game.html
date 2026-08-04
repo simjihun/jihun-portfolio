@@ -8,16 +8,55 @@
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/css/base.css">
 <style>
-.game-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:16px;margin-top:4px}
-.game-card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:22px;display:flex;flex-direction:column;gap:10px;transition:border-color .15s,transform .15s}
-.game-card:hover{border-color:var(--amber);transform:translateY(-2px)}
-.game-card.soon{opacity:.6;pointer-events:none}
-.game-card .icon{font-size:32px}
-.game-card b{font-size:16px}
-.game-card p{color:var(--mut);font-size:13.5px;line-height:1.7;flex:1}
-.game-card .pill{align-self:flex-start;font-size:10.5px;font-weight:700;padding:2px 9px;border-radius:999px}
-.pill.live{background:rgba(62,207,142,.14);color:var(--green)}
-.pill.soon{background:rgba(255,255,255,.06);color:var(--dim)}
+.mode-tabs{display:flex;gap:6px;background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:4px;width:fit-content;margin-bottom:14px;flex-wrap:wrap}
+.mode-tab{padding:8px 18px;border-radius:7px;border:0;background:transparent;color:var(--mut);font-size:13.5px;font-weight:600;cursor:pointer}
+.mode-tab.on{background:var(--amber);color:#131A2A}
+.mode-tab.disabled{opacity:.4;cursor:default}
+.game-desc{color:var(--mut);font-size:13.5px;line-height:1.8;margin-bottom:18px;max-width:640px}
+.game-desc b{color:var(--ink)}
+
+.choice-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:4px}
+.choice{padding:9px 16px;border-radius:8px;border:1px solid var(--line);background:var(--panel-2);color:var(--mut);font-size:13.5px;font-weight:600;cursor:pointer}
+.choice:hover{color:var(--ink);border-color:var(--mut)}
+.choice.on{background:rgba(242,169,59,.12);border-color:var(--amber);color:var(--amber)}
+
+.board-wrap{display:flex;flex-direction:column;align-items:center;gap:14px}
+.turn-banner{display:flex;align-items:center;gap:10px;font-size:14px;color:var(--mut)}
+.turn-dot{width:14px;height:14px;border-radius:50%;border:2px solid var(--line)}
+.turn-dot.B{background:#1a1a1a}
+.turn-dot.W{background:#f2f2f2}
+.timer{font-family:var(--mono);font-weight:700;color:var(--amber)}
+.timer.warn{color:var(--red)}
+.board{display:grid;grid-template-columns:repeat(15,minmax(20px,28px));grid-template-rows:repeat(15,minmax(20px,28px));background:#C99B5F;border:2px solid #8a6a3f;border-radius:6px;padding:8px}
+.cell{position:relative;display:flex;align-items:center;justify-content:center;cursor:pointer}
+.cell::before,.cell::after{content:'';position:absolute;background:#5b4326}
+.cell::before{left:0;right:0;top:50%;height:1px}
+.cell::after{top:0;bottom:0;left:50%;width:1px}
+.stone{width:78%;height:78%;border-radius:50%;box-shadow:0 2px 3px rgba(0,0,0,.4);z-index:2}
+.stone.B{background:radial-gradient(circle at 35% 30%,#555,#000)}
+.stone.W{background:radial-gradient(circle at 35% 30%,#fff,#ccc)}
+.result-banner{font-size:18px;font-weight:700;padding:10px 20px;border-radius:10px;background:var(--panel-2);border:1px solid var(--line);display:none}
+.result-banner.show{display:block}
+@media (max-width:600px){ .board{grid-template-columns:repeat(15,minmax(16px,22px));grid-template-rows:repeat(15,minmax(16px,22px))} }
+
+.two-col{display:grid;grid-template-columns:1fr 320px;gap:16px;align-items:start}
+.guess-input{display:flex;gap:8px}
+.guess-input input{font-family:var(--mono);font-size:20px;letter-spacing:6px;text-align:center}
+.history{margin-top:16px;display:flex;flex-direction:column-reverse;gap:6px;max-height:340px;overflow-y:auto}
+.history-row{display:flex;justify-content:space-between;align-items:center;background:var(--panel-2);border:1px solid var(--line);border-radius:8px;padding:8px 12px;font-family:var(--mono);font-size:13px}
+.history-row .no{color:var(--dim);width:26px}
+.history-row .guess{letter-spacing:3px;flex:1}
+.history-row .result span{padding:2px 7px;border-radius:6px;font-weight:700;margin-left:4px}
+.s-badge{background:rgba(62,207,142,.14);color:var(--green)}
+.b-badge{background:rgba(242,169,59,.14);color:var(--amber)}
+.win-banner{display:none;background:rgba(62,207,142,.1);border:1px solid var(--green);border-radius:10px;padding:14px 16px;margin-bottom:14px}
+.win-banner.show{display:block}
+.win-banner b{color:var(--green)}
+.nick-row{display:flex;gap:8px;margin-top:10px}
+.rank-row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--line);font-size:13px}
+.rank-row:last-child{border-bottom:0}
+.rank-row .no{color:var(--amber);font-family:var(--mono);width:24px}
+@media (max-width:800px){ .two-col{grid-template-columns:1fr} }
 </style>
 </head>
 <body>
@@ -25,39 +64,288 @@
 
 <main>
   <header class="page"><h1>🎮 웹 게임</h1></header>
-  <p style="color:var(--mut);font-size:14px;margin-bottom:24px">브라우저에서 바로 즐기는 미니 게임들. 설치 없이 클릭 한 번으로 시작하세요.</p>
-  <div class="game-cards">
-    <a class="game-card" href="/game/omok">
-      <div class="icon">⚪️</div>
-      <b>오목</b>
-      <p>15×15 바둥에서 둘이 번갈아 돌을 놓습니다. 먼저 5목을 이어붙이면 승리 — 같은 화면에서 둘이 번갈아 하는 핫시트 방식입니다.</p>
-      <div class="stack" style="font-family:var(--mono);font-size:11px;color:var(--dim)">Java 승리판정 · REST API 대국상태관리</div>
-      <span class="pill live">LIVE</span>
-    </a>
-    <a class="game-card" href="/game/baseball">
-      <div class="icon">⚾</div>
-      <b>숫자야구</b>
-      <p>1~9 중복 없는 4자리 숫자를 추리해 맞추는 게임. 스트라이크/볼 힌t를 보고 최소 시도로 정답을 찾아보세요. 순위표도 있어요.</p>
-      <div class="stack" style="font-family:var(--mono);font-size:11px;color:var(--dim)">상태관리 서비스 · 랭킹 API</div>
-      <span class="pill live">LIVE</span>
-    </a>
-    <div class="game-card soon">
-      <div class="icon">♟️</div>
-      <b>장기</b>
-      <p>한국 장기 대국. 수에 따른 이동 규칙과 장군 판정 로직을 구현 예정입니다.</p>
-      <div class="stack" style="font-family:var(--mono);font-size:11px;color:var(--dim)">준비 중</div>
-      <span class="pill soon">준비중</span>
-    </div>
-    <div class="game-card soon">
-      <div class="icon">♞️</div>
-      <b>체스</b>
-      <p>서양 체스 대국. 복잡한 이동 규칙(캐슬링, 안샰, 폰 액션) 구현이 필요해 별도 작업으로 준비 중입니다.</p>
-      <div class="stack" style="font-family:var(--mono);font-size:11px;color:var(--dim)">준비 중</div>
-      <span class="pill soon">준비중</span>
-    </div>
+
+  <div class="mode-tabs">
+    <button class="mode-tab on" id="tabOmok" onclick="switchMode('omok')">⚪ 오목</button>
+    <button class="mode-tab" id="tabBaseball" onclick="switchMode('baseball')">⚾ 숫자야구</button>
+    <button class="mode-tab disabled" disabled>♟️ 장기 · 준비중</button>
+    <button class="mode-tab disabled" disabled>♞ 체스 · 준비중</button>
   </div>
+
+  <!-- ===== 오목 ===== -->
+  <section id="panelOmok">
+    <p class="game-desc">
+      15×15 바둑판에서 <b>AI와 1:1 대국</b>합니다. 원하는 돌 색과 난이도를 고르고 시작하세요.
+      가로·세로·대각선 어느 방향으로든 먼저 5목을 이으면 승리입니다. AI는 외부 API 없이
+      <b>서버에서 직접 계산하는 알고리즘</b>(패턴 평가 + 미니맥스)으로 동작해 응답이 즉각적입니다.
+    </p>
+
+    <div class="panel" id="omokSetup">
+      <h2>대국 설정</h2>
+      <label>내 돌 색</label>
+      <div class="choice-row" id="colorRow">
+        <button class="choice on" data-v="B" onclick="pick('colorRow','color','B')">⚫ 흑돌 (선공)</button>
+        <button class="choice" data-v="W" onclick="pick('colorRow','color','W')">⚪ 백돌 (후공)</button>
+      </div>
+      <label>난이도</label>
+      <div class="choice-row" id="diffRow">
+        <button class="choice" data-v="EASY" onclick="pick('diffRow','diff','EASY')">초급</button>
+        <button class="choice on" data-v="MEDIUM" onclick="pick('diffRow','diff','MEDIUM')">중급</button>
+        <button class="choice" data-v="HARD" onclick="pick('diffRow','diff','HARD')">고급</button>
+      </div>
+      <label>내 차례 제한시간</label>
+      <div class="choice-row" id="timeRow">
+        <button class="choice on" data-v="" onclick="pick('timeRow','time','')">없음</button>
+        <button class="choice" data-v="30" onclick="pick('timeRow','time','30')">30초</button>
+        <button class="choice" data-v="60" onclick="pick('timeRow','time','60')">60초</button>
+      </div>
+      <button class="btn btn-amber" style="margin-top:18px" onclick="startOmok()">대국 시작</button>
+    </div>
+
+    <div class="panel board-wrap" id="omokGame" style="display:none">
+      <div class="result-banner" id="resultBanner"></div>
+      <div class="turn-banner">
+        <span class="turn-dot" id="turnDot"></span>
+        <span id="turnText">-</span>
+        <span class="timer" id="timerText"></span>
+      </div>
+      <div class="board" id="board"></div>
+      <button class="btn btn-ghost" onclick="backToSetup()">설정으로 돌아가기</button>
+    </div>
+  </section>
+
+  <!-- ===== 숫자야구 ===== -->
+  <section id="panelBaseball" style="display:none">
+    <p class="game-desc">
+      <b>1~9 중복 없는 숫자 4자리</b>를 서버가 무작위로 정해두면, 여러분이 추리해서 맞히는 게임입니다.
+      숫자와 자릿수가 모두 일치하면 <b>스트라이크(S)</b>, 숫자만 일치하면 <b>볼(B)</b>입니다.
+      최소 시도 횟수로 맞히면 랭킹에 이름을 올릴 수 있어요.
+    </p>
+
+    <div class="two-col">
+      <div class="panel">
+        <h2>추리하기</h2>
+        <div class="win-banner" id="winBanner">
+          <b id="winText"></b>
+          <div class="nick-row">
+            <input id="nickname" placeholder="랭킹에 등록할 닉네임 (선택)" maxlength="12">
+            <button class="btn btn-amber" onclick="saveScore()">등록</button>
+          </div>
+        </div>
+        <div class="guess-input">
+          <input id="guessInput" maxlength="4" placeholder="1234" inputmode="numeric" onkeydown="if(event.key==='Enter')submitGuess()">
+          <button class="btn btn-amber" onclick="submitGuess()">제출</button>
+        </div>
+        <span style="display:block;margin-top:8px;color:var(--mut);font-size:12.5px" id="guessMsg"></span>
+        <div class="history" id="history"></div>
+      </div>
+      <div class="panel">
+        <h2>랭킹 · 최소 시도</h2>
+        <div id="ranking"><div class="empty-msg">아직 등록된 기록이 없습니다.</div></div>
+      </div>
+    </div>
+  </section>
 </main>
 
 <script src="/js/nav.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const esc = s => (s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+let mode = 'omok';
+
+function switchMode(next){
+  mode = next;
+  $('tabOmok').classList.toggle('on', mode === 'omok');
+  $('tabBaseball').classList.toggle('on', mode === 'baseball');
+  $('panelOmok').style.display = mode === 'omok' ? 'block' : 'none';
+  $('panelBaseball').style.display = mode === 'baseball' ? 'block' : 'none';
+  history.replaceState(null, '', mode === 'baseball' ? '/game/baseball' : '/game/omok');
+  if (mode === 'baseball' && !baseballGameId) newBaseball();
+}
+
+/* ===================================================
+   오목 (AI 대국)
+   =================================================== */
+const OMOK_API = '/api/game/omok';
+const SIZE = 15;
+let omokGameId = null;
+let setup = { color: 'B', diff: 'MEDIUM', time: '' };
+let timerHandle = null;
+let humanColorGlobal = 'B', timeLimitGlobal = null, turnStartedGlobal = 0;
+
+function pick(rowId, key, value){
+  document.querySelectorAll('#' + rowId + ' .choice').forEach(b => b.classList.toggle('on', b.dataset.v === value));
+  setup[key] = value;
+}
+
+function buildBoard(){
+  const board = $('board');
+  if (board.children.length) return; // 이미 만들어져 있으면 재생성 생략
+  for (let y = 0; y < SIZE; y++) {
+    for (let x = 0; x < SIZE; x++) {
+      const cell = document.createElement('div');
+      cell.className = 'cell';
+      cell.dataset.x = x; cell.dataset.y = y;
+      cell.onclick = () => omokMove(x, y);
+      board.appendChild(cell);
+    }
+  }
+}
+
+function backToSetup(){
+  clearInterval(timerHandle);
+  omokGameId = null;
+  $('omokGame').style.display = 'none';
+  $('omokSetup').style.display = 'block';
+}
+
+async function startOmok(){
+  buildBoard();
+  const body = {
+    humanColor: setup.color,
+    difficulty: setup.diff,
+    timeLimitSeconds: setup.time ? parseInt(setup.time, 10) : null
+  };
+  const data = await fetch(OMOK_API + '/new', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
+  }).then(r => r.json());
+  omokGameId = data.id;
+  $('omokSetup').style.display = 'none';
+  $('omokGame').style.display = 'flex';
+  $('resultBanner').classList.remove('show');
+  renderOmok(data);
+}
+
+async function omokMove(x, y){
+  if (!omokGameId) return;
+  const data = await fetch(`${OMOK_API}/${omokGameId}/move`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ x, y })
+  }).then(r => r.json());
+  if (data.error) return;
+  renderOmok(data);
+}
+
+async function omokTimeoutTick(){
+  const data = await fetch(`${OMOK_API}/${omokGameId}/timeout`, { method: 'POST' }).then(r => r.json());
+  renderOmok(data);
+}
+
+function renderOmok(data){
+  humanColorGlobal = data.humanColor;
+  timeLimitGlobal = data.timeLimitSeconds;
+  turnStartedGlobal = data.turnStartedAt;
+
+  const board = data.board;
+  document.querySelectorAll('.cell').forEach(cell => {
+    const x = +cell.dataset.x, y = +cell.dataset.y;
+    const v = board[y][x];
+    cell.innerHTML = v === '.' ? '' : `<div class="stone ${v}"></div>`;
+  });
+
+  $('turnDot').className = 'turn-dot ' + data.currentPlayer;
+
+  clearInterval(timerHandle);
+  if (data.status === 'PLAYING') {
+    const isHumanTurn = data.currentPlayer === humanColorGlobal;
+    $('turnText').textContent = (isHumanTurn ? '내' : 'AI') + ' 차례입니다 (' + (data.currentPlayer === 'B' ? '흑돌' : '백돌') + ')';
+    $('resultBanner').classList.remove('show');
+
+    if (isHumanTurn && timeLimitGlobal) {
+      timerHandle = setInterval(() => {
+        const remain = timeLimitGlobal - Math.floor((Date.now() - turnStartedGlobal) / 1000);
+        if (remain <= 0) { $('timerText').textContent = '시간 초과'; omokTimeoutTick(); return; }
+        $('timerText').textContent = remain + '초';
+        $('timerText').classList.toggle('warn', remain <= 10);
+      }, 1000);
+    } else {
+      $('timerText').textContent = '';
+    }
+  } else {
+    const label = data.status === 'BLACK_WIN' ? '⚫ 흑돌 승리!' : data.status === 'WHITE_WIN' ? '⚪ 백돌 승리!' : '무승부';
+    const who = data.status === (humanColorGlobal === 'B' ? 'BLACK_WIN' : 'WHITE_WIN') ? ' (나의 승리)'
+              : data.status === 'DRAW' ? '' : ' (AI 승리)';
+    $('turnText').textContent = '대국 종료';
+    $('timerText').textContent = '';
+    $('resultBanner').textContent = label + who;
+    $('resultBanner').classList.add('show');
+  }
+}
+
+/* ===================================================
+   숫자야구
+   =================================================== */
+const BASEBALL_API = '/api/game/baseball';
+let baseballGameId = null;
+let baseballFinished = false;
+
+async function newBaseball(){
+  const data = await fetch(BASEBALL_API + '/new', { method: 'POST' }).then(r => r.json());
+  baseballGameId = data.id;
+  baseballFinished = false;
+  $('winBanner').classList.remove('show');
+  $('guessMsg').textContent = '';
+  $('guessInput').value = '';
+  $('history').innerHTML = '';
+  loadRanking();
+}
+
+async function submitGuess(){
+  if (baseballFinished || !baseballGameId) return;
+  const guess = $('guessInput').value.trim();
+  if (!/^[1-9]{4}$/.test(guess) || new Set(guess).size !== 4) {
+    $('guessMsg').textContent = '1~9 숫자 4자리를 중복 없이 입력하세요';
+    return;
+  }
+  const data = await fetch(`${BASEBALL_API}/${baseballGameId}/guess`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ guess })
+  }).then(r => r.json());
+
+  if (data.error) { $('guessMsg').textContent = data.error; return; }
+  $('guessMsg').textContent = '';
+  $('guessInput').value = '';
+  renderHistory(data.history);
+
+  if (data.status === 'WON') {
+    baseballFinished = true;
+    $('winText').textContent = `🎉 정답입니다! 총 ${data.attempts}번 만에 맞혔어요.`;
+    $('winBanner').classList.add('show');
+  }
+}
+
+function renderHistory(hist){
+  $('history').innerHTML = hist.map((h, i) => {
+    const [guess, result] = h.split(':');
+    const s = result.match(/(\d)S/)[1], b = result.match(/(\d)B/)[1];
+    return `<div class="history-row">
+      <span class="no">#${i + 1}</span>
+      <span class="guess">${esc(guess)}</span>
+      <span class="result"><span class="s-badge">${s}S</span><span class="b-badge">${b}B</span></span>
+    </div>`;
+  }).join('');
+}
+
+async function saveScore(){
+  if (!baseballGameId) return;
+  const nickname = $('nickname').value.trim();
+  await fetch(`${BASEBALL_API}/${baseballGameId}/score`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nickname })
+  });
+  $('nickname').disabled = true;
+  loadRanking();
+}
+
+async function loadRanking(){
+  const list = await fetch(BASEBALL_API + '/ranking').then(r => r.json());
+  $('ranking').innerHTML = !list.length ? '<div class="empty-msg">아직 등록된 기록이 없습니다.</div>' :
+    list.map((r, i) => `<div class="rank-row"><span><span class="no">${i + 1}</span> ${esc(r.nickname)}</span><span>${r.metric}회</span></div>`).join('');
+}
+
+/* ===== 초기화: URL에 따라 기본 탭 결정 ===== */
+if (location.pathname.includes('baseball')) {
+  switchMode('baseball');
+} else {
+  switchMode('omok');
+}
+</script>
 </body>
 </html>
