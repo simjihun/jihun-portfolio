@@ -18,16 +18,18 @@ import java.net.URLConnection;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
  * RSS 뉴스 수집 서비스 (스케줄러 데몬).
  *
  * 30분마다 카테고리별 RSS를 순회하며 새 기사를 수집한다.
+ * 카테고리마다 여러 언론사 소스를 등록해 다양한 매체의 기사를 함께 모은다.
  * - 링크 기준 중복 제거
  * - 제목에 [속보]/[단독]가 포함되면 속보로 표시
  * - 3일 지난 기사는 자동 삭제 (테이블 관리)
- * - 피드 하나가 장애나도 나머지 카테고리는 계속 수집 (장애 격리)
+ * - 소스 하나가 장애나도 나머지는 계속 수집 (소스 단위 장애 격리)
  */
 @Service
 public class NewsFetchService {
@@ -35,17 +37,49 @@ public class NewsFetchService {
     private static final Logger log = LoggerFactory.getLogger(NewsFetchService.class);
     private static final int RETENTION_DAYS = 3;
 
-    /** 카테고리별 RSS 소스 (한국경제 공식 RSS + 주식은 매일경제 증권 RSS) */
+    /** 언론사별 RSS 소스 */
     private record FeedSource(String url, String press) {}
 
-    private static final Map<NewsCategory, FeedSource> FEEDS = new LinkedHashMap<>() {{
-        put(NewsCategory.POLITICS,      new FeedSource("https://www.hankyung.com/feed/politics", "한국경제"));
-        put(NewsCategory.ECONOMY,       new FeedSource("https://www.hankyung.com/feed/economy", "한국경제"));
-        put(NewsCategory.SOCIETY,       new FeedSource("https://www.hankyung.com/feed/society", "한국경제"));
-        put(NewsCategory.LIFE,          new FeedSource("https://www.hankyung.com/feed/life", "한국경제"));
-        put(NewsCategory.WORLD,         new FeedSource("https://www.hankyung.com/feed/international", "한국경제"));
-        put(NewsCategory.ENTERTAINMENT, new FeedSource("https://www.hankyung.com/feed/entertainment", "한국경제"));
-        put(NewsCategory.STOCK,         new FeedSource("https://www.mk.co.kr/rss/50200011/", "매일경제"));
+    /**
+     * 카테고리별 RSS 소스 목록.
+     * SBS는 공식 RSS(news.sbs.co.kr)를 사용하고, 동아일보는 오래전부터 공개된
+     * rss.donga.com 주소를 사용한다. 주소가 개편되어 일부 소스가 응답하지 않아도
+     * fetchAll()에서 소스 단위로 예외를 잡기 때문에 나머지 수집에는 영향이 없다.
+     */
+    private static final Map<NewsCategory, List<FeedSource>> FEEDS = new LinkedHashMap<>() {{
+        put(NewsCategory.POLITICS, List.of(
+                new FeedSource("https://www.hankyung.com/feed/politics", "한국경제"),
+                new FeedSource("https://news.sbs.co.kr/news/SectionRssFeed.do?sectionId=01&plink=RSSREADER", "SBS"),
+                new FeedSource("https://rss.donga.com/politics.xml", "동아일보")
+        ));
+        put(NewsCategory.ECONOMY, List.of(
+                new FeedSource("https://www.hankyung.com/feed/economy", "한국경제"),
+                new FeedSource("https://news.sbs.co.kr/news/SectionRssFeed.do?sectionId=02&plink=RSSREADER", "SBS"),
+                new FeedSource("https://rss.donga.com/economy.xml", "동아일보")
+        ));
+        put(NewsCategory.SOCIETY, List.of(
+                new FeedSource("https://www.hankyung.com/feed/society", "한국경제"),
+                new FeedSource("https://news.sbs.co.kr/news/SectionRssFeed.do?sectionId=03&plink=RSSREADER", "SBS"),
+                new FeedSource("https://rss.donga.com/national.xml", "동아일보")
+        ));
+        put(NewsCategory.LIFE, List.of(
+                new FeedSource("https://www.hankyung.com/feed/life", "한국경제"),
+                new FeedSource("https://news.sbs.co.kr/news/SectionRssFeed.do?sectionId=08&plink=RSSREADER", "SBS"),
+                new FeedSource("https://rss.donga.com/culture.xml", "동아일보")
+        ));
+        put(NewsCategory.WORLD, List.of(
+                new FeedSource("https://www.hankyung.com/feed/international", "한국경제"),
+                new FeedSource("https://news.sbs.co.kr/news/SectionRssFeed.do?sectionId=07&plink=RSSREADER", "SBS"),
+                new FeedSource("https://rss.donga.com/international.xml", "동아일보")
+        ));
+        put(NewsCategory.ENTERTAINMENT, List.of(
+                new FeedSource("https://www.hankyung.com/feed/entertainment", "한국경제"),
+                new FeedSource("https://news.sbs.co.kr/news/SectionRssFeed.do?sectionId=14&plink=RSSREADER", "SBS"),
+                new FeedSource("https://rss.donga.com/entertainment.xml", "동아일보")
+        ));
+        put(NewsCategory.STOCK, List.of(
+                new FeedSource("https://www.mk.co.kr/rss/50200011/", "매일경제")
+        ));
     }};
 
     private final NewsRepository newsRepository;
@@ -61,12 +95,14 @@ public class NewsFetchService {
     @Transactional
     public void fetchAll() {
         int totalNew = 0;
-        for (Map.Entry<NewsCategory, FeedSource> entry : FEEDS.entrySet()) {
-            try {
-                totalNew += fetchFeed(entry.getKey(), entry.getValue());
-            } catch (Exception e) {
-                // 피드 하나 장애가 전체 수집을 막지 않도록 카테고리 단위로 격리
-                log.warn("[news] {} 수집 실패: {}", entry.getKey(), e.getMessage());
+        for (Map.Entry<NewsCategory, List<FeedSource>> entry : FEEDS.entrySet()) {
+            for (FeedSource source : entry.getValue()) {
+                try {
+                    totalNew += fetchFeed(entry.getKey(), source);
+                } catch (Exception e) {
+                    // 소스 하나 장애가 전체 수집을 막지 않도록 소스 단위로 격리
+                    log.warn("[news] {} ({}) 수집 실패: {}", entry.getKey(), source.press(), e.getMessage());
+                }
             }
         }
         // 보존 기간 지난 기사 정리
@@ -100,7 +136,7 @@ public class NewsFetchService {
             added++;
         }
         if (added > 0) {
-            log.info("[news] {} 신규 {}건", category, added);
+            log.info("[news] {} ({}) 신규 {}건", category, source.press(), added);
         }
         return added;
     }
