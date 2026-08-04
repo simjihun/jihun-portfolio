@@ -7,6 +7,9 @@ build/
 .idea/
 *.iml
 .vscode/
+.settings/
+.classpath
+.project
 
 # OS
 .DS_Store
@@ -14,6 +17,10 @@ Thumbs.db
 
 # Logs
 *.log
+logs/
 
-# Env
+# 비밀값이 들어가는 설정 파일 — 실수로라도 레포에 커밋되지 않도록 방어.
+# scripts/conf/app.conf 는 값이 비어있는 "템플릿"이라 예외적으로 추적한다.
 .env
+/conf/
+/app.conf
