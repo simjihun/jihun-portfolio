@@ -22,13 +22,16 @@ public class JanggiService {
         this.aiService = aiService;
     }
 
-    /** 새 대국 생성. AI가 한(H)이면 생성 즉시 첫 수를 둔다. */
-    public JanggiGame create(String humanColor, String difficulty, Integer timeLimitSeconds) {
+    /** 새 대국 생성. 장기는 초(O)가 항상 선수이므로, AI가 초라면 생성 즉시 첫 수를 둔다. */
+    public JanggiGame create(String humanColor, String difficulty, Integer timeLimitSeconds,
+                              String humanFormation, String aiFormation) {
         String id = UUID.randomUUID().toString().substring(0, 8);
         String aiColor = "H".equals(humanColor) ? "O" : "H";
-        JanggiGame g = new JanggiGame(id, humanColor, aiColor, difficulty, timeLimitSeconds);
+        String formationH = "H".equals(humanColor) ? humanFormation : aiFormation;
+        String formationO = "H".equals(humanColor) ? aiFormation : humanFormation;
+        JanggiGame g = new JanggiGame(id, humanColor, aiColor, difficulty, timeLimitSeconds, formationH, formationO);
         games.put(id, g);
-        if ("H".equals(aiColor)) {
+        if (g.getCurrentPlayer().equals(g.getAiColor())) {
             applyAiMove(g);
         }
         g.touchTurn();
