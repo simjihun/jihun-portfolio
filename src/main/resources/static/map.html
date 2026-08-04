@@ -22,6 +22,7 @@ main{padding-bottom:0}
 .search-bar .btn-loc.busy{opacity:.6;pointer-events:none}
 
 .map-area{display:grid;grid-template-columns:320px 1fr;gap:12px;min-height:0;height:calc(100vh - var(--navh) - 190px)}
+.side-col{display:flex;flex-direction:column;gap:8px;min-height:0}
 .map-wrap{position:relative;border-radius:12px;border:1px solid var(--line);overflow:hidden;min-height:320px}
 .map-wrap .navermap{width:100%;height:100%}
 .research-btn{position:absolute;top:14px;left:50%;transform:translateX(-50%);z-index:10;display:none;
@@ -58,7 +59,7 @@ main{padding-bottom:0}
 @media (max-width:900px){
   .map-area{display:flex;flex-direction:column;height:auto}
   .map-wrap{height:300px;order:1}
-  .result-panel{order:2;max-height:420px}
+  .side-col{order:2}
 }
 </style>
 </head>
@@ -93,12 +94,18 @@ main{padding-bottom:0}
     </div>
 
     <div class="map-area">
-      <div style="display:flex;flex-direction:column;gap:8px;min-height:0">
-        <div id="estateStat" class="stat-row" style="display:none"></div>
-        <div class="result-panel" id="resultPanel">
+      <!-- 맛집/부동산 리스트도 지도처럼 완전히 분리된 영역으로 유지 → 탭을 옮겨다녀도 서로의 목록이 사라지지 않는다 -->
+      <div class="side-col" id="colFood">
+        <div class="result-panel" id="resultPanelFood">
           <div class="empty-msg">검색어를 입력하거나 현위치 버튼을 눌러보세요.</div>
         </div>
-        <div class="paging" id="paging"></div>
+        <div class="paging" id="pagingFood"></div>
+      </div>
+      <div class="side-col" id="colEstate" style="display:none">
+        <div id="estateStatEstate" class="stat-row" style="display:none"></div>
+        <div class="result-panel" id="resultPanelEstate">
+          <div class="empty-msg">지역과 년월을 선택하고 조회하세요.</div>
+        </div>
       </div>
 
       <!-- 맛집/부동산 지도를 완전히 분리된 인스턴스로 유지 (뷰포트 독립) -->
@@ -129,7 +136,7 @@ const MAX_AUTO_ZOOM = 16;   // fitBounds로 자동 확대될 때의 최대 확�
 const $ = id => document.getElementById(id);
 const esc = s => (s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 
-/* ===== 지도별 마지막 위치 기억 (localStorage — 브라우저에 남는 쿠키 성격의 저장소) ===== */
+/* ===== 지도별 마지막 위치 + 마지막 검색 결과 기억 (localStorage — 브라우저에 남는 쿠키 성격의 저장소) ===== */
 function saveView(key, center, zoom) {
   try { localStorage.setItem('mapView:' + key, JSON.stringify({ lat: center.lat(), lng: center.lng(), zoom })); } catch (e) {}
 }
@@ -138,6 +145,32 @@ function loadView(key) {
     const raw = localStorage.getItem('mapView:' + key);
     return raw ? JSON.parse(raw) : null;
   } catch (e) { return null; }
+}
+function saveFoodState(kw, page, data) {
+  try {
+    localStorage.setItem('searchState:food', JSON.stringify({
+      keyword: kw, nearCoords, page,
+      pageableCount: data.meta?.pageable_count ?? 0,
+      isEnd: data.meta?.is_end,
+      places: data.documents || []
+    }));
+  } catch (e) {}
+}
+function loadFoodState() {
+  try { const raw = localStorage.getItem('searchState:food'); return raw ? JSON.parse(raw) : null; }
+  catch (e) { return null; }
+}
+function saveEstateState(lawdCd, dealYmd, keyword, data) {
+  try {
+    localStorage.setItem('searchState:estate', JSON.stringify({
+      lawdCd, dealYmd, keyword,
+      items: data.items || [], count: data.count ?? 0, avgAmount: data.avgAmount ?? '-'
+    }));
+  } catch (e) {}
+}
+function loadEstateState() {
+  try { const raw = localStorage.getItem('searchState:estate'); return raw ? JSON.parse(raw) : null; }
+  catch (e) { return null; }
 }
 
 /** 지도를 프로그램이 직접 옮길 때 사용. 이 안에서 일어난 이동은 "사용자가 드래그/줌 했다"로 치지 않는다. */
@@ -156,16 +189,14 @@ function switchMode(next){
   $('barEstate').style.display = mode === 'estate' ? 'flex' : 'none';
   $('wrapFood').style.display = mode === 'food' ? 'block' : 'none';
   $('wrapEstate').style.display = mode === 'estate' ? 'block' : 'none';
+  $('colFood').style.display = mode === 'food' ? 'flex' : 'none';
+  $('colEstate').style.display = mode === 'estate' ? 'flex' : 'none';
   $('reSearchBtn').classList.remove('show');
-  $('estateStat').style.display = 'none';
 
-  // 활성 지도/마커 참조를 현재 모드로 교체 (두 모드의 지도·마커는 서로 독립적으로 유지됨)
+  // 활성 지도/마커 참조를 현재 모드로 교체 (두 모드의 지도·마커·리스트는 서로 독립적으로 유지됨 — 탭을 옮겨도 내용이 사라지지 않음)
   map = mode === 'food' ? mapFood : mapEstate;
   markers = mode === 'food' ? markersFood : markersEstate;
 
-  $('resultPanel').innerHTML = '<div class="empty-msg">' +
-    (mode === 'food' ? '검색어를 입력하거나 현위치 버튼을 눌러보세요.' : '지역과 년월을 선택하고 조회하세요.') + '</div>';
-  $('paging').innerHTML = '';
   history.replaceState(null, '', mode === 'estate' ? '/map/estate' : '/map/food');
 
   // 숨겨져 있다가 다시 보이는 지도는 컨테이너 크기 재계산이 필요함
@@ -177,9 +208,8 @@ async function initMap() {
   const cfg = await fetch(API + '/config').then(r => r.json());
   const health = await fetch(API + '/health').then(r => r.json());
   const warns = [];
-  if (!health.kakaoKeySet) warns.push('KAKAO_API_KEY 미설정 (맛집 검색 비활성화)');
+  if (!health.kakaoKeySet) warns.push('KAKAO_API_KEY 미설정 (맛집 검색·부동산 좌표 비활성화)');
   if (!health.naverKeySet) warns.push('NAVER_MAP_CLIENT_ID 미설정 (지도 표시 불가)');
-  if (!health.naverSecretSet) warns.push('NAVER_MAP_CLIENT_SECRET 미설정 (부동산 지도 좌표 표시 비활성화)');
   if (!health.realEstateKeySet) warns.push('REALESTATE_API_KEY 미설정 (부동산 조회 비활성화)');
   if (warns.length) {
     $('apiWarn').style.display = 'block';
@@ -242,8 +272,9 @@ function addMarker(pos, label, onClick, color) {
   return marker;
 }
 
-function highlightItem(index) {
-  document.querySelectorAll('.result-item').forEach((el, i) => el.classList.toggle('on', i === index));
+/** panelId 안의 result-item 중 index번째만 선택 표시. 두 리스트가 항상 DOM에 함께 존재하므로 범위를 지정해야 한다. */
+function highlightItem(index, panelId) {
+  document.querySelectorAll('#' + panelId + ' .result-item').forEach((el, i) => el.classList.toggle('on', i === index));
 }
 
 /** 마커 클릭 이벤트를 그대로 재사용해, 지도는 움직이지 않고 정보창만 미리 보여준다 (리스트 마우스오버용). */
@@ -265,10 +296,10 @@ function fitBoundsCapped(bounds, padding) {
    =================================================== */
 function renderFoodResults(places, page, pageableCount, isEnd, keepView) {
   clearMarkers();
-  const panel = $('resultPanel');
+  const panel = $('resultPanelFood');
   if (!places.length) {
     panel.innerHTML = '<div class="empty-msg">검색 결과가 없습니다.</div>';
-    $('paging').innerHTML = '';
+    $('pagingFood').innerHTML = '';
     return;
   }
   panel.innerHTML = places.map((p, i) => `
@@ -286,7 +317,7 @@ function renderFoodResults(places, page, pageableCount, isEnd, keepView) {
       const html = `<div class="iw"><div class="name">${esc(p.place_name)}</div><div class="cat">${esc(p.category_name?.split(' > ').pop() ?? '')}</div><div class="addr">${esc(p.road_address_name || p.address_name)}</div></div>`;
       infoWindow.setContent(html);
       infoWindow.open(map, markers[i]);
-      highlightItem(i);
+      highlightItem(i, 'resultPanelFood');
     });
   });
 
@@ -304,7 +335,7 @@ function renderFoodResults(places, page, pageableCount, isEnd, keepView) {
   // 페이지네이션을 구성해야 실제 넘겨볼 수 있는 페이지 수와 일치한다.
   totalPage = Math.max(1, Math.ceil(pageableCount / 15));
   curPage = page;
-  $('paging').innerHTML = [
+  $('pagingFood').innerHTML = [
     `<button onclick="goPage(${page - 1})" ${page <= 1 ? 'disabled style="opacity:.3"' : ''}>‹ 이전</button>`,
     `<span class="cur">${page} / ${totalPage}</span>`,
     `<button onclick="goPage(${page + 1})" ${(page >= totalPage || isEnd) ? 'disabled style="opacity:.3"' : ''}>다음 ›</button>`
@@ -319,7 +350,7 @@ function focusMarker(index) {
     map.setZoom(16);
   });
   naver.maps.Event.trigger(marker, 'click');
-  highlightItem(index);
+  highlightItem(index, 'resultPanelFood');
 }
 
 /** 통합 검색 함수. nearCoords가 설정되어 있으면 그 좌표 기준으로 정렬 요청한다. */
@@ -330,6 +361,7 @@ async function performFoodSearch(page = 1, keepView = false) {
   if (nearCoords) url += `&lat=${nearCoords.lat}&lng=${nearCoords.lng}`;
   const data = await fetch(url).then(r => r.json());
   renderFoodResults(data.documents || [], page, data.meta?.pageable_count ?? 0, data.meta?.is_end, keepView);
+  saveFoodState(kw, page, data);
   userDragged = false;
   $('reSearchBtn').classList.remove('show');
 }
@@ -403,17 +435,17 @@ function shortPrice(amountStr) {
 
 function renderEstateResults(items, count, avgAmount, region) {
   clearMarkers();
-  const panel = $('resultPanel');
+  const panel = $('resultPanelEstate');
 
   if (!items.length) {
     if (region) moveMapSilently(() => { map.setCenter(new naver.maps.LatLng(region.lat, region.lng)); map.setZoom(12); });
     panel.innerHTML = '<div class="empty-msg">해당 조건의 거래 내역이 없습니다.</div>';
-    $('estateStat').style.display = 'none';
+    $('estateStatEstate').style.display = 'none';
     return;
   }
 
-  $('estateStat').style.display = 'flex';
-  $('estateStat').innerHTML = `<span>거래건수 <b>${count}</b>건</span><span>평균가 <b>${avgAmount}</b></span>`;
+  $('estateStatEstate').style.display = 'flex';
+  $('estateStatEstate').innerHTML = `<span>거래건수 <b>${count}</b>건</span><span>평균가 <b>${avgAmount}</b></span>`;
 
   // 단지(아파트명+동) 단위로 마커를 만들고, 각 리스트 항목이 어느 마커에 속하는지 기록
   const complexMarkerIdx = {};   // key -> markers 배열 인덱스
@@ -452,12 +484,12 @@ function renderEstateResults(items, count, avgAmount, region) {
       <div class="cat">${esc(it.dong)} · ${esc(it.area)}㎡ · ${esc(it.floor)}층 · ${esc(it.buildYear)}년건축</div>
       <div class="price">${esc(it.dealAmount)}</div>
       <div class="addr">거래일 ${esc(it.dealDate)}</div>
-      ${it.lat == null ? '<div class="nogeo">지도 위치 확인 불가 (관리자 설정 필요)</div>' : ''}
+      ${it.lat == null ? '<div class="nogeo">지도 위치 확인 불가</div>' : ''}
     </div>`).join('');
 }
 
 function focusEstateItem(markerIdx, listIdx) {
-  highlightItem(listIdx);
+  highlightItem(listIdx, 'resultPanelEstate');
   if (markerIdx < 0) return;
   const marker = markers[markerIdx];
   if (!marker) return;
@@ -474,23 +506,46 @@ async function searchEstate() {
   const keyword = $('aptKw').value.trim();
   const region = regions.find(r => r.code === lawdCd);
 
-  $('resultPanel').innerHTML = '<div class="empty-msg">조회 중...</div>';
+  $('resultPanelEstate').innerHTML = '<div class="empty-msg">조회 중...</div>';
   const qs = new URLSearchParams({ lawdCd, dealYmd });
   if (keyword) qs.set('keyword', keyword);
   const data = await fetch(`${API}/estate?` + qs).then(r => r.json());
 
   if (data.error) {
-    $('resultPanel').innerHTML = `<div class="empty-msg">${esc(data.error)}</div>`;
-    $('estateStat').style.display = 'none';
+    $('resultPanelEstate').innerHTML = `<div class="empty-msg">${esc(data.error)}</div>`;
+    $('estateStatEstate').style.display = 'none';
     return;
   }
   renderEstateResults(data.items || [], data.count ?? 0, data.avgAmount ?? '-', region);
+  saveEstateState(lawdCd, dealYmd, keyword, data);
+}
+
+/* ===== 세션 복원: localStorage에 남아있는 마지막 검색 결과를 다시 그린다 (API 재호출 없음) ===== */
+function restoreFood() {
+  const saved = loadFoodState();
+  if (!saved || !saved.places || !saved.places.length) return;
+  $('kw').value = saved.keyword || '';
+  nearCoords = saved.nearCoords || null;
+  map = mapFood; markers = markersFood;
+  renderFoodResults(saved.places, saved.page || 1, saved.pageableCount || 0, saved.isEnd, true);
+}
+function restoreEstate() {
+  const saved = loadEstateState();
+  if (!saved || !saved.items || !saved.items.length) return;
+  $('regionSel').value = saved.lawdCd;
+  $('ymSel').value = saved.dealYmd;
+  $('aptKw').value = saved.keyword || '';
+  const region = regions.find(r => r.code === saved.lawdCd);
+  map = mapEstate; markers = markersEstate;
+  renderEstateResults(saved.items, saved.count, saved.avgAmount, region);
 }
 
 /* ===== 초기화: URL에 따라 기본 탭 결정 ===== */
 async function init() {
   await initMap();
   await initEstateControls();
+  restoreFood();
+  restoreEstate();
   if (location.pathname.includes('estate')) {
     switchMode('estate');
   } else {
