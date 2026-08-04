@@ -7,39 +7,81 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * 오목 게임 진행 서비스.
+ * 오목 대국 진행 서비스 (사람 vs AI).
  * 대국은 재접속이 필요 없는 단일 세션이라 DB 대신 메모리에만 보관한다.
- * (서버 재배포 시 진행 중이던 대국은 사라지는데, 포트폴리오 규모에서는 문제없는 트레이드오프)
  */
 @Service
 public class OmokService {
 
     private final Map<String, OmokGame> games = new ConcurrentHashMap<>();
+    private final OmokAiService aiService;
 
-    public OmokGame create() {
+    public OmokService(OmokAiService aiService) {
+        this.aiService = aiService;
+    }
+
+    /** 새 대국 생성. AI가 흑돌(선공)이면 생성 즉시 첫 수를 둔다. */
+    public OmokGame create(char humanColor, String difficulty, Integer timeLimitSeconds) {
         String id = UUID.randomUUID().toString().substring(0, 8);
-        OmokGame g = new OmokGame(id);
+        char aiColor = humanColor == 'B' ? 'W' : 'B';
+        OmokGame g = new OmokGame(id, humanColor, aiColor, difficulty, timeLimitSeconds);
         games.put(id, g);
+        if (aiColor == 'B') {
+            applyAiMove(g);
+        }
+        g.touchTurn();
         return g;
     }
 
     public OmokGame get(String id) {
         OmokGame g = games.get(id);
-        if (g == null) throw new IllegalArgumentException("게임을 찾을 수 없습니다");
+        if (g == null) throw new IllegalArgumentException("대국을 찾을 수 없습니다");
         return g;
     }
 
     public OmokGame move(String id, int x, int y) {
         OmokGame g = get(id);
         if (!"PLAYING".equals(g.getStatus())) return g;
+        if (g.getCurrentPlayer() != g.getHumanColor()) {
+            throw new IllegalArgumentException("AI 차례입니다");
+        }
+        placeStone(g, x, y, g.getHumanColor());
+        if ("PLAYING".equals(g.getStatus())) {
+            applyAiMove(g);
+        }
+        return g;
+    }
+
+    /** 제한시간이 지난 상태에서 호출되면, 사람 차례를 무작위 수로 자동 진행한다. */
+    public OmokGame timeout(String id) {
+        OmokGame g = get(id);
+        if (!"PLAYING".equals(g.getStatus())) return g;
+        if (g.getCurrentPlayer() != g.getHumanColor()) return g;
+        if (g.getTimeLimitSeconds() == null) return g;
+
+        long elapsedSec = (System.currentTimeMillis() - g.getTurnStartedAt()) / 1000;
+        if (elapsedSec < g.getTimeLimitSeconds()) return g; // 아직 시간 안됨 — 무시
+
+        int[] mv = aiService.pickMove(g.getBoard(), g.getHumanColor(), g.getAiColor(), "EASY");
+        placeStone(g, mv[0], mv[1], g.getHumanColor());
+        if ("PLAYING".equals(g.getStatus())) {
+            applyAiMove(g);
+        }
+        return g;
+    }
+
+    private void applyAiMove(OmokGame g) {
+        int[] mv = aiService.pickMove(g.getBoard(), g.getAiColor(), g.getHumanColor(), g.getDifficulty());
+        placeStone(g, mv[0], mv[1], g.getAiColor());
+    }
+
+    private void placeStone(OmokGame g, int x, int y, char player) {
         if (x < 0 || x >= OmokGame.SIZE || y < 0 || y >= OmokGame.SIZE) {
             throw new IllegalArgumentException("범위를 벗어났습니다");
         }
         if (g.getBoard()[y][x] != 0) {
             throw new IllegalArgumentException("이미 돌이 놓인 자리입니다");
         }
-
-        char player = g.getCurrentPlayer();
         g.getBoard()[y][x] = player;
         g.setMoveCount(g.getMoveCount() + 1);
 
@@ -49,11 +91,10 @@ public class OmokService {
             g.setStatus("DRAW");
         } else {
             g.setCurrentPlayer(player == 'B' ? 'W' : 'B');
+            g.touchTurn();
         }
-        return g;
     }
 
-    /** 방금 둔 돌(x,y)을 기준으로 가로·세로·대각선 4방향을 검사해 5목 완성을 판단한다. */
     private boolean checkWin(char[][] board, int x, int y, char p) {
         int[][] dirs = {{1, 0}, {0, 1}, {1, 1}, {1, -1}};
         for (int[] d : dirs) {

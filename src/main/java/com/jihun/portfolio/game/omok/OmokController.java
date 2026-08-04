@@ -5,7 +5,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.Map;
 
 /**
- * 오목 REST API. 보드는 문자열 배열(행당 문자열)로 직렬화해 보낸다.
+ * 오목 REST API (사람 vs AI).
  */
 @RestController
 @RequestMapping("/api/game/omok")
@@ -18,8 +18,10 @@ public class OmokController {
     }
 
     @PostMapping("/new")
-    public Map<String, Object> newGame() {
-        return toResponse(service.create());
+    public Map<String, Object> newGame(@RequestBody NewGameRequest req) {
+        char human = "W".equalsIgnoreCase(req.humanColor()) ? 'W' : 'B';
+        String difficulty = req.difficulty() == null ? "MEDIUM" : req.difficulty().toUpperCase();
+        return toResponse(service.create(human, difficulty, req.timeLimitSeconds()));
     }
 
     @GetMapping("/{id}")
@@ -36,6 +38,13 @@ public class OmokController {
         }
     }
 
+    /** 프론트엔드 타이머가 만료되었을 때 호출 — 서버가 실제 경과시간을 다시 확인해 처리한다. */
+    @PostMapping("/{id}/timeout")
+    public Map<String, Object> timeout(@PathVariable String id) {
+        return toResponse(service.timeout(id));
+    }
+
+    public record NewGameRequest(String humanColor, String difficulty, Integer timeLimitSeconds) {}
     public record MoveRequest(int x, int y) {}
 
     private Map<String, Object> toResponse(OmokGame g) {
@@ -46,12 +55,17 @@ public class OmokController {
             for (int j = 0; j < OmokGame.SIZE; j++) sb.append(b[i][j] == 0 ? '.' : b[i][j]);
             rows[i] = sb.toString();
         }
-        return Map.of(
-                "id", g.getId(),
-                "board", rows,
-                "currentPlayer", String.valueOf(g.getCurrentPlayer()),
-                "status", g.getStatus(),
-                "moveCount", g.getMoveCount()
-        );
+        Map<String, Object> res = new java.util.HashMap<>();
+        res.put("id", g.getId());
+        res.put("board", rows);
+        res.put("currentPlayer", String.valueOf(g.getCurrentPlayer()));
+        res.put("status", g.getStatus());
+        res.put("moveCount", g.getMoveCount());
+        res.put("humanColor", String.valueOf(g.getHumanColor()));
+        res.put("aiColor", String.valueOf(g.getAiColor()));
+        res.put("difficulty", g.getDifficulty());
+        res.put("timeLimitSeconds", g.getTimeLimitSeconds());
+        res.put("turnStartedAt", g.getTurnStartedAt());
+        return res;
     }
 }
