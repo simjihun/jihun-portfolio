@@ -22,10 +22,12 @@ public class WebConfig implements WebMvcConfigurer {
         registry.addViewController("/map").setViewName("forward:/map.html");
         registry.addViewController("/map/food").setViewName("forward:/map.html");
         registry.addViewController("/map/estate").setViewName("forward:/map.html");
-        // 게임 — 지도 API와 동일하게 하나의 통합 페이지에서 탭으로 개별 게임을 전환해 보여준다
+        // 게임 — 하나의 통합 페이지에서 탭으로 개별 게임을 전환해 보여준다
         registry.addViewController("/game").setViewName("forward:/game.html");
         registry.addViewController("/game/omok").setViewName("forward:/game.html");
         registry.addViewController("/game/baseball").setViewName("forward:/game.html");
         registry.addViewController("/game/janggi").setViewName("forward:/game.html");
+        // 주식 AI 대시보드
+        registry.addViewController("/stock").setViewName("forward:/stock.html");
     }
 }
