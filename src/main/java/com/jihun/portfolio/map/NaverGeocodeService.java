@@ -19,12 +19,16 @@ import java.util.concurrent.ConcurrentHashMap;
  *
  * 부동산 실거래 목록의 "지역+동+아파트명" 문자열을 좌표로 바꿔 지도에 개별 표시하는 데 사용한다.
  * 동일 쿼리는 메모리에 캐시해 반복 호출을 줄인다.
+ *
+ * 엔드포인트 도메인 주의: NCP는 과거 모든 AI·NAVER API를 naveropenapi.apigw.ntruss.com
+ * 한 도메인으로 제공했으나, 현재 Maps 제품군(Geocoding 포함)은 maps.apigw.ntruss.com으로
+ * 이전되었다. 구 도메인으로 호출하면 인증 정보가 맞아도 401(구독 필요)로 거부된다.
  */
 @Service
 public class NaverGeocodeService {
 
     private static final Logger log = LoggerFactory.getLogger(NaverGeocodeService.class);
-    private static final String ENDPOINT = "https://naveropenapi.apigw.ntruss.com/map-geocode/v2/geocode";
+    private static final String ENDPOINT = "https://maps.apigw.ntruss.com/map-geocode/v2/geocode";
     private static final double[] NOT_FOUND = new double[0];
 
     @Value("${NAVER_MAP_CLIENT_ID:}")
