@@ -49,6 +49,11 @@
 .jboard-lines{position:absolute;top:8px;left:8px;right:8px;bottom:8px;pointer-events:none;z-index:0}
 .jpiece{width:82%;height:82%;object-fit:contain;z-index:2;filter:drop-shadow(0 2px 2px rgba(0,0,0,.35))}
 @media (max-width:600px){ .jboard{grid-template-columns:repeat(9,minmax(24px,30px));grid-template-rows:repeat(10,minmax(24px,30px))} }
+.jcheck-banner{display:none;font-weight:800;font-size:14px;padding:5px 14px;border-radius:20px;letter-spacing:.5px}
+.jcheck-banner.show{display:inline-block;animation:jcheckPulse .45s ease 2}
+.jcheck-banner.H{background:rgba(192,57,43,.14);color:#c0392b;border:1px solid #c0392b}
+.jcheck-banner.O{background:rgba(40,116,166,.14);color:#2874a6;border:1px solid #2874a6}
+@keyframes jcheckPulse{0%{transform:scale(1)}50%{transform:scale(1.18)}100%{transform:scale(1)}}
 
 .two-col{display:grid;grid-template-columns:1fr 320px;gap:16px;align-items:start}
 .guess-input{display:flex;gap:8px}
@@ -162,9 +167,9 @@
     <p class="game-desc">
       9×10 궁성이 있는 전통 장기판에서 <b>AI와 1:1 대국</b>합니다. 진영과 포진을 고르고 시작한 뒤,
       기물을 클릭하면 이동 가능한 칸이 초록색으로 표시됩니다 — 그 칸을 다시 클릭하면 이동합니다.
-      직전 수(내 수·AI 수 모두)는 주황색 테두리로 표시됩니다.
+      직전 수(내 수·AI 수 모두)는 주황색 테두리로, 장군 상태는 장군을 부른 쪽의 색(한=빨강/초=파랑)으로 표시됩니다.
       AI는 외부 API 없이 <b>서버에서 직접 계산하는 알고리즘</b>(기물 가치 평가 + 알파베타 완전탐색)으로 동작합니다.
-      차·포·병(졸)의 궁성 대각선 이동은 간소화를 위해 생략했습니다.
+      병(졸)의 궁성 대각선 이동만 간소화를 위해 생략했습니다.
     </p>
 
     <div class="panel" id="janggiSetup">
@@ -209,6 +214,7 @@
         <span class="turn-dot" id="jTurnDot"></span>
         <span id="jTurnText">-</span>
         <span class="timer" id="jTimerText"></span>
+        <span class="jcheck-banner" id="jCheckBanner"></span>
       </div>
       <div class="jboard" id="jBoard"></div>
       <button class="btn btn-ghost" onclick="jBackToSetup()">설정으로 돌아가기</button>
@@ -424,6 +430,7 @@ let jHumanColorGlobal = 'H', jTimeLimitGlobal = null, jTurnStartedGlobal = 0;
 let jSelected = null;      // { x, y } 논리 좌표
 let jDestinations = [];    // [[x,y], ...] 논리 좌표
 let jLastData = null, jLastBoard = null;
+let jLastCheckColor = null;
 
 function jPick(rowId, key, value){
   document.querySelectorAll('#' + rowId + ' .choice').forEach(b => b.classList.toggle('on', b.dataset.v === value));
@@ -452,6 +459,7 @@ function buildJanggiBoard(flip){
  * 격자선 전체(가로10줄+세로9줄)와 궁성 굵은 테두리+대각선을 교차점 좌표(0.5 단위 오프셋)로
  * 정확히 이어서 그린다. 셀 단위(::before/::after)로 그리던 예전 방식은 가장자리·궁성 경계에서
  * 반 칸씩 삐져나오는 문제가 있었는데, 이 방식은 시작/끝점이 명확해 전혀 삐져나오지 않는다.
+ * 선 색은 진한 배경(#D9C08A) 대비 확실히 보이도록 검정 계열로 통일했다.
  */
 function appendBoardLines(board){
   const svgNS = 'http://www.w3.org/2000/svg';
@@ -470,18 +478,18 @@ function appendBoardLines(board){
     svg.appendChild(l);
   };
   // 기본 격자선: 점(교차점) 중심끼리만 정확히 연결
-  for (let row = 0; row < JROWS; row++) line(0.5, row + 0.5, 8.5, row + 0.5, '#5b4326', 0.025);
-  for (let col = 0; col < JCOLS; col++) line(col + 0.5, 0.5, col + 0.5, 9.5, '#5b4326', 0.025);
+  for (let row = 0; row < JROWS; row++) line(0.5, row + 0.5, 8.5, row + 0.5, '#000000', 0.035);
+  for (let col = 0; col < JCOLS; col++) line(col + 0.5, 0.5, col + 0.5, 9.5, '#000000', 0.035);
   // 궁성 굵은 테두리 + 대각선 (상단/하단)
   const palace = (topRow) => {
     const bottomRow = topRow + 2;
     const l = 3.5, r = 5.5, t = topRow + 0.5, b = bottomRow + 0.5;
-    line(l, t, r, t, '#3a2510', 0.05);
-    line(l, b, r, b, '#3a2510', 0.05);
-    line(l, t, l, b, '#3a2510', 0.05);
-    line(r, t, r, b, '#3a2510', 0.05);
-    line(l, t, r, b, '#3a2510', 0.05);
-    line(r, t, l, b, '#3a2510', 0.05);
+    line(l, t, r, t, '#000000', 0.06);
+    line(l, b, r, b, '#000000', 0.06);
+    line(l, t, l, b, '#000000', 0.06);
+    line(r, t, r, b, '#000000', 0.06);
+    line(l, t, r, b, '#000000', 0.06);
+    line(r, t, l, b, '#000000', 0.06);
   };
   palace(0); palace(7);
   board.appendChild(svg);
@@ -504,6 +512,7 @@ async function startJanggi(){
     humanFormation: jSetup.myFormation,
     aiFormation: jSetup.aiFormation
   };
+  jLastCheckColor = null;
   const data = await fetch(JANGGI_API + '/new', {
     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
   }).then(r => r.json());
@@ -560,6 +569,7 @@ function renderJanggi(data){
   jTurnStartedGlobal = data.turnStartedAt;
 
   renderJanggiBoardOnly();
+  renderCheckBanner(data.checkColor);
 
   clearInterval(jTimerHandle);
   if (data.status === 'PLAYING') {
@@ -586,6 +596,27 @@ function renderJanggi(data){
     $('jResultBanner').textContent = label + who;
     $('jResultBanner').classList.add('show');
   }
+}
+
+/** checkColor: 장군에 걸린 쪽 색. 장군을 "부른" 공격 측 색(초=파랑/한=빨강)으로 배너를 표시하고,
+ *  새로 걸렸을 때만 펄스 애니메이션을 재생한다. */
+function renderCheckBanner(checkColor){
+  const banner = $('jCheckBanner');
+  const attacker = checkColor === 'H' ? 'O' : (checkColor === 'O' ? 'H' : null);
+  if (attacker) {
+    banner.textContent = (attacker === 'H' ? '🔴' : '🔵') + ' 장군!';
+    const isNew = jLastCheckColor !== checkColor;
+    banner.className = 'jcheck-banner show ' + attacker;
+    if (isNew) {
+      banner.style.animation = 'none';
+      void banner.offsetWidth;
+      banner.style.animation = '';
+    }
+  } else {
+    banner.className = 'jcheck-banner';
+    banner.textContent = '';
+  }
+  jLastCheckColor = checkColor;
 }
 
 function renderJanggiBoardOnly(){
