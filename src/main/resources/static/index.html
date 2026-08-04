@@ -8,9 +8,8 @@
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/css/base.css">
 <style>
-/* 홈 전용 스타일 */
 .hero{margin:8px 0 30px}
-.hero h1{font-size:34px;letter-spacing:-.8px;line-height:1.2}
+.hero h1{font-size:32px;letter-spacing:-.8px;line-height:1.2}
 .hero h1 .dot{color:var(--amber)}
 .hero p{margin-top:10px;color:var(--mut);font-size:14.5px;line-height:1.8;max-width:640px}
 .hero .stack{margin-top:16px;display:flex;flex-wrap:wrap;gap:8px;max-width:680px}
@@ -18,11 +17,9 @@
 
 .section-title{font-size:12px;color:var(--mut);font-weight:600;letter-spacing:.6px;text-transform:uppercase;margin:26px 0 14px}
 
-/* Backlog 칩 */
 .chips{display:flex;flex-wrap:wrap;gap:8px;max-width:640px}
 .chips span{font-size:12.5px;color:var(--mut);background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:6px 14px}
 
-/* 카드 (현재 숨김, 추후 부활용 스타일 유지) */
 .cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px}
 .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px;display:flex;flex-direction:column;gap:10px;transition:border-color .15s, transform .15s}
 a.card:hover{border-color:var(--amber);transform:translateY(-2px)}
@@ -33,78 +30,53 @@ a.card:hover{border-color:var(--amber);transform:translateY(-2px)}
 .card .meta{font-family:var(--mono);font-size:11px;color:var(--dim)}
 .pill{font-size:10.5px;font-weight:700;padding:2px 9px;border-radius:999px}
 .pill.live{background:rgba(62,207,142,.14);color:var(--green)}
-.pill.soon{background:rgba(255,255,255,.06);color:var(--dim)}
-.card.soon{opacity:.75}
 </style>
 </head>
 <body>
-<div class="shell">
-  <aside>
-    <a class="logo" href="/">
-      <div class="logo-mark">JH</div>
-      <div><b>hunit</b><small>portfolio</small></div>
+<div id="site-nav"></div>
+
+<main>
+  <div class="hero">
+    <h1>hunit portfolio<span class="dot">.</span></h1>
+    <p>JAVA 개발자 2016/08 ~<br>
+    기능들을 개발하며 쌓아가는 공간입니다.</p>
+    <div class="stack">
+      <span>Java</span><span>Spring Framework</span><span>Spring Data JPA</span><span>Netty</span>
+      <span>TCP/IP 소켓통신</span><span>REST API</span><span>MySQL</span><span>MariaDB</span>
+      <span>Oracle</span><span>Vue.js</span><span>Linux</span><span>Git</span>
+    </div>
+  </div>
+
+  <div class="section-title">Projects</div>
+  <div class="cards">
+    <a class="card" href="/mms">
+      <div class="card-top"><div class="card-icon">✉</div><span class="pill live">LIVE</span></div>
+      <b>MMS</b>
+      <p>멀티쓰레드 워커가 큐에서 메시지를 꺼내 비동기 발송하고, 실패 시 자동 재시도합니다. 실시간 관제 대시보드 포함.</p>
+      <div class="meta">BlockingQueue · 멀티쓰레드 데몬 · 자동 재시도</div>
     </a>
+    <a class="card" href="/news">
+      <div class="card-top"><div class="card-icon">📈</div><span class="pill live">LIVE</span></div>
+      <b>AI 뉴스</b>
+      <p>RSS로 카테고리별 뉴스를 자동 수집하고 Gemini로 매일 3줄 브리핑을 생성합니다. 기사 미리보기 포함.</p>
+      <div class="meta">Scheduler · Gemini API · OpenGraph</div>
+    </a>
+    <a class="card" href="/map/food">
+      <div class="card-top"><div class="card-icon">🍽</div><span class="pill live">LIVE</span></div>
+      <b>맛집 지도</b>
+      <p>키워드로 주변 맛집·카페를 검색하고 네이버 지도에 마커로 표시합니다.</p>
+      <div class="meta">카카오 Local API · 네이버 Maps</div>
+    </a>
+  </div>
 
-    <a class="nav-item on" href="/">◈&ensp;홈</a>
+  <div class="section-title">Backlog</div>
+  <div class="chips">
+    <span>🏠 부동산 시세 지도</span>
+    <span>🎮 웹 게임</span>
+    <span>💡 + 계속 추가 예정</span>
+  </div>
+</main>
 
-    <details class="nav-group" open>
-      <summary>개발완료</summary>
-      <a class="nav-item" href="/mms">✉&ensp;MMS<span class="tag live">LIVE</span></a>
-      <a class="nav-item" href="/news">📈&ensp;AI 뉴스<span class="tag live">LIVE</span></a>
-    </details>
-
-    <details class="nav-group" open>
-      <summary>개발예정</summary>
-      <span class="nav-item soon">🎮&ensp;웹 게임<span class="tag">예정</span></span>
-      <span class="nav-item soon">🗺&ensp;지도 연동<span class="tag">예정</span></span>
-      <span class="nav-item soon">🛒&ensp;가격 비교<span class="tag">예정</span></span>
-    </details>
-
-    <div class="side-foot">
-      Java 21 · Spring Boot · AWS
-      <div class="foot-icons">
-        <a class="icon-btn" href="https://github.com/simjihun" target="_blank" rel="noopener" aria-label="GitHub" title="GitHub">
-          <svg viewBox="0 0 16 16" width="17" height="17" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
-        </a>
-        <a class="icon-btn tistory" href="https://hunit.tistory.com" target="_blank" rel="noopener" aria-label="Tistory 블로그" title="Tistory 블로그">T</a>
-      </div>
-    </div>
-  </aside>
-
-  <main>
-    <div class="hero">
-      <h1>hunit portfolio<span class="dot">.</span></h1>
-      <p>JAVA 개발자 2016/08 ~<br>
-      기능들을 개발하며 쌓아가는 공간입니다.</p>
-      <div class="stack">
-        <span>Java</span><span>Spring Framework</span><span>Spring Data JPA</span><span>Netty</span>
-        <span>TCP/IP 소켓통신</span><span>REST API</span><span>MySQL</span><span>MariaDB</span>
-        <span>Oracle</span><span>Vue.js</span><span>Linux</span><span>Git</span>
-      </div>
-    </div>
-
-    <div class="section-title">Backlog</div>
-    <div class="chips">
-      <span>🎮 웹 게임</span>
-      <span>🗺 지도 연동</span>
-      <span>🛒 가격 비교</span>
-      <span>💡 + 계속 추가 예정</span>
-    </div>
-
-    <!-- =====================================================
-         프로젝트 카드 (기능이 여러 개 쌓이면 부활 예정)
-    <div class="section-title">Projects</div>
-    <div class="cards">
-      <a class="card" href="/mms">
-        <div class="card-top"><div class="card-icon">✉</div><span class="pill live">LIVE</span></div>
-        <b>MMS</b>
-        <p>멀티쓰레드 워커가 큐에서 메시지를 꺼내 비동기 발송하고,
-        실패 시 자동 재시도합니다. 실시간 관제 대시보드 포함.</p>
-        <div class="meta">BlockingQueue · 멀티쓰레드 데몬 · 자동 재시도 · Chart.js</div>
-      </a>
-    </div>
-    ===================================================== -->
-  </main>
-</div>
+<script src="/js/nav.js"></script>
 </body>
 </html>

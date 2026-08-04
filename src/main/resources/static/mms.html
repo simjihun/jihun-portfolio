@@ -9,10 +9,9 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 <link rel="stylesheet" href="/css/base.css">
 <style>
-/* MMS 콘솔 전용 스타일 */
 .pipeline{display:grid;grid-template-columns:1fr 34px 1.6fr 34px 1fr;align-items:stretch;margin-bottom:0}
 .pipe-node{display:flex;flex-direction:column;justify-content:center;gap:6px}
-.pipe-node .num{font-family:var(--mono);font-size:30px;font-weight:700}
+.pipe-node .num{font-family:var(--mono);font-size:28px;font-weight:700}
 .pipe-node .lbl{color:var(--mut);font-size:12px}
 .pipe-arrow{display:grid;place-items:center;color:var(--dim);font-size:16px}
 .lanes{display:flex;flex-direction:column;gap:8px;justify-content:center}
@@ -24,25 +23,26 @@
 .lane.busy .doing{color:var(--amber)}
 .pipe-out{display:flex;flex-direction:column;gap:10px;justify-content:center}
 .pipe-out .row{display:flex;align-items:baseline;gap:8px}
-.pipe-out .num{font-family:var(--mono);font-size:20px;font-weight:700}
+.pipe-out .num{font-family:var(--mono);font-size:19px;font-weight:700}
 .pipe-out .lbl{color:var(--mut);font-size:12px}
 
 .stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:16px 0}
 .stat{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
 .stat .k{color:var(--mut);font-size:12px;margin-bottom:6px}
-.stat .v{font-family:var(--mono);font-size:24px;font-weight:700}
+.stat .v{font-family:var(--mono);font-size:22px;font-weight:700}
 .stat .v small{font-size:13px;color:var(--mut);font-weight:400}
 .chart-wrap{height:210px}
 
 .two-col{display:grid;grid-template-columns:340px 1fr;gap:14px;margin-top:16px;align-items:start}
-.filters{display:flex;gap:10px;margin-bottom:14px}
+.filters{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:14px}
 .filters select{width:140px}
-.filters input{width:100%}
+.filters input{flex:1;min-width:150px}
 .msg-result{display:block;margin-top:10px;font-size:12.5px;color:var(--mut);min-height:18px}
 .paging{display:flex;align-items:center;gap:14px;justify-content:flex-end;margin-top:14px;color:var(--mut);font-size:12.5px;font-family:var(--mono)}
 .btn-row{display:flex;gap:8px;margin-top:16px;flex-wrap:wrap}
-.bulk-row{display:flex;gap:8px;align-items:center}
+.bulk-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .bulk-row input{width:110px;font-family:var(--mono)}
+.subinfo{font-family:var(--mono);font-size:11.5px;color:var(--dim)}
 
 @media (max-width:1000px){
   .pipeline{grid-template-columns:1fr}.pipe-arrow{display:none}
@@ -52,125 +52,96 @@
 </style>
 </head>
 <body>
-<div class="shell">
-  <aside>
-    <a class="logo" href="/">
-      <div class="logo-mark">JH</div>
-      <div><b>hunit</b><small>portfolio</small></div>
-    </a>
+<div id="site-nav"></div>
 
-    <a class="nav-item" href="/">◈&ensp;홈</a>
+<main>
+  <header class="page">
+    <h1>MMS(Message) Test</h1>
+    <div class="live"><span class="live-dot"></span><span id="clock">--:--:--</span>&ensp;·&ensp;<span id="footWorkers">-</span>개 워커 · 대기 <span id="footQueue">0</span>건</div>
+  </header>
 
-    <details class="nav-group" open>
-      <summary>개발완료</summary>
-      <a class="nav-item on" href="/mms">✉&ensp;MMS<span class="tag live">LIVE</span></a>
-      <a class="nav-item" href="/news">📈&ensp;AI 뉴스<span class="tag live">LIVE</span></a>
-    </details>
-
-    <details class="nav-group" open>
-      <summary>개발예정</summary>
-      <span class="nav-item soon">🎮&ensp;웹 게임<span class="tag">예정</span></span>
-      <span class="nav-item soon">🗺&ensp;지도 연동<span class="tag">예정</span></span>
-      <span class="nav-item soon">🛒&ensp;가격 비교<span class="tag">예정</span></span>
-    </details>
-
-    <div class="side-foot">
-      워커 쓰레드 <b id="footWorkers" style="font-family:var(--mono)">-</b>개<br>
-      대기열 <b id="footQueue" style="font-family:var(--mono)">0</b>건
-    </div>
-  </aside>
-
-  <main>
-    <header class="page">
-      <h1>MMS(Message) Test</h1>
-      <div class="live"><span class="live-dot"></span><span id="clock">--:--:--</span>&ensp;·&ensp;2s 자동 갱신</div>
-    </header>
-
-    <!-- ===== 관제: 라이브 파이프라인 ===== -->
-    <div class="panel">
-      <h2>라이브 파이프라인</h2>
-      <div class="pipeline">
-        <div class="pipe-node">
-          <div class="num c-amber" id="pWaiting">0</div>
-          <div class="lbl">발송 대기 (큐 + PENDING)</div>
-        </div>
-        <div class="pipe-arrow">›</div>
-        <div class="lanes" id="lanes"></div>
-        <div class="pipe-arrow">›</div>
-        <div class="pipe-out">
-          <div class="row"><span class="num c-green" id="pSent">0</span><span class="lbl">발송 성공</span></div>
-          <div class="row"><span class="num c-red" id="pFailed">0</span><span class="lbl">최종 실패</span></div>
-        </div>
+  <div class="panel">
+    <h2>라이브 파이프라인</h2>
+    <div class="pipeline">
+      <div class="pipe-node">
+        <div class="num c-amber" id="pWaiting">0</div>
+        <div class="lbl">발송 대기 (큐 + PENDING)</div>
+      </div>
+      <div class="pipe-arrow">›</div>
+      <div class="lanes" id="lanes"></div>
+      <div class="pipe-arrow">›</div>
+      <div class="pipe-out">
+        <div class="row"><span class="num c-green" id="pSent">0</span><span class="lbl">발송 성공</span></div>
+        <div class="row"><span class="num c-red" id="pFailed">0</span><span class="lbl">최종 실패</span></div>
       </div>
     </div>
+  </div>
 
-    <!-- ===== 통계 카드 ===== -->
-    <div class="stat-grid">
-      <div class="stat"><div class="k">총 접수</div><div class="v" id="sTotal">0</div></div>
-      <div class="stat"><div class="k">성공률</div><div class="v c-green"><span id="sRate">100</span><small>%</small></div></div>
-      <div class="stat"><div class="k">처리 중</div><div class="v c-blue" id="sSending">0</div></div>
-      <div class="stat"><div class="k">대기열</div><div class="v c-amber" id="sQueue">0</div></div>
-    </div>
+  <div class="stat-grid">
+    <div class="stat"><div class="k">총 접수</div><div class="v" id="sTotal">0</div></div>
+    <div class="stat"><div class="k">성공률</div><div class="v c-green"><span id="sRate">100</span><small>%</small></div></div>
+    <div class="stat"><div class="k">처리 중</div><div class="v c-blue" id="sSending">0</div></div>
+    <div class="stat"><div class="k">대기열</div><div class="v c-amber" id="sQueue">0</div></div>
+  </div>
 
-    <!-- ===== 차트 ===== -->
+  <div class="panel">
+    <h2>분당 처리량 · 최근 30분</h2>
+    <div class="chart-wrap"><canvas id="chart"></canvas></div>
+  </div>
+
+  <div class="two-col">
     <div class="panel">
-      <h2>분당 처리량 · 최근 30분</h2>
-      <div class="chart-wrap"><canvas id="chart"></canvas></div>
+      <h2>메시지 발송</h2>
+      <label for="receiver">수신 번호</label>
+      <input id="receiver" placeholder="010-1234-5678">
+      <label for="content">메시지 내용</label>
+      <textarea id="content" placeholder="보낼 내용을 입력하세요"></textarea>
+      <div class="btn-row">
+        <button class="btn btn-amber" onclick="sendOne()">단건 요청</button>
+      </div>
+      <label for="bulkCount">다중 요청 건수 (1~200)</label>
+      <div class="bulk-row">
+        <input type="number" id="bulkCount" min="1" max="200" value="10">
+        <button class="btn btn-ghost" onclick="sendBulkInput()">다중 요청</button>
+      </div>
+      <span class="msg-result" id="sendResult"></span>
     </div>
 
-    <!-- ===== 발송 + 이력 (한 화면) ===== -->
-    <div class="two-col">
-      <div class="panel">
-        <h2>메시지 발송</h2>
-        <label for="receiver">수신 번호</label>
-        <input id="receiver" placeholder="010-1234-5678">
-        <label for="content">메시지 내용</label>
-        <textarea id="content" placeholder="보낼 내용을 입력하세요"></textarea>
-        <div class="btn-row">
-          <button class="btn btn-amber" onclick="sendOne()">단건 요청</button>
-        </div>
-        <label for="bulkCount">다중 요청 건수 (1~200)</label>
-        <div class="bulk-row">
-          <input type="number" id="bulkCount" min="1" max="200" value="10">
-          <button class="btn btn-ghost" onclick="sendBulkInput()">다중 요청</button>
-        </div>
-        <span class="msg-result" id="sendResult"></span>
+    <div class="panel">
+      <h2>발송 이력</h2>
+      <div class="filters">
+        <select id="fStatus" onchange="loadHistory(0)">
+          <option value="">상태 전체</option>
+          <option value="PENDING">PENDING</option>
+          <option value="SENDING">SENDING</option>
+          <option value="SENT">SENT</option>
+          <option value="FAILED">FAILED</option>
+        </select>
+        <input id="fReceiver" placeholder="수신번호 검색" onkeydown="if(event.key==='Enter')loadHistory(0)">
+        <button class="btn btn-ghost" onclick="loadHistory(0)">검색</button>
       </div>
-
-      <div class="panel">
-        <h2>발송 이력</h2>
-        <div class="filters">
-          <select id="fStatus" onchange="loadHistory(0)">
-            <option value="">상태 전체</option>
-            <option value="PENDING">PENDING</option>
-            <option value="SENDING">SENDING</option>
-            <option value="SENT">SENT</option>
-            <option value="FAILED">FAILED</option>
-          </select>
-          <input id="fReceiver" placeholder="수신번호 검색" onkeydown="if(event.key==='Enter')loadHistory(0)">
-          <button class="btn btn-ghost" onclick="loadHistory(0)">검색</button>
-        </div>
+      <div class="table-scroll">
         <table>
           <thead><tr><th>ID</th><th>수신번호</th><th>내용</th><th>상태</th><th>재시도</th><th>워커</th><th>완료</th><th></th></tr></thead>
           <tbody id="histBody"></tbody>
         </table>
-        <div class="empty" id="histEmpty" style="display:none">조건에 맞는 발송 이력이 없습니다. 왼쪽에서 첫 메시지를 보내보세요.</div>
-        <div class="paging">
-          <button class="mini" onclick="loadHistory(curPage-1)">‹ 이전</button>
-          <span id="pageInfo">0 / 0</span>
-          <button class="mini" onclick="loadHistory(curPage+1)">다음 ›</button>
-        </div>
+      </div>
+      <div class="empty" id="histEmpty" style="display:none">조건에 맞는 발송 이력이 없습니다. 왼쪽에서 첫 메시지를 보내보세요.</div>
+      <div class="paging">
+        <button class="mini" onclick="loadHistory(curPage-1)">‹ 이전</button>
+        <span id="pageInfo">0 / 0</span>
+        <button class="mini" onclick="loadHistory(curPage+1)">다음 ›</button>
       </div>
     </div>
-  </main>
-</div>
+  </div>
+</main>
 
+<script src="/js/nav.js"></script>
 <script>
 const API = '/api/message';
 let curPage = 0, totalPages = 0, chart;
 const $ = id => document.getElementById(id);
 
-/* ===== 발송 ===== */
 async function sendOne(){
   const receiver = $('receiver').value.trim(), content = $('content').value.trim();
   const res = await fetch(API + '/messages', {
@@ -183,7 +154,6 @@ async function sendOne(){
   refreshAll();
 }
 
-/* 입력 필드 값(1~200)만큼 다중 요청 */
 function sendBulkInput(){
   const n = parseInt($('bulkCount').value, 10);
   if(!n || n < 1 || n > 200){
@@ -215,7 +185,6 @@ async function resend(id){
   refreshAll();
 }
 
-/* ===== 통계/파이프라인 ===== */
 async function loadStats(){
   try{
     const s = await fetch(API + '/stats').then(r => r.json());
@@ -235,7 +204,7 @@ async function loadStats(){
         <span class="doing">${w.status === 'SENDING' ? ('▶ #' + w.messageId + ' ' + w.receiver) : '대기 중'}</span>
       </div>`).join('');
     updateChart(s.chart);
-  }catch(e){/* 서버 재시작 등 순간 오류는 무시하고 다음 주기에 갱신 */}
+  }catch(e){}
 }
 
 function updateChart(c){
@@ -253,7 +222,7 @@ function updateChart(c){
       ]},
       options: {responsive: true, maintainAspectRatio: false, animation: false,
         plugins: {legend: {labels: {boxWidth: 10, font: {family: "'Pretendard Variable',sans-serif", size: 11}}}},
-        scales: {y: {beginAtZero: true, ticks: {precision: 0}}, x: {ticks: {maxTicksLimit: 10}}}}
+        scales: {y: {beginAtZero: true, ticks: {precision: 0}}, x: {ticks: {maxTicksLimit: 8}}}}
     });
   }else{
     chart.data.labels = c.labels;
@@ -264,7 +233,6 @@ function updateChart(c){
   }
 }
 
-/* ===== 이력 ===== */
 const fmt = t => t ? t.replace('T', ' ').substring(5, 19) : '-';
 async function loadHistory(page){
   if(page < 0 || (totalPages > 0 && page >= totalPages)) return;
@@ -292,7 +260,6 @@ async function loadHistory(page){
 
 function refreshAll(){ loadStats(); loadHistory(curPage); }
 
-/* ===== 주기 갱신 ===== */
 setInterval(refreshAll, 2000);
 setInterval(() => {$('clock').textContent = new Date().toTimeString().substring(0, 8)}, 1000);
 refreshAll();
