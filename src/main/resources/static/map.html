@@ -3,47 +3,334 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>지도 · hunit 포트폴리오</title>
+<title>지도 API · hunit 포트폴리오</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/css/base.css">
 <style>
-.map-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px;margin-top:4px}
-.map-card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:22px;display:flex;flex-direction:column;gap:10px;transition:border-color .15s,transform .15s}
-.map-card:hover{border-color:var(--amber);transform:translateY(-2px)}
-.map-card .icon{font-size:30px}
-.map-card b{font-size:16px}
-.map-card p{color:var(--mut);font-size:13.5px;line-height:1.7;flex:1}
-.map-card .stack{font-family:var(--mono);font-size:11px;color:var(--dim)}
-.map-card .pill{align-self:flex-start;font-size:10.5px;font-weight:700;padding:2px 9px;border-radius:999px}
-.pill.live{background:rgba(62,207,142,.14);color:var(--green)}
-.pill.soon{background:rgba(255,255,255,.06);color:var(--dim)}
+main{padding-bottom:0}
+.mode-tabs{display:flex;gap:6px;background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:4px;width:fit-content;margin-bottom:14px}
+.mode-tab{padding:8px 18px;border-radius:7px;border:0;background:transparent;color:var(--mut);font-size:13.5px;font-weight:600;cursor:pointer}
+.mode-tab.on{background:var(--amber);color:#131A2A}
+
+.map-shell{display:flex;flex-direction:column;gap:12px}
+.search-bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.search-bar input,.search-bar select{flex:1;min-width:160px}
+.search-bar button{padding:10px 18px;background:var(--amber);color:#131A2A;border:0;border-radius:8px;font-weight:700;cursor:pointer;white-space:nowrap}
+.search-bar button:hover{filter:brightness(1.1)}
+.search-bar .btn-loc{background:var(--panel);border:1px solid var(--line);color:var(--mut)}
+
+.map-area{display:grid;grid-template-columns:320px 1fr;gap:12px;min-height:0;height:calc(100vh - var(--navh) - 190px)}
+#naverMap{border-radius:12px;border:1px solid var(--line);overflow:hidden;min-height:320px}
+.result-panel{display:flex;flex-direction:column;gap:8px;overflow-y:auto}
+.result-item{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px;cursor:pointer;transition:border-color .12s}
+.result-item:hover,.result-item.on{border-color:var(--amber)}
+.result-item .name{font-size:14px;font-weight:600;margin-bottom:3px}
+.result-item .cat{font-size:11.5px;color:var(--amber);margin-bottom:4px}
+.result-item .addr{font-size:12px;color:var(--mut)}
+.result-item .phone{font-family:var(--mono);font-size:11.5px;color:var(--dim);margin-top:3px}
+.result-item .url{font-size:11.5px;color:var(--blue);margin-top:2px;display:inline-block}
+.result-item .url:hover{text-decoration:underline}
+.result-item .price{font-family:var(--mono);font-weight:700;color:var(--green);font-size:14px;margin-top:4px}
+.empty-msg{color:var(--dim);font-size:13px;padding:20px;text-align:center}
+.paging{display:flex;gap:8px;justify-content:center;margin-top:4px;flex:none}
+.paging button{padding:6px 14px;border-radius:6px;border:1px solid var(--line);background:transparent;color:var(--mut);cursor:pointer;font-size:12.5px}
+.paging button:hover{color:var(--amber);border-color:var(--amber)}
+.paging .cur{color:var(--amber);font-weight:700;font-family:var(--mono);line-height:2}
+.api-warn{font-size:12px;color:var(--amber);padding:8px 12px;background:rgba(242,169,59,.08);border-radius:8px;border:1px solid rgba(242,169,59,.2);margin-bottom:12px}
+.stat-row{display:flex;gap:16px;margin-bottom:2px;font-size:12.5px;color:var(--mut)}
+.stat-row b{color:var(--ink);font-family:var(--mono)}
+
+.iw{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px;min-width:200px;box-shadow:0 4px 16px rgba(0,0,0,.3)}
+.iw .name{font-weight:700;font-size:14px;margin-bottom:4px}
+.iw .cat{font-size:11.5px;color:var(--amber)}
+.iw .addr{font-size:12px;color:var(--mut);margin-top:4px}
+
+@media (max-width:900px){
+  .map-area{display:flex;flex-direction:column;height:auto}
+  #naverMap{height:300px;order:1}
+  .result-panel{order:2;max-height:420px}
+}
 </style>
 </head>
 <body>
 <div id="site-nav"></div>
 
 <main>
-  <header class="page"><h1>🗺️ 지도</h1></header>
-  <p style="color:var(--mut);font-size:14px;margin-bottom:24px">네이버 지도 API 기반 위치 기능들. 아래 메뉴를 선택하세요.</p>
-  <div class="map-cards">
-    <a class="map-card" href="/map/food">
-      <div class="icon">🍽</div>
-      <b>맛집 지도</b>
-      <p>키워드로 주변 맛집·카페·편의시설을 검색하고 지도에 마커로 표시합니다. 마커 클릭 시 별점·영업시간·전화번호 포함 상세 정보가 표시됩니다.</p>
-      <div class="stack">카카오 Local API · 네이버 Maps</div>
-      <span class="pill live">LIVE</span>
-    </a>
-    <div class="map-card" style="opacity:.7">
-      <div class="icon">🏠</div>
-      <b>부동산 시세</b>
-      <p>국토부 실거래대실룰보고 API를 통해 아파트 실거래 내역을 지도에 시각화합니다.</p>
-      <div class="stack">국토부 API · 네이버 Maps</div>
-      <span class="pill soon">준비중</span>
+  <header class="page" style="margin-bottom:10px">
+    <h1>🗺️ 지도 API</h1>
+  </header>
+  <div id="apiWarn" class="api-warn" style="display:none"></div>
+
+  <div class="mode-tabs">
+    <button class="mode-tab on" id="tabFood" onclick="switchMode('food')">🍽 맛집 지도</button>
+    <button class="mode-tab" id="tabEstate" onclick="switchMode('estate')">🏠 부동산 시세</button>
+  </div>
+
+  <div class="map-shell">
+    <!-- 맛집 검색바 -->
+    <div class="search-bar" id="barFood">
+      <input id="kw" placeholder="지역 + 업종 검색 (예: 화성 삼격살, 수원 카페)" onkeydown="if(event.key==='Enter')searchFood()">
+      <button onclick="searchFood()">검색</button>
+      <button class="btn-loc" onclick="searchNear()">현위치</button>
+    </div>
+
+    <!-- 부동산 검색바 -->
+    <div class="search-bar" id="barEstate" style="display:none">
+      <select id="regionSel"></select>
+      <select id="ymSel"></select>
+      <input id="aptKw" placeholder="아파트명 (선택)" onkeydown="if(event.key==='Enter')searchEstate()">
+      <button onclick="searchEstate()">조회</button>
+    </div>
+
+    <div class="map-area">
+      <div style="display:flex;flex-direction:column;gap:8px;min-height:0">
+        <div id="estateStat" class="stat-row" style="display:none"></div>
+        <div class="result-panel" id="resultPanel">
+          <div class="empty-msg">검색어를 입력하거나 현위치 버튼을 눌러보세요.</div>
+        </div>
+        <div class="paging" id="paging"></div>
+      </div>
+      <div id="naverMap"></div>
     </div>
   </div>
 </main>
 
 <script src="/js/nav.js"></script>
+<script>
+const API = '/api/map';
+let map, markers = [], infoWindow;
+let curPage = 1, totalPage = 1;
+let mode = 'food';
+const $ = id => document.getElementById(id);
+const esc = s => (s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+
+/* ===== 모드 전환 ===== */
+function switchMode(next){
+  mode = next;
+  $('tabFood').classList.toggle('on', mode === 'food');
+  $('tabEstate').classList.toggle('on', mode === 'estate');
+  $('barFood').style.display = mode === 'food' ? 'flex' : 'none';
+  $('barEstate').style.display = mode === 'estate' ? 'flex' : 'none';
+  $('estateStat').style.display = 'none';
+  clearMarkers();
+  $('resultPanel').innerHTML = '<div class="empty-msg">' +
+    (mode === 'food' ? '검색어를 입력하거나 현위치 버튼을 눌러보세요.' : '지역과 년월을 선택하고 조회하세요.') + '</div>';
+  $('paging').innerHTML = '';
+  history.replaceState(null, '', mode === 'estate' ? '/map/estate' : '/map/food');
+}
+
+/* ===== 지도 초기화 ===== */
+async function initMap() {
+  const cfg = await fetch(API + '/config').then(r => r.json());
+  const health = await fetch(API + '/health').then(r => r.json());
+  const warns = [];
+  if (!health.kakaoKeySet) warns.push('KAKAO_API_KEY 미설정 (맛집 검색 비활성화)');
+  if (!health.naverKeySet) warns.push('NAVER_MAP_CLIENT_ID 미설정 (지도 표시 불가)');
+  if (!health.realEstateKeySet) warns.push('REALESTATE_API_KEY 미설정 (부동산 조회 비활성화)');
+  if (warns.length) {
+    $('apiWarn').style.display = 'block';
+    $('apiWarn').textContent = '관리자 설정 필요 — ' + warns.join(' · ');
+  }
+  if (!cfg.naverMapClientId) return;
+
+  await new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = `https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId=${cfg.naverMapClientId}&submodules=geocoder`;
+    s.onload = resolve; s.onerror = reject;
+    document.head.appendChild(s);
+  });
+
+  map = new naver.maps.Map('naverMap', {
+    center: new naver.maps.LatLng(37.5665, 126.9780),
+    zoom: 12,
+    mapTypeControl: false
+  });
+  infoWindow = new naver.maps.InfoWindow({ anchorSkew: true, borderWidth: 0,
+    backgroundColor: 'transparent', disableAnchor: false });
+}
+
+function clearMarkers() {
+  markers.forEach(m => m.setMap(null));
+  markers = [];
+  infoWindow && infoWindow.close();
+}
+
+function addMarker(pos, labelNum, onClick) {
+  const marker = new naver.maps.Marker({
+    map, position: pos,
+    icon: {
+      content: `<div style="background:#F2A93B;color:#131A2A;font-weight:700;font-size:12px;padding:4px 9px;border-radius:999px;white-space:nowrap;box-shadow:0 2px 6px rgba(0,0,0,.4)">${labelNum}</div>`,
+      anchor: new naver.maps.Point(14, 14)
+    }
+  });
+  if (onClick) naver.maps.Event.addListener(marker, 'click', onClick);
+  markers.push(marker);
+  return marker;
+}
+
+function highlightItem(index) {
+  document.querySelectorAll('.result-item').forEach((el, i) => el.classList.toggle('on', i === index));
+}
+
+/* ===================================================
+   맛집 지도 (카카오 Local API)
+   =================================================== */
+function renderFoodResults(places, page, totalCount) {
+  clearMarkers();
+  const panel = $('resultPanel');
+  if (!places.length) {
+    panel.innerHTML = '<div class="empty-msg">검색 결과가 없습니다.</div>';
+    $('paging').innerHTML = '';
+    return;
+  }
+  panel.innerHTML = places.map((p, i) => `
+    <div class="result-item" onclick="focusMarker(${i})">
+      <div class="name">${i + 1}. ${esc(p.place_name)}</div>
+      <div class="cat">${esc(p.category_name?.split(' > ').pop() ?? '')}</div>
+      <div class="addr">${esc(p.road_address_name || p.address_name)}</div>
+      ${p.phone ? `<div class="phone">${esc(p.phone)}</div>` : ''}
+      ${p.place_url ? `<a class="url" href="${p.place_url}" target="_blank" rel="noopener">카카오맵에서 보기 ↗</a>` : ''}
+    </div>`).join('');
+
+  places.forEach((p, i) => {
+    const pos = new naver.maps.LatLng(+p.y, +p.x);
+    addMarker(pos, i + 1, () => {
+      const html = `<div class="iw"><div class="name">${esc(p.place_name)}</div><div class="cat">${esc(p.category_name?.split(' > ').pop() ?? '')}</div><div class="addr">${esc(p.road_address_name || p.address_name)}</div></div>`;
+      infoWindow.setContent(html);
+      infoWindow.open(map, markers[i]);
+      highlightItem(i);
+    });
+  });
+
+  const bounds = new naver.maps.LatLngBounds(
+    new naver.maps.LatLng(Math.min(...places.map(p => +p.y)), Math.min(...places.map(p => +p.x))),
+    new naver.maps.LatLng(Math.max(...places.map(p => +p.y)), Math.max(...places.map(p => +p.x)))
+  );
+  map.fitBounds(bounds, { padding: 60 });
+
+  totalPage = Math.ceil(totalCount / 15);
+  curPage = page;
+  $('paging').innerHTML = [
+    `<button onclick="goPage(${page - 1})" ${page <= 1 ? 'disabled style="opacity:.3"' : ''}>‹ 이전</button>`,
+    `<span class="cur">${page} / ${totalPage}</span>`,
+    `<button onclick="goPage(${page + 1})" ${page >= totalPage ? 'disabled style="opacity:.3"' : ''}>다음 ›</button>`
+  ].join('');
+}
+
+function focusMarker(index) {
+  const marker = markers[index];
+  if (!marker) return;
+  map.setCenter(marker.getPosition());
+  map.setZoom(16);
+  naver.maps.Event.trigger(marker, 'click');
+  highlightItem(index);
+}
+
+async function searchFood(page = 1) {
+  const kw = $('kw').value.trim();
+  if (!kw) return;
+  const data = await fetch(`${API}/search?keyword=${encodeURIComponent(kw)}&page=${page}&size=15`).then(r => r.json());
+  renderFoodResults(data.documents || [], page, data.meta?.total_count ?? 0);
+}
+
+async function searchNear() {
+  navigator.geolocation.getCurrentPosition(pos => {
+    const { latitude: lat, longitude: lng } = pos.coords;
+    map.setCenter(new naver.maps.LatLng(lat, lng));
+    map.setZoom(15);
+    const kw = $('kw').value.trim() || '식당';
+    fetch(`${API}/search?keyword=${encodeURIComponent(kw)}&page=1`)
+      .then(r => r.json())
+      .then(data => renderFoodResults(data.documents || [], 1, data.meta?.total_count ?? 0));
+  }, () => alert('위치 정보 접근을 허용해주세요.'));
+}
+
+function goPage(page) {
+  if (page < 1 || page > totalPage) return;
+  if (mode === 'food') searchFood(page);
+}
+
+/* ===================================================
+   부동산 시세 (국토부 실거래가 API)
+   =================================================== */
+let regions = [];
+
+async function initEstateControls() {
+  regions = await fetch(API + '/estate/regions').then(r => r.json());
+  $('regionSel').innerHTML = regions.map(r => `<option value="${r.code}">${r.name}</option>`).join('');
+
+  // 최근 6개월 옵션 (실거래가는 보통 지난달까지 집계되므로 1개월 전부터 시작)
+  const now = new Date();
+  now.setMonth(now.getMonth() - 1);
+  const opts = [];
+  for (let i = 0; i < 6; i++) {
+    const y = now.getFullYear(), m = String(now.getMonth() + 1).padStart(2, '0');
+    opts.push(`<option value="${y}${m}">${y}년 ${m}월</option>`);
+    now.setMonth(now.getMonth() - 1);
+  }
+  $('ymSel').innerHTML = opts.join('');
+}
+
+function renderEstateResults(items, count, avgAmount, region) {
+  clearMarkers();
+  const panel = $('resultPanel');
+
+  if (region) {
+    const pos = new naver.maps.LatLng(region.lat, region.lng);
+    map.setCenter(pos);
+    map.setZoom(12);
+    addMarker(pos, '📍', null);
+  }
+
+  if (!items.length) {
+    panel.innerHTML = '<div class="empty-msg">해당 조건의 거래 내역이 없습니다.</div>';
+    $('estateStat').style.display = 'none';
+    return;
+  }
+
+  $('estateStat').style.display = 'flex';
+  $('estateStat').innerHTML = `<span>거래건수 <b>${count}</b>건</span><span>평균가 <b>${avgAmount}</b></span>`;
+
+  panel.innerHTML = items.map(it => `
+    <div class="result-item">
+      <div class="name">${esc(it.aptNm)}</div>
+      <div class="cat">${esc(it.dong)} · ${esc(it.area)}㎡ · ${esc(it.floor)}층 · ${esc(it.buildYear)}년건축</div>
+      <div class="price">${esc(it.dealAmount)}</div>
+      <div class="addr">거래일 ${esc(it.dealDate)}</div>
+    </div>`).join('');
+}
+
+async function searchEstate() {
+  const lawdCd = $('regionSel').value;
+  const dealYmd = $('ymSel').value;
+  const keyword = $('aptKw').value.trim();
+  const region = regions.find(r => r.code === lawdCd);
+
+  $('resultPanel').innerHTML = '<div class="empty-msg">조회 중...</div>';
+  const qs = new URLSearchParams({ lawdCd, dealYmd });
+  if (keyword) qs.set('keyword', keyword);
+  const data = await fetch(`${API}/estate?` + qs).then(r => r.json());
+
+  if (data.error) {
+    $('resultPanel').innerHTML = `<div class="empty-msg">${esc(data.error)}</div>`;
+    $('estateStat').style.display = 'none';
+    return;
+  }
+  renderEstateResults(data.items || [], data.count ?? 0, data.avgAmount ?? '-', region);
+}
+
+/* ===== 초기화: URL에 따라 기본 탭 결정 ===== */
+async function init() {
+  await initMap();
+  await initEstateControls();
+  if (location.pathname.includes('estate')) {
+    switchMode('estate');
+  } else {
+    switchMode('food');
+  }
+}
+init();
+</script>
 </body>
 </html>
