@@ -15,12 +15,17 @@ import java.util.concurrent.ConcurrentHashMap;
 /**
  * 주식 대시보드 서비스 — 토스증권 Open API + 업비트(BTC) + Gemini(AI 브리핑).
  *
- * AWS 프리티어·토스 레이트리밋 보호를 위해 모든 외부 호출은 서버 측 TTL 캐시를 거친다:
- *  - 지표/랭킹 60초, 수급 10분, 장 캘린더 6시간, AI 브리핑 30분.
- * 프론트가 아무리 자주 새로고침해도 TTL 안에선 캐시가 반환되므로 외부 API 호출량이 제한된다.
+ * 보호장치 3중:
+ *  1) TossApiClient 전역 스로틀(300ms 간격) + 429 재시도
+ *  2) TTL 캐시: 지표/랭킹 60초, 수급 10분, 캘린더 6시간, AI 브리핑 30분, 종목마스터 24시간
+ *  3) 요청 병합: cached()가 동기화되어 같은 데이터를 동시에 중복 로드하지 않음
  *
- * 토스 응답 스키마는 버전에 따라 필드명이 다를 수 있어, 후보 키 목록에서 첫 번째로 존재하는 값을
- * 꺼내는 방어적 파싱(pickNum/pickStr)으로 처리한다. 필드가 없으면 null로 내려보내고 프론트가 숨긴다.
+ * 스키마(공식 문서 확인):
+ *  - RankingItem: rank/symbol/currency/price{lastPrice,basePrice,changeRate(소수비율)}/tradingVolume/tradingAmount
+ *    → 종목명·시총은 없음. /api/v1/stocks(종목마스터: name, sharesOutstanding)를 조인해 시총=발행주식수×현재가로 계산.
+ *  - MarketIndicatorPriceResponse / PriceResponse: lastPrice만 있고 등락률 없음 → 일봉 2개로 전일대비 계산.
+ *  - exchange-rate: baseCurrency=USD&quoteCurrency=KRW 필수.
+ *  - 캘린더는 전일/당일/익일 3영업일만 반환.
  */
 @Service
 public class StockDashboardService {
@@ -31,6 +36,7 @@ public class StockDashboardService {
     private final RestTemplate rest;
     private final ObjectMapper mapper = new ObjectMapper();
     private final Map<String, CacheEntry> cache = new ConcurrentHashMap<>();
+    private volatile String workingGeminiModel = null;
 
     @Value("${GEMINI_API_KEY:}")
     private String geminiApiKey;
@@ -41,21 +47,22 @@ public class StockDashboardService {
         this.toss = toss;
         SimpleClientHttpRequestFactory f = new SimpleClientHttpRequestFactory();
         f.setConnectTimeout(4000);
-        f.setReadTimeout(15000);
+        f.setReadTimeout(20000);
         this.rest = new RestTemplate(f);
     }
 
+    /** 동기화로 직렬화해 동일 키 중복 로드(요청 병합)와 버스트 호출을 막는다. 느려도 괜찮다는 요구사항 반영. */
     @SuppressWarnings("unchecked")
-    private <T> T cached(String key, long ttlMillis, java.util.function.Supplier<T> loader) {
+    private synchronized <T> T cached(String key, long ttlMillis, java.util.function.Supplier<T> loader) {
         CacheEntry e = cache.get(key);
         long now = System.currentTimeMillis();
         if (e != null && now < e.expiresAt()) return (T) e.value();
         T value = loader.get();
-        if (value != null) cache.put(key, new CacheEntry(now + ttlMillis, value));
+        if (value != null) cache.put(key, new CacheEntry(System.currentTimeMillis() + ttlMillis, value));
         return value;
     }
 
-    /* ===================== 공통 방어적 파싱 유틸 ===================== */
+    /* ===================== 파싱 유틸 ===================== */
 
     @SuppressWarnings("unchecked")
     private static Map<String, Object> unwrap(Map<String, Object> res) {
@@ -63,6 +70,20 @@ public class StockDashboardService {
         Object r = res.get("result");
         if (r instanceof Map) return (Map<String, Object>) r;
         return res;
+    }
+
+    /** result가 배열이거나, result/최상위 내 후보 키 아래 배열인 경우를 모두 처리 */
+    @SuppressWarnings("unchecked")
+    private static List<Map<String, Object>> listOf(Map<String, Object> raw, String... keys) {
+        if (raw == null) return List.of();
+        Object r = raw.get("result");
+        if (r instanceof List) return (List<Map<String, Object>>) r;
+        Map<String, Object> base = r instanceof Map ? (Map<String, Object>) r : raw;
+        for (String k : keys) {
+            Object v = base.get(k);
+            if (v instanceof List) return (List<Map<String, Object>>) v;
+        }
+        return List.of();
     }
 
     private static Double pickNum(Map<String, Object> m, String... keys) {
@@ -85,16 +106,6 @@ public class StockDashboardService {
     }
 
     @SuppressWarnings("unchecked")
-    private static List<Map<String, Object>> pickList(Map<String, Object> m, String... keys) {
-        if (m == null) return List.of();
-        for (String k : keys) {
-            Object v = m.get(k);
-            if (v instanceof List) return (List<Map<String, Object>>) v;
-        }
-        return List.of();
-    }
-
-    @SuppressWarnings("unchecked")
     private static Map<String, Object> pickMap(Map<String, Object> m, String... keys) {
         if (m == null) return null;
         for (String k : keys) {
@@ -113,58 +124,57 @@ public class StockDashboardService {
     private Map<String, Object> loadIndicators() {
         List<Map<String, Object>> items = new ArrayList<>();
 
-        // 국내 지수 (토스 시장지표)
-        Map<String, Object> idxRes = unwrap(toss.get("/api/v1/market-indicators/prices?symbols=KOSPI,KOSDAQ"));
-        List<Map<String, Object>> idxList = idxRes == null ? List.of() : pickList(idxRes, "prices", "items", "indicators", "list");
-        for (Map<String, Object> p : idxList) {
-            String symbol = pickStr(p, "symbol", "code");
-            items.add(indicator(symbol, "KOSPI".equals(symbol) ? "코스피" : "코스닥",
-                    pickNum(p, "close", "price", "currentPrice", "value", "last"),
-                    pickNum(p, "changeRate", "changePercent", "rate"),
-                    pickNum(p, "change", "changeValue", "changePrice"),
-                    "KRW", sparkFromTossIndicator(symbol)));
+        // 국내 지수: 현재가(lastPrice만 제공) + 일봉 2개로 전일대비 계산 + 1분봉 스파크라인
+        Map<String, Object> idxRes = toss.get("/api/v1/market-indicators/prices?symbols=KOSPI,KOSDAQ");
+        for (Map<String, Object> p : listOf(idxRes, "prices", "items", "indicators", "list")) {
+            String symbol = pickStr(p, "symbol");
+            Double last = pickNum(p, "lastPrice", "close", "price");
+            Double changeRate = null, change = null;
+            List<Double> daily = closesOf(toss.get("/api/v1/market-indicators/" + symbol + "/candles?interval=1d&count=2"));
+            if (last != null && daily != null && daily.size() >= 2) {
+                double prev = daily.get(daily.size() - 2);
+                if (prev != 0) { change = last - prev; changeRate = (last - prev) / prev * 100; }
+            }
+            List<Double> spark = closesOf(toss.get("/api/v1/market-indicators/" + symbol + "/candles?interval=1m&count=60"));
+            items.add(indicator(symbol, "KOSPI".equals(symbol) ? "코스피" : "코스닥", last, changeRate, change, "KRW", spark));
         }
 
-        // 미국 지수 프록시 ETF (토스 미국 주식 시세) — 지수 자체는 미제공이라 ETF로 대신 표시하고 라벨에 명시
+        // 미국 지수 프록시 ETF: 현재가(PriceResponse.lastPrice) + 일봉 2개로 전일대비
         String[][] usProxies = {{"SPY", "S&P 500 (SPY)"}, {"QQQ", "나스닥100 (QQQ)"}, {"DIA", "다우존스 (DIA)"}};
-        Map<String, Object> usRes = unwrap(toss.get("/api/v1/prices?symbols=SPY,QQQ,DIA"));
-        List<Map<String, Object>> usList = usRes == null ? List.of() : pickList(usRes, "prices", "items", "list");
+        Map<String, Object> usRes = toss.get("/api/v1/prices?symbols=SPY,QQQ,DIA");
+        List<Map<String, Object>> usList = listOf(usRes, "prices", "items", "list");
         for (String[] proxy : usProxies) {
             Map<String, Object> found = null;
             for (Map<String, Object> p : usList) {
-                if (proxy[0].equals(pickStr(p, "symbol", "code"))) { found = p; break; }
+                if (proxy[0].equals(pickStr(p, "symbol"))) { found = p; break; }
             }
-            if (found != null) {
-                items.add(indicator(proxy[0], proxy[1],
-                        pickNum(found, "close", "price", "currentPrice", "last", "tradePrice"),
-                        pickNum(found, "changeRate", "changePercent", "rate"),
-                        pickNum(found, "change", "changeValue", "changePrice"),
-                        "USD", null));
+            if (found == null) continue;
+            Double last = pickNum(found, "lastPrice", "close", "price");
+            Double changeRate = null, change = null;
+            List<Double> daily = closesOf(toss.get("/api/v1/candles?symbol=" + proxy[0] + "&interval=1d&count=2"));
+            if (last != null && daily != null && daily.size() >= 2) {
+                double prev = daily.get(daily.size() - 2);
+                if (prev != 0) { change = last - prev; changeRate = (last - prev) / prev * 100; }
             }
+            items.add(indicator(proxy[0], proxy[1], last, changeRate, change, "USD", null));
         }
 
-        // 환율 (토스)
-        Map<String, Object> fxRes = unwrap(toss.get("/api/v1/exchange-rate"));
+        // 환율: baseCurrency/quoteCurrency 필수 파라미터
+        Map<String, Object> fxRes = unwrap(toss.get("/api/v1/exchange-rate?baseCurrency=USD&quoteCurrency=KRW"));
         if (fxRes != null) {
-            Double rate = pickNum(fxRes, "rate", "exchangeRate", "baseRate", "krwPerUsd", "close", "price", "value");
-            if (rate == null) {
-                Map<String, Object> inner = pickMap(fxRes, "exchangeRate", "usd", "USD");
-                rate = pickNum(inner, "rate", "baseRate", "close", "price", "value");
-            }
-            items.add(indicator("USDKRW", "달러 환율", rate,
-                    pickNum(fxRes, "changeRate", "changePercent"), pickNum(fxRes, "change", "changeValue"), "KRW", null));
+            Double rate = pickNum(fxRes, "rate", "exchangeRate", "value", "price", "lastPrice");
+            if (rate != null) items.add(indicator("USDKRW", "달러 환율", rate, null, null, "KRW", null));
         }
 
-        // 비트코인 (업비트 공개 API — 키 불필요)
+        // 비트코인 (업비트 공개 API)
         try {
             String body = rest.getForObject("https://api.upbit.com/v1/ticker?markets=KRW-BTC", String.class);
             List<Map<String, Object>> arr = mapper.readValue(body, List.class);
             if (!arr.isEmpty()) {
                 Map<String, Object> btc = arr.get(0);
-                items.add(indicator("BTC", "비트코인",
-                        pickNum(btc, "trade_price"),
-                        pickNum(btc, "signed_change_rate") == null ? null : pickNum(btc, "signed_change_rate") * 100,
-                        pickNum(btc, "signed_change_price"), "KRW", sparkFromUpbit()));
+                Double scr = pickNum(btc, "signed_change_rate");
+                items.add(indicator("BTC", "비트코인", pickNum(btc, "trade_price"),
+                        scr == null ? null : scr * 100, pickNum(btc, "signed_change_price"), "KRW", sparkFromUpbit()));
             }
         } catch (Exception e) {
             log.warn("업비트 BTC 조회 실패: {}", e.getMessage());
@@ -184,19 +194,12 @@ public class StockDashboardService {
         return m;
     }
 
-    private List<Double> sparkFromTossIndicator(String symbol) {
-        if (symbol == null) return null;
-        Map<String, Object> res = unwrap(toss.get("/api/v1/market-indicators/" + symbol + "/candles?interval=1m&count=60"));
-        return closesOf(res);
-    }
-
-    private List<Double> closesOf(Map<String, Object> res) {
-        if (res == null) return null;
-        List<Map<String, Object>> candles = pickList(res, "candles", "items", "list");
+    private List<Double> closesOf(Map<String, Object> raw) {
+        List<Map<String, Object>> candles = listOf(raw, "candles", "items", "list");
         if (candles.isEmpty()) return null;
         List<Double> closes = new ArrayList<>();
         for (Map<String, Object> c : candles) {
-            Double close = pickNum(c, "close", "closePrice", "tradePrice", "price");
+            Double close = pickNum(c, "close", "closePrice", "tradePrice", "price", "lastPrice");
             if (close != null) closes.add(close);
         }
         Collections.reverse(closes); // 최신순 → 시간순
@@ -218,25 +221,25 @@ public class StockDashboardService {
         } catch (Exception e) { return null; }
     }
 
-    /* ===================== 장 운영 캘린더 (향후 7일) ===================== */
+    /* ===================== 장 운영 캘린더 ===================== */
 
     public Map<String, Object> getCalendar() {
         return cached("calendar", 6 * 3600_000, () -> {
             Map<String, Object> result = new HashMap<>();
-            result.put("kr", pickList(unwrap(toss.get("/api/v1/market-calendar/KR")), "days", "items", "calendar", "list"));
-            result.put("us", pickList(unwrap(toss.get("/api/v1/market-calendar/US")), "days", "items", "calendar", "list"));
+            result.put("kr", listOf(toss.get("/api/v1/market-calendar/KR"), "days", "items", "calendar", "list"));
+            result.put("us", listOf(toss.get("/api/v1/market-calendar/US"), "days", "items", "calendar", "list"));
             return result;
         });
     }
 
-    /* ===================== 수급 (투자자별 매매대금) ===================== */
+    /* ===================== 수급 ===================== */
 
     public Map<String, Object> getInvestorTrading() {
         return cached("investor", 10 * 60_000, () -> {
             Map<String, Object> result = new HashMap<>();
             for (String symbol : List.of("KOSPI", "KOSDAQ")) {
-                Map<String, Object> res = unwrap(toss.get("/api/v1/market-indicators/" + symbol + "/investor-trading?interval=1d&count=1"));
-                List<Map<String, Object>> records = pickList(res, "records", "items", "list");
+                Map<String, Object> raw = toss.get("/api/v1/market-indicators/" + symbol + "/investor-trading?interval=1d&count=1");
+                List<Map<String, Object>> records = listOf(raw, "records", "items", "list");
                 if (!records.isEmpty()) {
                     Map<String, Object> rec = records.get(0);
                     Map<String, Object> net = new HashMap<>();
@@ -254,48 +257,90 @@ public class StockDashboardService {
         });
     }
 
+    /* ===================== 종목 마스터 (이름·발행주식수) ===================== */
+
+    /** 종목명·발행주식수는 거의 안 바뀌므로 24시간 캐시. 랭킹에 종목명·시총을 붙이는 데 사용. */
+    @SuppressWarnings("unchecked")
+    private Map<String, Map<String, Object>> stockMaster(List<String> symbols) {
+        if (symbols.isEmpty()) return Map.of();
+        List<String> sorted = new ArrayList<>(new TreeSet<>(symbols));
+        String key = "stocks:" + String.join(",", sorted);
+        return cached(key, 24 * 3600_000, () -> {
+            Map<String, Map<String, Object>> master = new HashMap<>();
+            Map<String, Object> raw = toss.get("/api/v1/stocks?symbols=" + String.join(",", sorted));
+            for (Map<String, Object> s : listOf(raw, "stocks", "items", "list")) {
+                String sym = pickStr(s, "symbol");
+                if (sym == null) continue;
+                Map<String, Object> info = new HashMap<>();
+                info.put("name", pickStr(s, "name", "englishName"));
+                info.put("sharesOutstanding", pickNum(s, "sharesOutstanding"));
+                master.put(sym, info);
+            }
+            return master.isEmpty() ? null : master;
+        });
+    }
+
     /* ===================== 랭킹 ===================== */
 
-    /** tab: amount(거래대금) / gainers(급상승) / losers(급하락), country: KR / US */
     public Map<String, Object> getRankings(String country, String tab) {
         String c = "US".equalsIgnoreCase(country) ? "US" : "KR";
         String type, duration;
         switch (tab == null ? "amount" : tab) {
-            case "gainers" -> { type = "TOP_GAINERS"; duration = "1d"; }   // TOP_*는 realtime 미지원
+            case "gainers" -> { type = "TOP_GAINERS"; duration = "1d"; }
             case "losers" -> { type = "TOP_LOSERS"; duration = "1d"; }
             default -> { type = "MARKET_TRADING_AMOUNT"; duration = "realtime"; }
         }
         final String fc = c, ft = type, fd = duration;
         return cached("rank:" + fc + ":" + ft, 60_000, () -> {
-            Map<String, Object> res = unwrap(toss.get("/api/v1/rankings?type=" + ft + "&marketCountry=" + fc
-                    + "&duration=" + fd + "&count=30&excludeInvestmentCaution=false"));
-            List<Map<String, Object>> rankings = pickList(res, "rankings", "items", "list");
-            List<Map<String, Object>> normalized = new ArrayList<>();
-            int rank = 1;
+            Map<String, Object> raw = toss.get("/api/v1/rankings?type=" + ft + "&marketCountry=" + fc
+                    + "&duration=" + fd + "&count=30&excludeInvestmentCaution=false");
+            List<Map<String, Object>> rankings = listOf(raw, "rankings", "items", "list");
+
+            // 종목명·발행주식수 조인 (랭킹 응답엔 symbol만 있음)
+            List<String> symbols = new ArrayList<>();
             for (Map<String, Object> item : rankings) {
+                String s = pickStr(item, "symbol");
+                if (s != null) symbols.add(s);
+            }
+            Map<String, Map<String, Object>> master = stockMaster(symbols);
+            if (master == null) master = Map.of();
+
+            List<Map<String, Object>> normalized = new ArrayList<>();
+            int fallbackRank = 1;
+            for (Map<String, Object> item : rankings) {
+                String symbol = pickStr(item, "symbol");
                 Map<String, Object> price = pickMap(item, "price");
+                Double last = pickNum(price, "lastPrice");
+                Double rateRatio = pickNum(price, "changeRate"); // 소수비율 (0.0125 = 1.25%)
+                Map<String, Object> info = master.get(symbol);
+                Double shares = info == null ? null : pickNum(info, "sharesOutstanding");
+
                 Map<String, Object> n = new HashMap<>();
-                n.put("rank", pickNum(item, "rank") != null ? pickNum(item, "rank").intValue() : rank);
-                n.put("symbol", pickStr(item, "symbol", "code"));
-                n.put("name", pickStr(item, "name", "stockName", "koreanName"));
-                n.put("price", pickNum(price != null ? price : item, "close", "current", "currentPrice", "price", "last", "tradePrice"));
-                n.put("changeRate", pickNum(price != null ? price : item, "changeRate", "changePercent", "rate"));
-                n.put("tradingAmount", pickNum(item, "tradingAmount", "tradingValue", "amount"));
-                n.put("tradingVolume", pickNum(item, "tradingVolume", "volume"));
-                n.put("marketCap", pickNum(item, "marketCap", "marketCapitalization"));
-                n.put("currency", "US".equals(fc) ? "USD" : "KRW");
+                Double rank = pickNum(item, "rank");
+                n.put("rank", rank != null ? rank.intValue() : fallbackRank);
+                n.put("symbol", symbol);
+                n.put("name", info == null ? null : pickStr(info, "name"));
+                n.put("price", last);
+                n.put("changeRate", rateRatio == null ? null : rateRatio * 100);
+                n.put("tradingAmount", pickNum(item, "tradingAmount"));
+                n.put("tradingVolume", pickNum(item, "tradingVolume"));
+                n.put("marketCap", (shares != null && last != null) ? shares * last : null);
+                n.put("currency", pickStr(item, "currency") != null ? pickStr(item, "currency") : ("US".equals(fc) ? "USD" : "KRW"));
                 normalized.add(n);
-                rank++;
+                fallbackRank++;
             }
             Map<String, Object> result = new HashMap<>();
             result.put("rankings", normalized);
-            result.put("rankedAt", res == null ? null : res.get("rankedAt"));
             result.put("updatedAt", System.currentTimeMillis());
             return result;
         });
     }
 
     /* ===================== AI 시황 브리핑 (Gemini) ===================== */
+
+    private static final String[] GEMINI_MODELS = {
+            "gemini-flash-latest", "gemini-3-flash", "gemini-3-flash-preview", "gemini-2.0-flash", "gemini-2.5-flash"
+    };
 
     public Map<String, Object> getAiBriefing() {
         return cached("briefing", 30 * 60_000, this::loadAiBriefing);
@@ -313,32 +358,24 @@ public class StockDashboardService {
         }
         try {
             Map<String, Object> context = new HashMap<>();
-            context.put("indicators", getIndicators().get("items"));
+            Map<String, Object> ind = getIndicators();
+            context.put("indicators", ind == null ? null : ind.get("items"));
             context.put("investorTrading", getInvestorTrading());
-            context.put("krTopAmount", getRankings("KR", "amount").get("rankings"));
-            context.put("usTopAmount", getRankings("US", "amount").get("rankings"));
+            Map<String, Object> krRank = getRankings("KR", "amount");
+            Map<String, Object> usRank = getRankings("US", "amount");
+            context.put("krTopAmount", krRank == null ? null : krRank.get("rankings"));
+            context.put("usTopAmount", usRank == null ? null : usRank.get("rankings"));
             String contextJson = mapper.writeValueAsString(context);
             if (contextJson.length() > 14000) contextJson = contextJson.substring(0, 14000);
 
             String prompt = "당신은 증권사 리서치센터의 애널리스트입니다. 아래 실시간 시장 데이터(JSON)를 바탕으로 한국어로 시황을 요약하세요.\n"
                     + "반드시 순수 JSON만 출력하세요(마크다운 백틱 금지). 스키마:\n"
-                    + "{\"summary\": \"오늘 시황 요약 3~5문장 (지수 흐름, 수급 특징, 주도 섹터)\",\n"
-                    + " \"weekAhead\": [\"이번 주 주목할 일정이나 이벤트 3~5개 (일반적 경제 캘린더 지식 기반, 날짜 불확실하면 '이번 주' 수준으로)\"],\n"
-                    + " \"picks\": [{\"name\": \"종목명\", \"symbol\": \"심볼\", \"market\": \"KR또는US\", \"reason\": \"제공된 거래대금 상위 목록에서 고른 이유 1~2문장\"}] (3~5개, 반드시 제공된 목록 안에서만)}\n"
+                    + "{\"summary\": \"오늘 시황 요약 3~5문장\",\n"
+                    + " \"weekAhead\": [\"이번 주 주목할 일정 3~5개\"],\n"
+                    + " \"picks\": [{\"name\": \"종목명\", \"symbol\": \"심볼\", \"market\": \"KR또는US\", \"reason\": \"이유 1~2문장\"}] (3~5개, 반드시 제공된 거래대금 상위 목록 안에서만)}\n"
                     + "투자 권유가 아닌 데이터 기반 관찰만 서술하세요.\n\n데이터:\n" + contextJson;
 
-            Map<String, Object> reqBody = Map.of("contents", List.of(Map.of("parts", List.of(Map.of("text", prompt)))));
-            HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.APPLICATION_JSON);
-            String url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=" + geminiApiKey;
-            ResponseEntity<String> res = rest.postForEntity(url, new HttpEntity<>(mapper.writeValueAsString(reqBody), headers), String.class);
-            Map<String, Object> body = mapper.readValue(res.getBody(), Map.class);
-            List<Map<String, Object>> candidates = pickList(body, "candidates");
-            if (candidates.isEmpty()) return fallback;
-            Map<String, Object> content = pickMap(candidates.get(0), "content");
-            List<Map<String, Object>> parts = pickList(content, "parts");
-            if (parts.isEmpty()) return fallback;
-            String text = pickStr(parts.get(0), "text");
+            String text = callGemini(prompt);
             if (text == null) return fallback;
             String cleaned = text.replaceAll("```json|```", "").trim();
             Map<String, Object> parsed = mapper.readValue(cleaned, Map.class);
@@ -348,5 +385,39 @@ public class StockDashboardService {
             log.error("AI 브리핑 생성 실패: {}", e.getMessage());
             return fallback;
         }
+    }
+
+    /** 사용 가능한 모델을 찾을 때까지 후보를 순회(404면 다음 모델). 성공한 모델은 기억해 재사용. */
+    @SuppressWarnings("unchecked")
+    private String callGemini(String prompt) {
+        List<String> models = new ArrayList<>();
+        if (workingGeminiModel != null) models.add(workingGeminiModel);
+        for (String m : GEMINI_MODELS) if (!models.contains(m)) models.add(m);
+        for (String model : models) {
+            try {
+                Map<String, Object> reqBody = Map.of("contents", List.of(Map.of("parts", List.of(Map.of("text", prompt)))));
+                HttpHeaders headers = new HttpHeaders();
+                headers.setContentType(MediaType.APPLICATION_JSON);
+                String url = "https://generativelanguage.googleapis.com/v1beta/models/" + model + ":generateContent?key=" + geminiApiKey;
+                ResponseEntity<String> res = rest.postForEntity(url, new HttpEntity<>(mapper.writeValueAsString(reqBody), headers), String.class);
+                Map<String, Object> body = mapper.readValue(res.getBody(), Map.class);
+                List<Map<String, Object>> candidates = (List<Map<String, Object>>) (Object) listOf(body, "candidates");
+                if (candidates.isEmpty()) continue;
+                Map<String, Object> content = pickMap(candidates.get(0), "content");
+                List<Map<String, Object>> parts = content == null ? List.of() : (List<Map<String, Object>>) (Object) content.getOrDefault("parts", List.of());
+                if (parts.isEmpty()) continue;
+                String text = pickStr(parts.get(0), "text");
+                if (text != null) {
+                    workingGeminiModel = model;
+                    return text;
+                }
+            } catch (org.springframework.web.client.HttpClientErrorException.NotFound e) {
+                log.warn("Gemini 모델 {} 사용 불가(404) — 다음 후보 시도", model);
+            } catch (Exception e) {
+                log.warn("Gemini 호출 실패(모델 {}): {}", model, e.getMessage());
+                return null;
+            }
+        }
+        return null;
     }
 }

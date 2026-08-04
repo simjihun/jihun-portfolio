@@ -9,24 +9,30 @@ import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.Map;
 
 /**
  * 토스증권 Open API 클라이언트.
- * - OAuth2 Client Credentials 토큰을 발급받아 메모리에 캐싱(만료 60초 전 자동 재발급)한다.
- * - 시세·랭킹·환율 등 공개 데이터만 사용하므로 계좌 헤더는 필요 없다.
- * - 주의: 토스 WTS 설정의 '허용 IP'에 EC2 공인 IP가 등록되어 있어야 한다(미등록 시 403).
+ * - OAuth2 토큰 캐싱(만료 60초 전 재발급), 401 시 재발급 후 재시도.
+ * - 레이트리밋 보호장치: 모든 호출을 전역 스로틀(호출 간 최소 300ms)로 직렬화하고,
+ *   429 수신 시 Retry-After 헤더만큼(없으면 1.2초) 대기 후 1회 재시도한다.
+ *   (토스 문서 권장: MARKET_INFO 그룹은 초당 3회뿐이라 버스트 호출 시 쉽게 429가 난다)
+ * - 허용 IP에 EC2 공인 IP가 등록되어 있어야 한다(미등록 시 403).
  */
 @Component
 public class TossApiClient {
 
     private static final Logger log = LoggerFactory.getLogger(TossApiClient.class);
     private static final String BASE = "https://openapi.tossinvest.com";
+    private static final long MIN_CALL_INTERVAL_MS = 300;
 
     private final RestTemplate rest;
     private final ObjectMapper mapper = new ObjectMapper();
+    private final Object throttleLock = new Object();
+    private long lastCallAt = 0;
 
     @Value("${TOSS_CLIENT_ID:}")
     private String clientId;
@@ -34,7 +40,7 @@ public class TossApiClient {
     private String clientSecret;
 
     private volatile String accessToken;
-    private volatile long tokenExpiresAt; // epoch millis
+    private volatile long tokenExpiresAt;
 
     public TossApiClient() {
         SimpleClientHttpRequestFactory f = new SimpleClientHttpRequestFactory();
@@ -47,22 +53,44 @@ public class TossApiClient {
         return clientId != null && !clientId.isBlank() && clientSecret != null && !clientSecret.isBlank();
     }
 
-    /** 경로(+쿼리스트링)로 GET 호출 후 JSON을 Map으로 반환. 실패 시 null. 401이면 토큰 재발급 후 1회 재시도. */
+    /** 호출 간격을 강제해 초당 그룹 한도를 넘지 않도록 한다. */
+    private void throttle() {
+        synchronized (throttleLock) {
+            long wait = lastCallAt + MIN_CALL_INTERVAL_MS - System.currentTimeMillis();
+            if (wait > 0) {
+                try { Thread.sleep(wait); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
+            }
+            lastCallAt = System.currentTimeMillis();
+        }
+    }
+
+    /** GET 호출 후 JSON을 Map으로 반환. 실패 시 null. 401→토큰 재발급, 429→Retry-After 대기 후 재시도. */
     @SuppressWarnings("unchecked")
     public Map<String, Object> get(String pathAndQuery) {
         if (!isConfigured()) return null;
-        for (int attempt = 0; attempt < 2; attempt++) {
-            String token = currentToken(attempt > 0);
+        boolean forceRefresh = false;
+        for (int attempt = 0; attempt < 3; attempt++) {
+            String token = currentToken(forceRefresh);
             if (token == null) return null;
+            forceRefresh = false;
+            throttle();
             try {
                 HttpHeaders headers = new HttpHeaders();
                 headers.setBearerAuth(token);
                 ResponseEntity<String> res = rest.exchange(BASE + pathAndQuery, HttpMethod.GET, new HttpEntity<>(headers), String.class);
                 if (res.getBody() == null) return null;
                 return mapper.readValue(res.getBody(), Map.class);
-            } catch (org.springframework.web.client.HttpClientErrorException.Unauthorized e) {
+            } catch (HttpClientErrorException.Unauthorized e) {
                 log.warn("토스 API 401 — 토큰 재발급 후 재시도: {}", pathAndQuery);
-                // 다음 루프에서 forceRefresh
+                forceRefresh = true;
+            } catch (HttpClientErrorException.TooManyRequests e) {
+                long waitMs = 1200;
+                try {
+                    String ra = e.getResponseHeaders() != null ? e.getResponseHeaders().getFirst("Retry-After") : null;
+                    if (ra != null) waitMs = Math.min(5000, (long) (Double.parseDouble(ra) * 1000) + 200);
+                } catch (Exception ignored) {}
+                log.warn("토스 API 429 — {}ms 대기 후 재시도: {}", waitMs, pathAndQuery);
+                try { Thread.sleep(waitMs); } catch (InterruptedException ie) { Thread.currentThread().interrupt(); return null; }
             } catch (Exception e) {
                 log.warn("토스 API 호출 실패 {}: {}", pathAndQuery, e.getMessage());
                 return null;
