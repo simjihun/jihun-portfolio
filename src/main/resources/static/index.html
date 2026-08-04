@@ -8,75 +8,265 @@
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/css/base.css">
 <style>
-.hero{margin:8px 0 30px}
-.hero h1{font-size:32px;letter-spacing:-.8px;line-height:1.2}
+main{max-width:1080px}
+
+/* ===== 히어로 ===== */
+.hero{padding:64px 0 56px;border-bottom:1px solid var(--line)}
+.hero .eyebrow{font-family:var(--mono);font-size:12px;color:var(--amber);letter-spacing:.6px;margin-bottom:14px}
+.hero h1{font-size:44px;letter-spacing:-1.2px;line-height:1.18}
 .hero h1 .dot{color:var(--amber)}
-.hero p{margin-top:10px;color:var(--mut);font-size:14.5px;line-height:1.8;max-width:640px}
-.hero .stack{margin-top:16px;display:flex;flex-wrap:wrap;gap:8px;max-width:680px}
-.stack span{font-family:var(--mono);font-size:11px;color:var(--mut);border:1px solid var(--line);border-radius:999px;padding:3px 11px}
+.hero p{margin-top:16px;color:var(--mut);font-size:16px;line-height:1.9;max-width:600px}
+.hero .stack{margin-top:26px;display:flex;flex-wrap:wrap;gap:8px;max-width:700px}
+.stack span{font-family:var(--mono);font-size:11.5px;color:var(--mut);border:1px solid var(--line);border-radius:999px;padding:4px 12px}
+.hero .cta-row{margin-top:30px;display:flex;gap:10px;flex-wrap:wrap}
+.cta{padding:11px 22px;border-radius:9px;font-size:13.5px;font-weight:700;cursor:pointer}
+.cta.primary{background:var(--amber);color:#131A2A;border:0}
+.cta.primary:hover{filter:brightness(1.08)}
+.cta.ghost{background:transparent;border:1px solid var(--line);color:var(--ink)}
+.cta.ghost:hover{border-color:var(--mut)}
 
-.section-title{font-size:12px;color:var(--mut);font-weight:600;letter-spacing:.6px;text-transform:uppercase;margin:26px 0 14px}
+/* ===== 기능 섹션 (풀-와이드, 번갈아 배치) ===== */
+.feature{display:grid;grid-template-columns:1.05fr 0.95fr;gap:48px;align-items:center;padding:72px 0;border-bottom:1px solid var(--line)}
+.feature.rev{grid-template-columns:0.95fr 1.05fr}
+.feature.rev .feature-visual{order:2}
+.feature.rev .feature-text{order:1}
+.feature-text .tag{display:inline-flex;align-items:center;gap:6px;font-family:var(--mono);font-size:11px;color:var(--green);background:rgba(62,207,142,.1);border:1px solid rgba(62,207,142,.25);border-radius:999px;padding:4px 12px;margin-bottom:16px}
+.feature-text h2{font-size:28px;letter-spacing:-.6px;margin-bottom:14px}
+.feature-text p{color:var(--mut);font-size:14.5px;line-height:1.9;margin-bottom:18px}
+.feature-text ul{display:flex;flex-direction:column;gap:9px;margin-bottom:22px}
+.feature-text li{display:flex;align-items:baseline;gap:9px;font-size:13.5px;color:var(--ink)}
+.feature-text li::before{content:'→';color:var(--amber);font-family:var(--mono);flex:none}
+.feature-link{display:inline-flex;align-items:center;gap:6px;color:var(--amber);font-size:13.5px;font-weight:700}
+.feature-link:hover{text-decoration:underline}
 
-.chips{display:flex;flex-wrap:wrap;gap:8px;max-width:640px}
+/* 목업 비주얼 (스크린샷 없이 CSS만으로 구성) */
+.mockup{background:var(--panel);border:1px solid var(--line);border-radius:16px;overflow:hidden;box-shadow:0 20px 50px rgba(0,0,0,.35)}
+.mockup-bar{display:flex;align-items:center;gap:6px;padding:11px 14px;border-bottom:1px solid var(--line);background:var(--panel-2)}
+.mockup-bar span{width:9px;height:9px;border-radius:50%;background:var(--line)}
+.mockup-body{padding:22px}
+
+.mock-pipeline{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:16px}
+.mock-node{text-align:center}
+.mock-node .n{font-family:var(--mono);font-weight:700;font-size:22px}
+.mock-node .l{font-size:10px;color:var(--dim);margin-top:2px}
+.mock-arrow{color:var(--dim)}
+.mock-lane{display:flex;align-items:center;gap:8px;background:var(--panel-2);border:1px solid var(--line);border-radius:7px;padding:7px 10px;margin-bottom:6px;font-family:var(--mono);font-size:11px}
+.mock-dot{width:7px;height:7px;border-radius:50%;background:var(--amber);flex:none;animation:pulse 1.4s infinite}
+@keyframes pulse{50%{opacity:.25}}
+@media (prefers-reduced-motion:reduce){.mock-dot{animation:none}}
+
+.mock-tabs{display:flex;gap:6px;margin-bottom:14px}
+.mock-tabs span{font-size:10.5px;padding:4px 10px;border-radius:999px;border:1px solid var(--line);color:var(--dim)}
+.mock-tabs span.on{background:rgba(242,169,59,.12);border-color:var(--amber);color:var(--amber)}
+.mock-brief{background:var(--panel-2);border-left:2px solid var(--amber);border-radius:8px;padding:10px 12px;margin-bottom:10px}
+.mock-brief div{height:7px;background:var(--line);border-radius:3px;margin-bottom:6px;width:92%}
+.mock-brief div:last-child{width:64%;margin-bottom:0}
+.mock-headline{display:flex;justify-content:space-between;font-size:11px;color:var(--mut);padding:6px 0;border-bottom:1px solid var(--line)}
+.mock-headline:last-child{border-bottom:0}
+
+.mock-map{position:relative;height:150px;background:
+  linear-gradient(var(--line) 1px,transparent 1px) 0 0/20px 20px,
+  linear-gradient(90deg,var(--line) 1px,transparent 1px) 0 0/20px 20px,
+  var(--panel-2);border-radius:8px;overflow:hidden}
+.mock-pin{position:absolute;width:22px;height:22px;border-radius:50% 50% 50% 0;background:var(--amber);transform:rotate(-45deg);box-shadow:0 3px 8px rgba(0,0,0,.4)}
+.mock-search{display:flex;gap:8px;margin-top:12px}
+.mock-search div{flex:1;height:30px;background:var(--panel-2);border:1px solid var(--line);border-radius:7px}
+.mock-search span{width:56px;height:30px;background:var(--amber);border-radius:7px;flex:none}
+
+.mock-board{display:grid;grid-template-columns:repeat(9,1fr);gap:2px;background:#C99B5F;border:1px solid #8a6a3f;border-radius:8px;padding:8px}
+.mock-board div{aspect-ratio:1;position:relative}
+.mock-board .st{position:absolute;inset:14%;border-radius:50%}
+.mock-board .st.b{background:#111}
+.mock-board .st.w{background:#eee}
+
+/* ===== Backlog / footer ===== */
+.tail{padding:56px 0 64px}
+.tail h2{font-size:20px;margin-bottom:10px}
+.tail p{color:var(--mut);font-size:13.5px;line-height:1.8;margin-bottom:18px;max-width:560px}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
 .chips span{font-size:12.5px;color:var(--mut);background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:6px 14px}
 
-.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px}
-.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px;display:flex;flex-direction:column;gap:10px;transition:border-color .15s, transform .15s}
-a.card:hover{border-color:var(--amber);transform:translateY(-2px)}
-.card-top{display:flex;align-items:center;justify-content:space-between}
-.card-icon{width:38px;height:38px;border-radius:9px;display:grid;place-items:center;font-size:18px;background:var(--panel-2);border:1px solid var(--line)}
-.card b{font-size:15.5px}
-.card p{color:var(--mut);font-size:13px;line-height:1.7;flex:1}
-.card .meta{font-family:var(--mono);font-size:11px;color:var(--dim)}
-.pill{font-size:10.5px;font-weight:700;padding:2px 9px;border-radius:999px}
-.pill.live{background:rgba(62,207,142,.14);color:var(--green)}
+@media (max-width:800px){
+  .hero{padding:44px 0 40px}
+  .hero h1{font-size:32px}
+  .feature,.feature.rev{grid-template-columns:1fr;gap:26px;padding:44px 0}
+  .feature.rev .feature-visual,.feature.rev .feature-text{order:initial}
+}
 </style>
 </head>
 <body>
 <div id="site-nav"></div>
 
 <main>
-  <div class="hero">
-    <h1>hunit portfolio<span class="dot">.</span></h1>
-    <p>JAVA 개발자 2016/08 ~<br>
-    기능들을 개발하며 쌓아가는 공간입니다.</p>
+  <!-- ===== 히어로 ===== -->
+  <section class="hero">
+    <div class="eyebrow">JAVA 개발자 · 2016.08 ~</div>
+    <h1>기능을 만들고,<br>직접 배포하고,<br>계속 쌓아가는 공간<span class="dot">.</span></h1>
+    <p>Java를 중심으로 장르를 가리지 않고 만듭니다. 아이디어가 생기면 이 서버(AWS EC2) 위에
+    실제로 동작하는 기능으로 하나씩 추가합니다 — 전부 제가 직접 설계하고 배포까지 운영하는 것들입니다.</p>
     <div class="stack">
       <span>Java</span><span>Spring Framework</span><span>Spring Data JPA</span><span>Netty</span>
       <span>TCP/IP 소켓통신</span><span>REST API</span><span>MySQL</span><span>MariaDB</span>
       <span>Oracle</span><span>Vue.js</span><span>Linux</span><span>Git</span>
     </div>
-  </div>
+    <div class="cta-row">
+      <a class="cta primary" href="https://github.com/simjihun" target="_blank" rel="noopener">GitHub 보기</a>
+      <a class="cta ghost" href="#projects">기능 둘러보기 ↓</a>
+    </div>
+  </section>
 
-  <div class="section-title">Projects</div>
-  <div class="cards">
-    <a class="card" href="/mms">
-      <div class="card-top"><div class="card-icon">✉</div><span class="pill live">LIVE</span></div>
-      <b>MMS</b>
-      <p>멀티쓰레드 워커가 큐에서 메시지를 꺼내 비동기 발송하고, 실패 시 자동 재시도합니다. 실시간 관제 대시보드 포함.</p>
-      <div class="meta">BlockingQueue · 멀티쓰레드 데몬 · 자동 재시도</div>
-    </a>
-    <a class="card" href="/news">
-      <div class="card-top"><div class="card-icon">📈</div><span class="pill live">LIVE</span></div>
-      <b>AI 뉴스</b>
-      <p>RSS로 카테고리별 뉴스를 자동 수집하고 Gemini로 매일 3줄 브리핑을 생성합니다. 기사 미리보기 포함.</p>
-      <div class="meta">Scheduler · Gemini API · OpenGraph</div>
-    </a>
-    <a class="card" href="/map/food">
-      <div class="card-top"><div class="card-icon">🍽</div><span class="pill live">LIVE</span></div>
-      <b>맛집 지도</b>
-      <p>키워드로 주변 맛집·카페를 검색하고 네이버 지도에 마커로 표시합니다.</p>
-      <div class="meta">카카오 Local API · 네이버 Maps</div>
-    </a>
-  </div>
+  <div id="projects"></div>
 
-  <div class="section-title">Backlog</div>
-  <div class="chips">
-    <span>🏠 부동산 시세 지도</span>
-    <span>🎮 웹 게임</span>
-    <span>💡 + 계속 추가 예정</span>
-  </div>
+  <!-- ===== MMS ===== -->
+  <section class="feature">
+    <div class="feature-text">
+      <span class="tag">● LIVE</span>
+      <h2>MMS — 메시징 발송 시스템</h2>
+      <p>이동통신 메시징 시스템의 축소판입니다. API는 발송을 직접 처리하지 않고 큐에 적재만 한 뒤 즉시 응답하며,
+      백그라운드의 멀티쓰레드 워커들이 실제 발송을 처리합니다.</p>
+      <ul>
+        <li>워커 5개가 큐를 공유하며 병렬로 발송 처리</li>
+        <li>발송 실패 시 최대 2회 자동 재시도, 이후 수동 재발송 가능</li>
+        <li>실시간 파이프라인 관제 + 분당 처리량 차트</li>
+        <li>매일 자정 발송 이력 자동 초기화</li>
+      </ul>
+      <a class="feature-link" href="/mms">MMS 콘솔 열기 →</a>
+    </div>
+    <div class="feature-visual">
+      <div class="mockup">
+        <div class="mockup-bar"><span></span><span></span><span></span></div>
+        <div class="mockup-body">
+          <div class="mock-pipeline">
+            <div class="mock-node"><div class="n" style="color:var(--amber)">12</div><div class="l">대기</div></div>
+            <div class="mock-arrow">→</div>
+            <div class="mock-node"><div class="n" style="color:var(--blue)">5</div><div class="l">처리중</div></div>
+            <div class="mock-arrow">→</div>
+            <div class="mock-node"><div class="n" style="color:var(--green)">843</div><div class="l">성공</div></div>
+          </div>
+          <div class="mock-lane"><span class="mock-dot"></span> worker-1 ▶ #482 발송중</div>
+          <div class="mock-lane"><span class="mock-dot" style="animation-delay:.3s"></span> worker-2 ▶ #483 발송중</div>
+          <div class="mock-lane" style="opacity:.5"><span class="mock-dot" style="animation:none;background:var(--dim)"></span> worker-3 대기 중</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== AI 뉴스 ===== -->
+  <section class="feature rev">
+    <div class="feature-text">
+      <span class="tag">● LIVE</span>
+      <h2>AI 뉴스 — RSS 수집 + Gemini 브리핑</h2>
+      <p>매일경제·한국경제·SBS·동아일보의 RSS를 30분마다 자동 수집합니다. 카테고리별로 최근 헤드라인을
+      Gemini에 전달해 매일 아침 3줄 브리핑을 생성하고, 기사는 본문을 긁지 않고 OpenGraph 미리보기로 보여줍니다.</p>
+      <ul>
+        <li>정치·경제·사회·생활문화·세계·연예·주식 7개 카테고리</li>
+        <li>[속보]/[단독] 자동 감지 + 상단 하이라이트</li>
+        <li>Gemini 무료 한도 안에서 매일 07시 1회 브리핑 생성</li>
+        <li>저작권 안전: 제목·이미지·요약만 표시, 원문은 언론사로 연결</li>
+      </ul>
+      <a class="feature-link" href="/news">AI 뉴스 보러가기 →</a>
+    </div>
+    <div class="feature-visual">
+      <div class="mockup">
+        <div class="mockup-bar"><span></span><span></span><span></span></div>
+        <div class="mockup-body">
+          <div class="mock-tabs"><span class="on">정치</span><span>경제</span><span>사회</span><span>세계</span></div>
+          <div class="mock-brief"><div></div><div></div><div></div></div>
+          <div class="mock-headline"><span>정부, 내년 예산안 발표</span><span>09:41</span></div>
+          <div class="mock-headline"><span>국회 본회의 통과 소식</span><span>09:12</span></div>
+          <div class="mock-headline"><span>여야 합의안 도출</span><span>08:55</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== 지도 API ===== -->
+  <section class="feature">
+    <div class="feature-text">
+      <span class="tag">● LIVE</span>
+      <h2>지도 API — 맛집 지도 · 부동산 시세</h2>
+      <p>카카오 Local API와 네이버 지도, 국토교통부 실거래가 공공 API를 엮은 위치 기반 서비스입니다.
+      맛집 지도와 부동산 시세는 완전히 독립된 지도로 동작하며, 마지막으로 보던 화면을 브라우저에 기억합니다.</p>
+      <ul>
+        <li>현위치 검색 + 지도를 옮긴 뒤 "이 지역에서 재검색"</li>
+        <li>아파트 실거래가를 단지별 좌표·가격으로 지도에 표시</li>
+        <li>키워드 기반 지오코딩으로 건물명 인식률 개선</li>
+        <li>localStorage로 검색 결과·지도 위치를 세션 간 유지</li>
+      </ul>
+      <a class="feature-link" href="/map">지도 API 열어보기 →</a>
+    </div>
+    <div class="feature-visual">
+      <div class="mockup">
+        <div class="mockup-bar"><span></span><span></span><span></span></div>
+        <div class="mockup-body">
+          <div class="mock-map">
+            <div class="mock-pin" style="top:38%;left:30%"></div>
+            <div class="mock-pin" style="top:56%;left:52%;background:var(--blue)"></div>
+            <div class="mock-pin" style="top:24%;left:66%"></div>
+          </div>
+          <div class="mock-search"><div></div><span></span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== 웹 게임 ===== -->
+  <section class="feature rev">
+    <div class="feature-text">
+      <span class="tag">● LIVE</span>
+      <h2>웹 게임 — 오목 AI · 숫자야구</h2>
+      <p>브라우저에서 바로 즐기는 미니 게임입니다. 오목은 외부 AI API 없이 서버가 직접 계산하는
+      패턴 평가 + 미니맥스 알고리즘으로 상대해주며, 난이도와 제한시간을 고를 수 있습니다.</p>
+      <ul>
+        <li>오목: 초급·중급·고급 난이도, 흑/백 선택, 턴 제한시간</li>
+        <li>숫자야구: 스트라이크/볼 추리 + 최소 시도 랭킹</li>
+        <li>모든 게임 AI는 순수 알고리즘 — 외부 API 비용 없음</li>
+        <li>장기·체스는 규칙 엔진을 준비 중</li>
+      </ul>
+      <a class="feature-link" href="/game">웹 게임 하러가기 →</a>
+    </div>
+    <div class="feature-visual">
+      <div class="mockup">
+        <div class="mockup-bar"><span></span><span></span><span></span></div>
+        <div class="mockup-body">
+          <div class="mock-board" id="mockBoard"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== Backlog ===== -->
+  <section class="tail">
+    <h2>다음으로 만들 것들</h2>
+    <p>생각날 때마다 여기에 하나씩 추가합니다. 완성되면 위 목록에 새 섹션으로 올라갑니다.</p>
+    <div class="chips">
+      <span>🏠 부동산 시세 지도 고도화</span>
+      <span>♟️ 장기 AI 대국</span>
+      <span>♞ 체스 AI 대국</span>
+      <span>🛒 가격 비교</span>
+      <span>📊 주식 AI 분석</span>
+      <span>💡 + 계속 추가 예정</span>
+    </div>
+  </section>
 </main>
 
 <script src="/js/nav.js"></script>
+<script>
+// \uc624\ubaa9 \ubbf8\ub2c8 \ubcf4\ub4dc \uc7a5\uc2dd\uc6a9 \ub3cc 9\ubc30\uce58 (\ub79c\ub529\ud398\uc774\uc9c0 \uc7a5\uc2dd\uc774\ub77c \uc2e4\uc81c \uac8c\uc784\uacfc \uc5f0\ub3d9\ub418\uc9c0 \uc54a\uc74c)
+(function(){
+  const board = document.getElementById('mockBoard');
+  if (!board) return;
+  const stones = { 10:'b', 12:'w', 19:'b', 20:'w', 21:'b', 28:'w', 30:'b' };
+  for (let i = 0; i < 81; i++) {
+    const cell = document.createElement('div');
+    if (stones[i]) {
+      const st = document.createElement('div');
+      st.className = 'st ' + stones[i];
+      cell.appendChild(st);
+    }
+    board.appendChild(cell);
+  }
+})();
+</script>
 </body>
 </html>
