@@ -42,6 +42,7 @@ public class JanggiController {
         return Map.of("destinations", dest);
     }
 
+    /** 사람의 수만 적용한다. AI 응수는 별도로 /ai-move를 호출해야 한다(장군 상태를 화면에 보여줄 틈을 주기 위함). */
     @PostMapping("/{id}/move")
     public Map<String, Object> move(@PathVariable String id, @RequestBody MoveRequest req) {
         try {
@@ -51,7 +52,17 @@ public class JanggiController {
         }
     }
 
-    /** 프론트엔드 타이머가 만료되었을 때 호출 — 서버가 실제 경과시간을 다시 확인해 처리한다. */
+    /** AI 차례일 때 AI의 수를 진행시킨다. 프론트가 사람 수 응답을 렌더링한 뒤 잠깐 텀을 두고 호출한다. */
+    @PostMapping("/{id}/ai-move")
+    public Map<String, Object> aiMove(@PathVariable String id) {
+        try {
+            return toResponse(service.aiMove(id));
+        } catch (IllegalArgumentException e) {
+            return Map.of("error", e.getMessage());
+        }
+    }
+
+    /** 프론트엔드 타이머가 만료되었을 때 호출 — 서버가 실제 경과시간을 다시 확인해 사람 차례만 강제 진행한다. */
     @PostMapping("/{id}/timeout")
     public Map<String, Object> timeout(@PathVariable String id) {
         return toResponse(service.timeout(id));
