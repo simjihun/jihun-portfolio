@@ -7,6 +7,7 @@ import org.jsoup.parser.Parser;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -25,8 +26,8 @@ import java.util.Map;
  * - 응답이 XML이라 jsoup의 XML 파서로 파싱한다.
  * - 서비스키는 이미 인코딩된(Encoding) 키를 그대로 쓰므로 URI.create()로 직접 구성해
  *   Spring이 이중으로 인코딩하지 않도록 한다.
- * - 엔드포인트는 공공데이터포털이 apis.data.go.kr로 통합 이전한 신규 주소를 사용한다.
- *   (구 주소 openapi.molit.go.kr는 더 이상 서비스되지 않아 404가 발생함)
+ * - 엔드포인트는 공공데이터포털 신규 통합 도메인(apis.data.go.kr, HTTPS)을 사용한다.
+ * - 연결/응답 타임아웃을 명시해, 외부 API가 응답 없이 멈춰도 화면이 무한 대기하지 않게 한다.
  */
 @RestController
 @RequestMapping("/api/map")
@@ -34,12 +35,19 @@ public class RealEstateController {
 
     private static final Logger log = LoggerFactory.getLogger(RealEstateController.class);
     private static final String ENDPOINT =
-            "http://apis.data.go.kr/1613000/RTMSDataSvcAptTradeDev/getRTMSDataSvcAptTradeDev";
+            "https://apis.data.go.kr/1613000/RTMSDataSvcAptTradeDev/getRTMSDataSvcAptTradeDev";
 
     @Value("${REALESTATE_API_KEY:}")
     private String serviceKey;
 
-    private final RestClient http = RestClient.create();
+    private final RestClient http = buildHttpClient();
+
+    private static RestClient buildHttpClient() {
+        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout(5_000);
+        factory.setReadTimeout(10_000);
+        return RestClient.builder().requestFactory(factory).build();
+    }
 
     /** 조회 가능한 지역 목록 (드롭다운 구성용) */
     @GetMapping("/estate/regions")
@@ -65,6 +73,7 @@ public class RealEstateController {
                     + "&LAWD_CD=" + lawdCd + "&DEAL_YMD=" + dealYmd
                     + "&numOfRows=300&pageNo=1";
 
+            log.info("[estate] 조회 요청 lawdCd={} dealYmd={}", lawdCd, dealYmd);
             String xml = http.get().uri(URI.create(url)).retrieve().body(String.class);
             Document doc = Jsoup.parse(xml, "", Parser.xmlParser());
 
@@ -106,13 +115,14 @@ public class RealEstateController {
             items.sort(Comparator.comparing(m -> (String) m.get("dealDate"), Comparator.reverseOrder()));
 
             long avg = items.isEmpty() ? 0 : sum / items.size();
+            log.info("[estate] 조회 완료 건수={}", items.size());
             return Map.of(
                     "items", items,
                     "count", items.size(),
                     "avgAmount", formatAmount(avg)
             );
         } catch (Exception e) {
-            log.warn("[estate] 조회 실패: {}", e.getMessage());
+            log.warn("[estate] 조회 실패: {}", e.toString());
             return Map.of("items", List.of(), "count", 0, "error", "조회 중 오류가 발생했습니다");
         }
     }
