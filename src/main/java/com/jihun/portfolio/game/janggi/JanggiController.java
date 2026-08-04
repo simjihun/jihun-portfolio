@@ -70,6 +70,15 @@ public class JanggiController {
         res.put("difficulty", g.getDifficulty());
         res.put("timeLimitSeconds", g.getTimeLimitSeconds());
         res.put("turnStartedAt", g.getTurnStartedAt());
+        Map<String, Object> lastMove = null;
+        if (g.getLastFromX() != null) {
+            lastMove = new HashMap<>();
+            lastMove.put("fromX", g.getLastFromX());
+            lastMove.put("fromY", g.getLastFromY());
+            lastMove.put("toX", g.getLastToX());
+            lastMove.put("toY", g.getLastToY());
+        }
+        res.put("lastMove", lastMove);
         return res;
     }
 }

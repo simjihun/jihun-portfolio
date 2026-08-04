@@ -112,6 +112,7 @@ public class JanggiService {
         board[toY][toX] = board[fromY][fromX];
         board[fromY][fromX] = null;
         g.setMoveCount(g.getMoveCount() + 1);
+        g.setLastMove(fromX, fromY, toX, toY);
 
         String next = "H".equals(player) ? "O" : "H";
         List<JanggiRules.Move> nextMoves = JanggiRules.legalMoves(board, next);

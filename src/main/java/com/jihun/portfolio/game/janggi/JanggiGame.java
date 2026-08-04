@@ -24,6 +24,12 @@ public class JanggiGame {
     private final Integer timeLimitSeconds;
     private long turnStartedAt = System.currentTimeMillis();
 
+    // 마지막 수 (프론트 하이라이트용)
+    private Integer lastFromX;
+    private Integer lastFromY;
+    private Integer lastToX;
+    private Integer lastToY;
+
     public JanggiGame(String id, String humanColor, String aiColor, String difficulty, Integer timeLimitSeconds) {
         this.id = id;
         this.humanColor = humanColor;
@@ -49,6 +55,10 @@ public class JanggiGame {
 
     public void touchTurn() { this.turnStartedAt = System.currentTimeMillis(); }
 
+    public void setLastMove(int fromX, int fromY, int toX, int toY) {
+        this.lastFromX = fromX; this.lastFromY = fromY; this.lastToX = toX; this.lastToY = toY;
+    }
+
     public String getId() { return id; }
     public String[][] getBoard() { return board; }
     public String getCurrentPlayer() { return currentPlayer; }
@@ -62,4 +72,8 @@ public class JanggiGame {
     public String getDifficulty() { return difficulty; }
     public Integer getTimeLimitSeconds() { return timeLimitSeconds; }
     public long getTurnStartedAt() { return turnStartedAt; }
+    public Integer getLastFromX() { return lastFromX; }
+    public Integer getLastFromY() { return lastFromY; }
+    public Integer getLastToX() { return lastToX; }
+    public Integer getLastToY() { return lastToY; }
 }
