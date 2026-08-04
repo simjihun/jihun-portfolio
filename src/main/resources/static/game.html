@@ -41,19 +41,27 @@
 .result-banner.show{display:block}
 @media (max-width:600px){ .board{grid-template-columns:repeat(15,minmax(16px,22px));grid-template-rows:repeat(15,minmax(16px,22px))} }
 
-.jboard{position:relative;display:grid;grid-template-columns:repeat(9,minmax(28px,40px));grid-template-rows:repeat(10,minmax(28px,40px));background:#D9C08A;border:2px solid #8a6a3f;border-radius:6px;padding:8px}
+.jboard{position:relative;display:grid;grid-template-columns:repeat(9,minmax(28px,40px));grid-template-rows:repeat(10,minmax(28px,40px));background:#D9C08A;border:2px solid #8a6a3f;border-radius:6px;padding:8px;transition:box-shadow .15s}
+.jboard.check-H{animation:jboardGlowH 1s ease-in-out infinite}
+.jboard.check-O{animation:jboardGlowO 1s ease-in-out infinite}
+@keyframes jboardGlowH{0%,100%{box-shadow:0 0 0 3px rgba(192,57,43,.55),0 0 18px 4px rgba(192,57,43,.35)}50%{box-shadow:0 0 0 5px rgba(192,57,43,.95),0 0 26px 8px rgba(192,57,43,.65)}}
+@keyframes jboardGlowO{0%,100%{box-shadow:0 0 0 3px rgba(40,116,166,.55),0 0 18px 4px rgba(40,116,166,.35)}50%{box-shadow:0 0 0 5px rgba(40,116,166,.95),0 0 26px 8px rgba(40,116,166,.65)}}
 .jcell{position:relative;z-index:1;display:flex;align-items:center;justify-content:center;cursor:pointer}
 .jcell.selected{background:rgba(242,169,59,.4)}
 .jcell.dest{background:rgba(62,207,142,.3)}
 .jcell.last-move{box-shadow:inset 0 0 0 3px rgba(242,169,59,.8)}
+.jcell.in-check-H{animation:jkingRingH 1s ease-in-out infinite}
+.jcell.in-check-O{animation:jkingRingO 1s ease-in-out infinite}
+@keyframes jkingRingH{0%,100%{box-shadow:inset 0 0 0 3px rgba(192,57,43,.6)}50%{box-shadow:inset 0 0 0 3px rgba(192,57,43,1)}}
+@keyframes jkingRingO{0%,100%{box-shadow:inset 0 0 0 3px rgba(40,116,166,.6)}50%{box-shadow:inset 0 0 0 3px rgba(40,116,166,1)}}
 .jboard-lines{position:absolute;top:8px;left:8px;right:8px;bottom:8px;pointer-events:none;z-index:0}
 .jpiece{width:82%;height:82%;object-fit:contain;z-index:2;filter:drop-shadow(0 2px 2px rgba(0,0,0,.35))}
 @media (max-width:600px){ .jboard{grid-template-columns:repeat(9,minmax(24px,30px));grid-template-rows:repeat(10,minmax(24px,30px))} }
 .jcheck-banner{display:none;font-weight:800;font-size:14px;padding:5px 14px;border-radius:20px;letter-spacing:.5px}
-.jcheck-banner.show{display:inline-block;animation:jcheckPulse .45s ease 2}
-.jcheck-banner.H{background:rgba(192,57,43,.14);color:#c0392b;border:1px solid #c0392b}
-.jcheck-banner.O{background:rgba(40,116,166,.14);color:#2874a6;border:1px solid #2874a6}
-@keyframes jcheckPulse{0%{transform:scale(1)}50%{transform:scale(1.18)}100%{transform:scale(1)}}
+.jcheck-banner.show{display:inline-block;animation:jcheckPulse .9s ease-in-out infinite}
+.jcheck-banner.H{background:rgba(192,57,43,.16);color:#c0392b;border:1px solid #c0392b}
+.jcheck-banner.O{background:rgba(40,116,166,.16);color:#2874a6;border:1px solid #2874a6}
+@keyframes jcheckPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.12)}}
 
 .two-col{display:grid;grid-template-columns:1fr 320px;gap:16px;align-items:start}
 .guess-input{display:flex;gap:8px}
@@ -167,7 +175,7 @@
     <p class="game-desc">
       9×10 궁성이 있는 전통 장기판에서 <b>AI와 1:1 대국</b>합니다. 진영과 포진을 고르고 시작한 뒤,
       기물을 클릭하면 이동 가능한 칸이 초록색으로 표시됩니다 — 그 칸을 다시 클릭하면 이동합니다.
-      직전 수(내 수·AI 수 모두)는 주황색 테두리로, 장군 상태는 장군을 부른 쪽의 색(한=빨강/초=파랑)으로 표시됩니다.
+      직전 수(내 수·AI 수 모두)는 주황색 테두리로, 장군 상태는 장군을 부른 쪽의 색(한=빨강/초=파랑)으로 보드 테두리와 궁 칸이 함께 깜빡이며 표시됩니다.
       AI는 외부 API 없이 <b>서버에서 직접 계산하는 알고리즘</b>(기물 가치 평가 + 알파베타 완전탐색)으로 동작합니다.
       병(졸)의 궁성 대각선 이동만 간소화를 위해 생략했습니다.
     </p>
@@ -430,7 +438,6 @@ let jHumanColorGlobal = 'H', jTimeLimitGlobal = null, jTurnStartedGlobal = 0;
 let jSelected = null;      // { x, y } 논리 좌표
 let jDestinations = [];    // [[x,y], ...] 논리 좌표
 let jLastData = null, jLastBoard = null;
-let jLastCheckColor = null;
 
 function jPick(rowId, key, value){
   document.querySelectorAll('#' + rowId + ' .choice').forEach(b => b.classList.toggle('on', b.dataset.v === value));
@@ -441,6 +448,7 @@ function jPick(rowId, key, value){
 function buildJanggiBoard(flip){
   const board = $('jBoard');
   board.innerHTML = '';
+  board.classList.remove('check-H', 'check-O');
   for (let row = 0; row < JROWS; row++) {
     for (let col = 0; col < JCOLS; col++) {
       const x = flip ? JCOLS - 1 - col : col;
@@ -459,7 +467,9 @@ function buildJanggiBoard(flip){
  * 격자선 전체(가로10줄+세로9줄)와 궁성 굵은 테두리+대각선을 교차점 좌표(0.5 단위 오프셋)로
  * 정확히 이어서 그린다. 셀 단위(::before/::after)로 그리던 예전 방식은 가장자리·궁성 경계에서
  * 반 칸씩 삐져나오는 문제가 있었는데, 이 방식은 시작/끝점이 명확해 전혀 삐져나오지 않는다.
- * 선 색은 진한 배경(#D9C08A) 대비 확실히 보이도록 검정 계열로 통일했다.
+ * (주의) vector-effect="non-scaling-stroke"를 쓰면 stroke-width가 뷰박스 배율과 무관하게
+ * 화면 픽셀 단위로 강제되어 선이 0.03px 수준으로 거의 안 보이게 된다 — 그래서 빼고 뷰박스 단위
+ * 그대로 스케일되도록 해서 선이 확실히 보이게 했다.
  */
 function appendBoardLines(board){
   const svgNS = 'http://www.w3.org/2000/svg';
@@ -474,22 +484,21 @@ function appendBoardLines(board){
     l.setAttribute('stroke', color);
     l.setAttribute('stroke-width', width);
     l.setAttribute('stroke-linecap', 'round');
-    l.setAttribute('vector-effect', 'non-scaling-stroke');
     svg.appendChild(l);
   };
   // 기본 격자선: 점(교차점) 중심끼리만 정확히 연결
-  for (let row = 0; row < JROWS; row++) line(0.5, row + 0.5, 8.5, row + 0.5, '#000000', 0.035);
-  for (let col = 0; col < JCOLS; col++) line(col + 0.5, 0.5, col + 0.5, 9.5, '#000000', 0.035);
+  for (let row = 0; row < JROWS; row++) line(0.5, row + 0.5, 8.5, row + 0.5, '#000000', 0.05);
+  for (let col = 0; col < JCOLS; col++) line(col + 0.5, 0.5, col + 0.5, 9.5, '#000000', 0.05);
   // 궁성 굵은 테두리 + 대각선 (상단/하단)
   const palace = (topRow) => {
     const bottomRow = topRow + 2;
     const l = 3.5, r = 5.5, t = topRow + 0.5, b = bottomRow + 0.5;
-    line(l, t, r, t, '#000000', 0.06);
-    line(l, b, r, b, '#000000', 0.06);
-    line(l, t, l, b, '#000000', 0.06);
-    line(r, t, r, b, '#000000', 0.06);
-    line(l, t, r, b, '#000000', 0.06);
-    line(r, t, l, b, '#000000', 0.06);
+    line(l, t, r, t, '#000000', 0.09);
+    line(l, b, r, b, '#000000', 0.09);
+    line(l, t, l, b, '#000000', 0.09);
+    line(r, t, r, b, '#000000', 0.09);
+    line(l, t, r, b, '#000000', 0.09);
+    line(r, t, l, b, '#000000', 0.09);
   };
   palace(0); palace(7);
   board.appendChild(svg);
@@ -512,7 +521,6 @@ async function startJanggi(){
     humanFormation: jSetup.myFormation,
     aiFormation: jSetup.aiFormation
   };
-  jLastCheckColor = null;
   const data = await fetch(JANGGI_API + '/new', {
     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
   }).then(r => r.json());
@@ -569,7 +577,7 @@ function renderJanggi(data){
   jTurnStartedGlobal = data.turnStartedAt;
 
   renderJanggiBoardOnly();
-  renderCheckBanner(data.checkColor);
+  renderCheckEffects(data.checkColor);
 
   clearInterval(jTimerHandle);
   if (data.status === 'PLAYING') {
@@ -598,25 +606,39 @@ function renderJanggi(data){
   }
 }
 
-/** checkColor: 장군에 걸린 쪽 색. 장군을 "부른" 공격 측 색(초=파랑/한=빨강)으로 배너를 표시하고,
- *  새로 걸렸을 때만 펄스 애니메이션을 재생한다. */
-function renderCheckBanner(checkColor){
-  const banner = $('jCheckBanner');
+/**
+ * checkColor: 장군에 걸린 쪽 색("H"/"O"/null). 장군을 "부른" 공격 측 색으로
+ * (1) 턴 배너 옆 배지, (2) 보드 테두리 발광, (3) 장군 걸린 궁 칸 테두리 — 세 군데를 동시에
+ * 계속 깜빡이게 해서 절대 놓칠 수 없게 표시한다. 장군이 풀리면 즉시 전부 사라진다.
+ */
+function renderCheckEffects(checkColor){
   const attacker = checkColor === 'H' ? 'O' : (checkColor === 'O' ? 'H' : null);
-  if (attacker) {
-    banner.textContent = (attacker === 'H' ? '🔴' : '🔵') + ' 장군!';
-    const isNew = jLastCheckColor !== checkColor;
-    banner.className = 'jcheck-banner show ' + attacker;
-    if (isNew) {
-      banner.style.animation = 'none';
-      void banner.offsetWidth;
-      banner.style.animation = '';
-    }
-  } else {
+  const banner = $('jCheckBanner');
+  const boardEl = $('jBoard');
+
+  boardEl.classList.remove('check-H', 'check-O');
+  document.querySelectorAll('.jcell').forEach(c => c.classList.remove('in-check-H', 'in-check-O'));
+
+  if (!attacker) {
     banner.className = 'jcheck-banner';
     banner.textContent = '';
+    return;
   }
-  jLastCheckColor = checkColor;
+
+  banner.textContent = (attacker === 'H' ? '🔴' : '🔵') + ' 장군!';
+  banner.className = 'jcheck-banner show ' + attacker;
+  boardEl.classList.add('check-' + attacker);
+
+  if (jLastBoard) {
+    for (let y = 0; y < JROWS; y++) {
+      for (let x = 0; x < JCOLS; x++) {
+        if (jLastBoard[y][x] === checkColor + 'K') {
+          const cell = boardEl.querySelector(`.jcell[data-x="${x}"][data-y="${y}"]`);
+          if (cell) cell.classList.add('in-check-' + attacker);
+        }
+      }
+    }
+  }
 }
 
 function renderJanggiBoardOnly(){
