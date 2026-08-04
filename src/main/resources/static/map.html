@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>지도 · hunit 포트폴리오</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/base.css">
+<style>
+.map-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px;margin-top:4px}
+.map-card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:22px;display:flex;flex-direction:column;gap:10px;transition:border-color .15s,transform .15s}
+.map-card:hover{border-color:var(--amber);transform:translateY(-2px)}
+.map-card .icon{font-size:32px}
+.map-card b{font-size:16px}
+.map-card p{color:var(--mut);font-size:13.5px;line-height:1.7;flex:1}
+.map-card .stack{font-family:var(--mono);font-size:11px;color:var(--dim)}
+.map-card .pill{align-self:flex-start}
+</style>
+</head>
+<body>
+<div class="shell">
+  <aside>
+    <a class="logo" href="/">
+      <div class="logo-mark">JH</div>
+      <div><b>hunit</b><small>portfolio</small></div>
+    </a>
+    <a class="nav-item" href="/">◈&ensp;홈</a>
+    <details class="nav-group" open>
+      <summary>개발완료</summary>
+      <a class="nav-item" href="/mms">✉&ensp;MMS<span class="tag live">LIVE</span></a>
+      <a class="nav-item" href="/news">📈&ensp;AI 뉴스<span class="tag live">LIVE</span></a>
+      <details class="nav-group" open style="margin-left:4px">
+        <summary style="padding-left:8px">🗺️&ensp;지도</summary>
+        <a class="nav-item on" href="/map" style="padding-left:20px">▣&ensp;지도 홈</a>
+        <a class="nav-item" href="/map/food" style="padding-left:20px">🍽&ensp;맛집 지도<span class="tag live">LIVE</span></a>
+        <a class="nav-item" href="/map/estate" style="padding-left:20px">🏠&ensp;부동산<span class="tag">soon</span></a>
+      </details>
+    </details>
+    <details class="nav-group" open>
+      <summary>개발예정</summary>
+      <span class="nav-item soon">🎮&ensp;웹 게임<span class="tag">예정</span></span>
+    </details>
+    <div class="side-foot">
+      Java 21 · Spring Boot · AWS
+      <div class="foot-icons">
+        <a class="icon-btn" href="https://github.com/simjihun" target="_blank" rel="noopener" title="GitHub">
+          <svg viewBox="0 0 16 16" width="17" height="17" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
+        </a>
+        <a class="icon-btn tistory" href="https://hunit.tistory.com" target="_blank" rel="noopener" title="Tistory">T</a>
+      </div>
+    </div>
+  </aside>
+
+  <main>
+    <header class="page">
+      <h1>🗺️ 지도</h1>
+    </header>
+    <p style="color:var(--mut);font-size:14px;margin-bottom:24px">네이버 지도 API 기반 위치 기능들. 아래 메뉴를 선택하세요.</p>
+    <div class="map-cards">
+      <a class="map-card" href="/map/food">
+        <div class="icon">🍽</div>
+        <b>맛집 지도</b>
+        <p>키워드로 주변 맛집·카페·편의시설을 검색하고 지도에 마커로 표시합니다. 마커 클릭 시 별점·영업시간·전화번호 포함 상세 정보가 표시됩니다.</p>
+        <div class="stack">카카오 Local API · 네이버 Maps</div>
+        <span class="pill live">LIVE</span>
+      </a>
+      <a class="map-card" href="/map/estate" style="opacity:.7;pointer-events:none">
+        <div class="icon">🏠</div>
+        <b>부동산 시세</b>
+        <p>국토부 실거래대실룰보고 API를 통해 아파트 실거래 내역을 지도에 시각화합니다. 동네 클릭 시 최근 거래 현황과 평수가 표시됩니다.</p>
+        <div class="stack">국토부 API · 네이버 Maps</div>
+        <span class="pill soon">Coming soon</span>
+      </a>
+    </div>
+  </main>
+</div>
+</body>
+</html>

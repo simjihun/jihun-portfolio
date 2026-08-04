@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>맛집 지도 · hunit 포트폴리오</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/base.css">
+<style>
+.map-shell{display:grid;grid-template-rows:auto 1fr;height:calc(100vh - 48px);gap:12px}
+.search-bar{display:flex;gap:8px}
+.search-bar input{flex:1}
+.search-bar button{padding:10px 18px;background:var(--amber);color:#131A2A;border:0;border-radius:8px;font-weight:700;cursor:pointer;white-space:nowrap}
+.search-bar button:hover{filter:brightness(1.1)}
+.map-area{display:grid;grid-template-columns:320px 1fr;gap:12px;min-height:0}
+#naverMap{border-radius:12px;border:1px solid var(--line);overflow:hidden}
+.result-panel{display:flex;flex-direction:column;gap:8px;overflow-y:auto}
+.result-item{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px;cursor:pointer;transition:border-color .12s}
+.result-item:hover,.result-item.on{border-color:var(--amber)}
+.result-item .name{font-size:14px;font-weight:600;margin-bottom:3px}
+.result-item .cat{font-size:11.5px;color:var(--amber);margin-bottom:4px}
+.result-item .addr{font-size:12px;color:var(--mut)}
+.result-item .phone{font-family:var(--mono);font-size:11.5px;color:var(--dim);margin-top:3px}
+.result-item .url{font-size:11.5px;color:var(--blue);margin-top:2px}
+.result-item .url:hover{text-decoration:underline}
+.empty-msg{color:var(--dim);font-size:13px;padding:20px;text-align:center}
+.paging{display:flex;gap:8px;justify-content:center;margin-top:4px;flex:none}
+.paging button{padding:6px 14px;border-radius:6px;border:1px solid var(--line);background:transparent;color:var(--mut);cursor:pointer;font-size:12.5px}
+.paging button:hover{color:var(--amber);border-color:var(--amber)}
+.paging .cur{color:var(--amber);font-weight:700;font-family:var(--mono);line-height:2}
+.api-warn{font-size:12px;color:var(--amber);padding:8px 12px;background:rgba(242,169,59,.08);border-radius:8px;border:1px solid rgba(242,169,59,.2)}
+
+/* 인포윈도 */
+.iw{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px;min-width:200px;box-shadow:0 4px 16px rgba(0,0,0,.3)}
+.iw .name{font-weight:700;font-size:14px;margin-bottom:4px}
+.iw .cat{font-size:11.5px;color:var(--amber)}
+.iw .addr{font-size:12px;color:var(--mut);margin-top:4px}
+</style>
+</head>
+<body>
+<div class="shell">
+  <aside>
+    <a class="logo" href="/">
+      <div class="logo-mark">JH</div>
+      <div><b>hunit</b><small>portfolio</small></div>
+    </a>
+    <a class="nav-item" href="/">◈&ensp;홈</a>
+    <details class="nav-group" open>
+      <summary>개발완료</summary>
+      <a class="nav-item" href="/mms">✉&ensp;MMS<span class="tag live">LIVE</span></a>
+      <a class="nav-item" href="/news">📈&ensp;AI 뉴스<span class="tag live">LIVE</span></a>
+      <details class="nav-group" open style="margin-left:4px">
+        <summary style="padding-left:8px">🗺️&ensp;지도</summary>
+        <a class="nav-item" href="/map" style="padding-left:20px">▣&ensp;지도 홈</a>
+        <a class="nav-item on" href="/map/food" style="padding-left:20px">🍽&ensp;맛집 지도<span class="tag live">LIVE</span></a>
+        <a class="nav-item" href="/map/estate" style="padding-left:20px">🏠&ensp;부동산<span class="tag">soon</span></a>
+      </details>
+    </details>
+    <details class="nav-group" open>
+      <summary>개발예정</summary>
+      <span class="nav-item soon">🎮&ensp;웹 게임<span class="tag">예정</span></span>
+    </details>
+    <div class="side-foot">
+      카카오 Local API<br>네이버 Maps SDK
+    </div>
+  </aside>
+
+  <main style="padding-bottom:0">
+    <header class="page" style="margin-bottom:12px">
+      <h1>🍽 맛집 지도</h1>
+      <div id="apiWarn" class="api-warn" style="display:none">API 키 미설정 상태 — 관리자가 conf/app.conf에 KAKAO_API_KEY, NAVER_MAP_CLIENT_ID를 등록해야 합니다.</div>
+    </header>
+
+    <div class="map-shell">
+      <div class="search-bar">
+        <input id="kw" placeholder="지역 + 업종 검색 (예: 화성 삼격살, 수원 카페)" onkeydown="if(event.key==='Enter')search()">
+        <button onclick="search()">검색</button>
+        <button onclick="searchNear()" style="background:var(--panel);border:1px solid var(--line);color:var(--mut)">현위치</button>
+      </div>
+      <div class="map-area">
+        <div style="display:flex;flex-direction:column;gap:8px;min-height:0">
+          <div class="result-panel" id="resultPanel">
+            <div class="empty-msg">검색어를 입력하거나 현위치 버튼을 눌러보세요.</div>
+          </div>
+          <div class="paging" id="paging"></div>
+        </div>
+        <div id="naverMap"></div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+const API = '/api/map';
+let map, markers = [], infoWindow;
+let curPage = 1, totalPage = 1, lastKeyword = '';
+const $ = id => document.getElementById(id);
+
+// 네이버 지도 Client ID 로드 후 지도 초기화
+async function initMap() {
+  const cfg = await fetch(API + '/config').then(r => r.json());
+  const health = await fetch(API + '/health').then(r => r.json());
+  if (!health.kakaoKeySet || !health.naverKeySet) {
+    $('apiWarn').style.display = 'block';
+  }
+  if (!cfg.naverMapClientId) return;
+
+  // 네이버 Maps SDK 동적 로드
+  await new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = `https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId=${cfg.naverMapClientId}&submodules=geocoder`;
+    s.onload = resolve; s.onerror = reject;
+    document.head.appendChild(s);
+  });
+
+  map = new naver.maps.Map('naverMap', {
+    center: new naver.maps.LatLng(37.5665, 126.9780),
+    zoom: 13,
+    mapTypeControl: false
+  });
+  infoWindow = new naver.maps.InfoWindow({ anchorSkew: true, borderWidth: 0,
+    backgroundColor: 'transparent', disableAnchor: false });
+}
+
+function clearMarkers() {
+  markers.forEach(m => m.setMap(null));
+  markers = [];
+  infoWindow && infoWindow.close();
+}
+
+function addMarker(place, index) {
+  const pos = new naver.maps.LatLng(+place.y, +place.x);
+  const marker = new naver.maps.Marker({
+    map, position: pos,
+    icon: {
+      content: `<div style="background:var(--amber);color:#131A2A;font-weight:700;font-size:12px;padding:4px 9px;border-radius:999px;white-space:nowrap;box-shadow:0 2px 6px rgba(0,0,0,.4)">${index + 1}</div>`,
+      anchor: new naver.maps.Point(14, 14)
+    }
+  });
+  naver.maps.Event.addListener(marker, 'click', () => {
+    const html = `<div class="iw"><div class="name">${esc(place.place_name)}</div><div class="cat">${esc(place.category_name?.split(' > ').pop() ?? '')}</div><div class="addr">${esc(place.road_address_name || place.address_name)}</div></div>`;
+    infoWindow.setContent(html);
+    infoWindow.open(map, marker);
+    highlightItem(index);
+  });
+  markers.push(marker);
+}
+
+function highlightItem(index) {
+  document.querySelectorAll('.result-item').forEach((el, i) => el.classList.toggle('on', i === index));
+}
+
+function renderResults(places, page, totalCount) {
+  clearMarkers();
+  const panel = $('resultPanel');
+  if (!places.length) {
+    panel.innerHTML = '<div class="empty-msg">검색 결과가 없습니다.</div>';
+    $('paging').innerHTML = '';
+    return;
+  }
+
+  panel.innerHTML = places.map((p, i) => `
+    <div class="result-item" onclick="focusPlace(${i})">
+      <div class="name">${i + 1}. ${esc(p.place_name)}</div>
+      <div class="cat">${esc(p.category_name?.split(' > ').pop() ?? '')}</div>
+      <div class="addr">${esc(p.road_address_name || p.address_name)}</div>
+      ${p.phone ? `<div class="phone">${esc(p.phone)}</div>` : ''}
+      ${p.place_url ? `<a class="url" href="${p.place_url}" target="_blank" rel="noopener">카카오맵에서 보기 ↗</a>` : ''}
+    </div>`).join('');
+
+  places.forEach((p, i) => addMarker(p, i));
+
+  // 지도 중심 조정
+  if (places.length) {
+    const bounds = new naver.maps.LatLngBounds(
+      new naver.maps.LatLng(Math.min(...places.map(p => +p.y)), Math.min(...places.map(p => +p.x))),
+      new naver.maps.LatLng(Math.max(...places.map(p => +p.y)), Math.max(...places.map(p => +p.x)))
+    );
+    map.fitBounds(bounds, { padding: 60 });
+  }
+
+  // 페이징
+  totalPage = Math.ceil(totalCount / 15);
+  curPage = page;
+  $('paging').innerHTML = [
+    `<button onclick="goPage(${page - 1})" ${page <= 1 ? 'disabled style="opacity:.3"' : ''}>‹ 이전</button>`,
+    `<span class="cur">${page} / ${totalPage}</span>`,
+    `<button onclick="goPage(${page + 1})" ${page >= totalPage ? 'disabled style="opacity:.3"' : ''}>다음 ›</button>`
+  ].join('');
+}
+
+function focusPlace(index) {
+  const marker = markers[index];
+  if (!marker) return;
+  map.setCenter(marker.getPosition());
+  map.setZoom(16);
+  naver.maps.Event.trigger(marker, 'click');
+  highlightItem(index);
+}
+
+async function search(page = 1) {
+  const kw = $('kw').value.trim();
+  if (!kw) return;
+  lastKeyword = kw;
+  const data = await fetch(`${API}/search?keyword=${encodeURIComponent(kw)}&page=${page}&size=15`).then(r => r.json());
+  renderResults(data.documents || [], page, data.meta?.total_count ?? 0);
+}
+
+async function searchNear() {
+  navigator.geolocation.getCurrentPosition(pos => {
+    const { latitude: lat, longitude: lng } = pos.coords;
+    map.setCenter(new naver.maps.LatLng(lat, lng));
+    map.setZoom(15);
+    const kw = $('kw').value.trim() || '식당';
+    lastKeyword = kw;
+    fetch(`${API}/search?keyword=${encodeURIComponent(kw)}&page=1`)
+      .then(r => r.json())
+      .then(data => renderResults(data.documents || [], 1, data.meta?.total_count ?? 0));
+  }, () => alert('위치 정보 접근을 허용해주세요.'));
+}
+
+function goPage(page) {
+  if (page < 1 || page > totalPage) return;
+  search(page);
+}
+
+const esc = s => (s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+
+initMap();
+</script>
+</body>
+</html>
