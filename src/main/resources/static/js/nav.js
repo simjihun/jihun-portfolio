@@ -4,7 +4,7 @@
     { type: 'link', href: '/mms', label: 'MMS' },
     { type: 'link', href: '/news', label: 'AI 뉴스' },
     { type: 'link', href: '/map', label: '지도 API' },
-    { type: 'soon', label: '웹 게임' }
+    { type: 'link', href: '/game', label: '웹 게임' }
   ];
 
   const path = location.pathname;

@@ -22,7 +22,9 @@ public class WebConfig implements WebMvcConfigurer {
         registry.addViewController("/map").setViewName("forward:/map.html");
         registry.addViewController("/map/food").setViewName("forward:/map.html");
         registry.addViewController("/map/estate").setViewName("forward:/map.html");
-        // 게임 (추후 오픈)
+        // 게임 — 허브에서 개별 게임을 선택하는 구조
         registry.addViewController("/game").setViewName("forward:/game.html");
+        registry.addViewController("/game/omok").setViewName("forward:/omok.html");
+        registry.addViewController("/game/baseball").setViewName("forward:/baseball.html");
     }
 }
