@@ -11,6 +11,11 @@ import java.util.concurrent.ConcurrentHashMap;
 /**
  * 장기 대국 진행 서비스 (사람 vs AI).
  * 오목과 동일하게 재접속이 필요 없는 단일 세션이라 DB 대신 메모리에만 보관한다.
+ *
+ * 사람 수와 AI 수는 별도 API 호출로 분리되어 있다(move → ai-move). 한 요청에서 둘 다 처리해버리면
+ * 사람이 장군을 부른 직후의 "장군 상태"가 응답에 한 번도 노출되지 않고 AI의 응수로 바로 덮여버려서
+ * 프론트에서 장군 표시를 볼 틈이 없다 — 그래서 프론트가 사람 수 응답을 먼저 렌더링한 뒤, 잠깐 텀을
+ * 두고 별도로 ai-move를 호출하는 구조로 만들었다.
  */
 @Service
 public class JanggiService {
@@ -22,7 +27,7 @@ public class JanggiService {
         this.aiService = aiService;
     }
 
-    /** 새 대국 생성. 장기는 초(O)가 항상 선수이므로, AI가 초라면 생성 즉시 첫 수를 둔다. */
+    /** 새 대국 생성. 장기는 초(O)가 항상 선수이므로, AI가 초라면 생성 즉시 첫 수를 둔다(대국 시작 시점이라 장군 표시 문제 없음). */
     public JanggiGame create(String humanColor, String difficulty, Integer timeLimitSeconds,
                               String humanFormation, String aiFormation) {
         String id = UUID.randomUUID().toString().substring(0, 8);
@@ -55,6 +60,7 @@ public class JanggiService {
         return result;
     }
 
+    /** 사람의 수만 적용한다. AI 응수는 프론트가 잠깐 텀을 두고 별도로 /ai-move를 호출해 처리한다. */
     public JanggiGame move(String id, int fromX, int fromY, int toX, int toY) {
         JanggiGame g = get(id);
         if (!"PLAYING".equals(g.getStatus())) return g;
@@ -62,13 +68,19 @@ public class JanggiService {
             throw new IllegalArgumentException("AI 차례입니다");
         }
         applyMove(g, fromX, fromY, toX, toY, g.getHumanColor());
-        if ("PLAYING".equals(g.getStatus())) {
+        return g;
+    }
+
+    /** AI 차례일 때만 AI의 수를 둔다. 사람 차례거나 대국이 끝났으면 아무 것도 하지 않고 현재 상태를 반환한다. */
+    public JanggiGame aiMove(String id) {
+        JanggiGame g = get(id);
+        if ("PLAYING".equals(g.getStatus()) && g.getCurrentPlayer().equals(g.getAiColor())) {
             applyAiMove(g);
         }
         return g;
     }
 
-    /** 제한시간이 지난 상태에서 호출되면, 사람 차례를 쉬운 난이도 로직으로 자동 진행한다. */
+    /** 제한시간이 지난 상태에서 호출되면, 사람 차례를 쉬운 난이도 로직으로 자동 진행한다(AI 응수는 별도 호출). */
     public JanggiGame timeout(String id) {
         JanggiGame g = get(id);
         if (!"PLAYING".equals(g.getStatus())) return g;
@@ -81,9 +93,6 @@ public class JanggiService {
         JanggiRules.Move mv = aiService.pickMove(g.getBoard(), g.getHumanColor(), g.getAiColor(), "EASY");
         if (mv != null) {
             applyMove(g, mv.fromX(), mv.fromY(), mv.toX(), mv.toY(), g.getHumanColor());
-        }
-        if ("PLAYING".equals(g.getStatus())) {
-            applyAiMove(g);
         }
         return g;
     }
