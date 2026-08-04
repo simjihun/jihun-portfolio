@@ -24,14 +24,6 @@ import java.util.Map;
 
 /**
  * 국토부 아파트매매 실거래가 상세자료(OpenAPI) 연동.
- *
- * - 응답이 XML이라 jsoup의 XML 파서로 파싱한다.
- * - 서비스키는 이미 인코딩된(Encoding) 키를 그대로 쓰므로 URI.create()로 직접 구성해
- *   Spring이 이중으로 인코딩하지 않도록 한다.
- * - 엔드포인트는 공공데이터포털 신규 통합 도메인(apis.data.go.kr, HTTPS)을 사용한다.
- * - 연결/응답 타임아웃을 명시해, 외부 API가 응답 없이 멈춰도 화면이 무한 대기하지 않게 한다.
- * - 아파트 단지(아파트명+동) 단위로 네이버 지오코딩을 호출해 좌표를 붙여, 지도에 개별 위치로
- *   표시할 수 있게 한다. 같은 단지의 여러 거래는 좌표를 재사용해 호출 횟수를 최소화한다.
  */
 @RestController
 @RequestMapping("/api/map")
@@ -40,15 +32,15 @@ public class RealEstateController {
     private static final Logger log = LoggerFactory.getLogger(RealEstateController.class);
     private static final String ENDPOINT =
             "https://apis.data.go.kr/1613000/RTMSDataSvcAptTradeDev/getRTMSDataSvcAptTradeDev";
-    private static final int GEOCODE_BUDGET = 40; // 요청 1회당 지오코딩 최대 호출 수(단지 단위)
+    private static final int GEOCODE_BUDGET = 40;
 
     @Value("${REALESTATE_API_KEY:}")
     private String serviceKey;
 
-    private final NaverGeocodeService geocodeService;
+    private final KakaoGeocodeService geocodeService;
     private final RestClient http = buildHttpClient();
 
-    public RealEstateController(NaverGeocodeService geocodeService) {
+    public RealEstateController(KakaoGeocodeService geocodeService) {
         this.geocodeService = geocodeService;
     }
 
@@ -59,7 +51,6 @@ public class RealEstateController {
         return RestClient.builder().requestFactory(factory).build();
     }
 
-    /** 조회 가능한 지역 목록 (드롭다운 구성용) */
     @GetMapping("/estate/regions")
     public List<Map<String, Object>> regions() {
         return RealEstateRegions.ALL.stream()
@@ -67,10 +58,6 @@ public class RealEstateController {
                 .toList();
     }
 
-    /**
-     * 아파트 매매 실거래 조회
-     * 예) /api/map/estate?lawdCd=11680&dealYmd=202606&keyword=은마
-     */
     @GetMapping("/estate")
     public Map<String, Object> estate(@RequestParam String lawdCd,
                                       @RequestParam String dealYmd,
@@ -103,6 +90,7 @@ public class RealEstateController {
             Map<String, double[]> geoCache = new HashMap<>();
             List<Map<String, Object>> items = new ArrayList<>();
             long sum = 0;
+            int geocoded = 0;
 
             for (Element item : doc.select("item")) {
                 String aptNm = text(item, "aptNm");
@@ -119,7 +107,6 @@ public class RealEstateController {
                 String dealDate = year + "-" + pad(month) + "-" + pad(day);
                 String dong = nz(text(item, "umdNm"));
 
-                // 같은 단지(동+아파트명)는 좌표를 재사용해 지오코딩 호출을 최소화
                 String geoKey = dong + "|" + aptNm;
                 double[] coord;
                 if (geoCache.containsKey(geoKey)) {
@@ -127,6 +114,7 @@ public class RealEstateController {
                 } else if (geoCache.size() < GEOCODE_BUDGET) {
                     coord = geocodeService.geocode(regionName + " " + dong + " " + aptNm);
                     geoCache.put(geoKey, coord);
+                    if (coord != null) geocoded++;
                 } else {
                     coord = null;
                 }
@@ -147,7 +135,7 @@ public class RealEstateController {
             items.sort(Comparator.comparing(m -> (String) m.get("dealDate"), Comparator.reverseOrder()));
 
             long avg = items.isEmpty() ? 0 : sum / items.size();
-            log.info("[estate] 조회 완료 건수={}", items.size());
+            log.info("[estate] 조회 완료 건수={} 지오코딩성공={}/{}단지", items.size(), geocoded, geoCache.size());
             return Map.of(
                     "items", items,
                     "count", items.size(),
