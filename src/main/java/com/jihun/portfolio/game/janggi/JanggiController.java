@@ -73,6 +73,7 @@ public class JanggiController {
         res.put("difficulty", g.getDifficulty());
         res.put("timeLimitSeconds", g.getTimeLimitSeconds());
         res.put("turnStartedAt", g.getTurnStartedAt());
+        res.put("checkColor", g.getCheckColor());
         Map<String, Object> lastMove = null;
         if (g.getLastFromX() != null) {
             lastMove = new HashMap<>();
