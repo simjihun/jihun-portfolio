@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>웹 게임 · hunit 포트폴리오</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/base.css">
+<style>
+.game-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:16px;margin-top:4px}
+.game-card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:22px;display:flex;flex-direction:column;gap:10px;transition:border-color .15s,transform .15s}
+.game-card:hover{border-color:var(--amber);transform:translateY(-2px)}
+.game-card.soon{opacity:.6;pointer-events:none}
+.game-card .icon{font-size:32px}
+.game-card b{font-size:16px}
+.game-card p{color:var(--mut);font-size:13.5px;line-height:1.7;flex:1}
+.game-card .pill{align-self:flex-start;font-size:10.5px;font-weight:700;padding:2px 9px;border-radius:999px}
+.pill.live{background:rgba(62,207,142,.14);color:var(--green)}
+.pill.soon{background:rgba(255,255,255,.06);color:var(--dim)}
+</style>
+</head>
+<body>
+<div id="site-nav"></div>
+
+<main>
+  <header class="page"><h1>🎮 웹 게임</h1></header>
+  <p style="color:var(--mut);font-size:14px;margin-bottom:24px">브라우저에서 바로 즐기는 미니 게임들. 설치 없이 클릭 한 번으로 시작하세요.</p>
+  <div class="game-cards">
+    <a class="game-card" href="/game/omok">
+      <div class="icon">⚪️</div>
+      <b>오목</b>
+      <p>15×15 바둥에서 둘이 번갈아 돌을 놓습니다. 먼저 5목을 이어붙이면 승리 — 같은 화면에서 둘이 번갈아 하는 핫시트 방식입니다.</p>
+      <div class="stack" style="font-family:var(--mono);font-size:11px;color:var(--dim)">Java 승리판정 · REST API 대국상태관리</div>
+      <span class="pill live">LIVE</span>
+    </a>
+    <a class="game-card" href="/game/baseball">
+      <div class="icon">⚾</div>
+      <b>숫자야구</b>
+      <p>1~9 중복 없는 4자리 숫자를 추리해 맞추는 게임. 스트라이크/볼 힌t를 보고 최소 시도로 정답을 찾아보세요. 순위표도 있어요.</p>
+      <div class="stack" style="font-family:var(--mono);font-size:11px;color:var(--dim)">상태관리 서비스 · 랭킹 API</div>
+      <span class="pill live">LIVE</span>
+    </a>
+    <div class="game-card soon">
+      <div class="icon">♟️</div>
+      <b>장기</b>
+      <p>한국 장기 대국. 수에 따른 이동 규칙과 장군 판정 로직을 구현 예정입니다.</p>
+      <div class="stack" style="font-family:var(--mono);font-size:11px;color:var(--dim)">준비 중</div>
+      <span class="pill soon">준비중</span>
+    </div>
+    <div class="game-card soon">
+      <div class="icon">♞️</div>
+      <b>체스</b>
+      <p>서양 체스 대국. 복잡한 이동 규칙(캐슬링, 안샰, 폰 액션) 구현이 필요해 별도 작업으로 준비 중입니다.</p>
+      <div class="stack" style="font-family:var(--mono);font-size:11px;color:var(--dim)">준비 중</div>
+      <span class="pill soon">준비중</span>
+    </div>
+  </div>
+</main>
+
+<script src="/js/nav.js"></script>
+</body>
+</html>
