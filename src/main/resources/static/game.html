@@ -43,15 +43,10 @@
 
 .jboard{position:relative;display:grid;grid-template-columns:repeat(9,minmax(28px,40px));grid-template-rows:repeat(10,minmax(28px,40px));background:#D9C08A;border:2px solid #8a6a3f;border-radius:6px;padding:8px}
 .jcell{position:relative;z-index:1;display:flex;align-items:center;justify-content:center;cursor:pointer}
-.jcell::before,.jcell::after{content:'';position:absolute;background:#5b4326}
-.jcell::before{left:0;right:0;top:50%;height:1px}
-.jcell::after{top:0;bottom:0;left:50%;width:1px}
-.jcell.palace::before{height:2px;background:#3a2510}
-.jcell.palace::after{width:2px;background:#3a2510}
 .jcell.selected{background:rgba(242,169,59,.4)}
 .jcell.dest{background:rgba(62,207,142,.3)}
 .jcell.last-move{box-shadow:inset 0 0 0 3px rgba(242,169,59,.8)}
-.jpalace-svg{position:absolute;top:8px;left:8px;right:8px;bottom:8px;pointer-events:none;z-index:0}
+.jboard-lines{position:absolute;top:8px;left:8px;right:8px;bottom:8px;pointer-events:none;z-index:0}
 .jpiece{width:82%;height:82%;object-fit:contain;z-index:2;filter:drop-shadow(0 2px 2px rgba(0,0,0,.35))}
 @media (max-width:600px){ .jboard{grid-template-columns:repeat(9,minmax(24px,30px));grid-template-rows:repeat(10,minmax(24px,30px))} }
 
@@ -165,10 +160,10 @@
   <!-- ===== 장기 ===== -->
   <section id="panelJanggi" style="display:none">
     <p class="game-desc">
-      9×10 궁성이 있는 전통 장기판에서 <b>AI와 1:1 대국</b>합니다. 진영을 고르고 시작한 뒤,
+      9×10 궁성이 있는 전통 장기판에서 <b>AI와 1:1 대국</b>합니다. 진영과 포진을 고르고 시작한 뒤,
       기물을 클릭하면 이동 가능한 칸이 초록색으로 표시됩니다 — 그 칸을 다시 클릭하면 이동합니다.
-      내가 한을 고르면 내 진영이 화면 하단에 오도록 보드가 자동으로 뒤집히고, 직전 수(내 수·AI 수 모두)는 주황색 테두리로 표시됩니다.
-      AI는 외부 API 없이 <b>서버에서 직접 계산하는 알고리즘</b>(기물 가치 평가 + 상대 응수 예측)으로 동작합니다.
+      직전 수(내 수·AI 수 모두)는 주황색 테두리로 표시됩니다.
+      AI는 외부 API 없이 <b>서버에서 직접 계산하는 알고리즘</b>(기물 가치 평가 + 알파베타 완전탐색)으로 동작합니다.
       차·포·병(졸)의 궁성 대각선 이동은 간소화를 위해 생략했습니다.
     </p>
 
@@ -176,8 +171,22 @@
       <h2>대국 설정</h2>
       <label>내 진영</label>
       <div class="choice-row" id="jColorRow">
-        <button class="choice on" data-v="H" onclick="jPick('jColorRow','color','H')">🔴 한 (선공, 내 진영이 하단으로 표시됨)</button>
-        <button class="choice" data-v="O" onclick="jPick('jColorRow','color','O')">🔵 초 (후공, 하단)</button>
+        <button class="choice on" data-v="H" onclick="jPick('jColorRow','color','H')">🔴 한 (후공)</button>
+        <button class="choice" data-v="O" onclick="jPick('jColorRow','color','O')">🔵 초 (선공)</button>
+      </div>
+      <label>내 포진 (마·상 배치)</label>
+      <div class="choice-row" id="jMyFormRow">
+        <button class="choice on" data-v="MSMS" onclick="jPick('jMyFormRow','myFormation','MSMS')">마상마상</button>
+        <button class="choice" data-v="MSSM" onclick="jPick('jMyFormRow','myFormation','MSSM')">마상상마</button>
+        <button class="choice" data-v="SMSM" onclick="jPick('jMyFormRow','myFormation','SMSM')">상마상마</button>
+        <button class="choice" data-v="SMMS" onclick="jPick('jMyFormRow','myFormation','SMMS')">상마마상</button>
+      </div>
+      <label>상대(AI) 포진</label>
+      <div class="choice-row" id="jAiFormRow">
+        <button class="choice on" data-v="MSMS" onclick="jPick('jAiFormRow','aiFormation','MSMS')">마상마상</button>
+        <button class="choice" data-v="MSSM" onclick="jPick('jAiFormRow','aiFormation','MSSM')">마상상마</button>
+        <button class="choice" data-v="SMSM" onclick="jPick('jAiFormRow','aiFormation','SMSM')">상마상마</button>
+        <button class="choice" data-v="SMMS" onclick="jPick('jAiFormRow','aiFormation','SMMS')">상마마상</button>
       </div>
       <label>난이도</label>
       <div class="choice-row" id="jDiffRow">
@@ -409,16 +418,12 @@ async function loadRanking(){
 const JANGGI_API = '/api/game/janggi';
 const JCOLS = 9, JROWS = 10;
 let janggiGameId = null;
-let jSetup = { color: 'H', diff: 'MEDIUM', time: '' };
+let jSetup = { color: 'H', myFormation: 'MSMS', aiFormation: 'MSMS', diff: 'MEDIUM', time: '' };
 let jTimerHandle = null;
 let jHumanColorGlobal = 'H', jTimeLimitGlobal = null, jTurnStartedGlobal = 0;
 let jSelected = null;      // { x, y } 논리 좌표
 let jDestinations = [];    // [[x,y], ...] 논리 좌표
 let jLastData = null, jLastBoard = null;
-
-function isPalaceCell(x, y){
-  return (x >= 3 && x <= 5) && ((y >= 0 && y <= 2) || (y >= 7 && y <= 9));
-}
 
 function jPick(rowId, key, value){
   document.querySelectorAll('#' + rowId + ' .choice').forEach(b => b.classList.toggle('on', b.dataset.v === value));
@@ -434,34 +439,51 @@ function buildJanggiBoard(flip){
       const x = flip ? JCOLS - 1 - col : col;
       const y = flip ? JROWS - 1 - row : row;
       const cell = document.createElement('div');
-      cell.className = 'jcell' + (isPalaceCell(x, y) ? ' palace' : '');
+      cell.className = 'jcell';
       cell.dataset.x = x; cell.dataset.y = y;
       cell.onclick = () => jCellClick(x, y);
       board.appendChild(cell);
     }
   }
-  appendPalaceDiagonals(board);
+  appendBoardLines(board);
 }
 
-/** 궁성(보드 상/하단 3x3)에 사·궁이 다닐 수 있는 대각선을 그려준다. 화면상 위치는 flip과 무관하게 항상 최상단/최하단 3줄이라 고정값으로 그린다. */
-function appendPalaceDiagonals(board){
+/**
+ * 격자선 전체(가로10줄+세로9줄)와 궁성 굵은 테두리+대각선을 교차점 좌표(0.5 단위 오프셋)로
+ * 정확히 이어서 그린다. 셀 단위(::before/::after)로 그리던 예전 방식은 가장자리·궁성 경계에서
+ * 반 칸씩 삐져나오는 문제가 있었는데, 이 방식은 시작/끝점이 명확해 전혀 삐져나오지 않는다.
+ */
+function appendBoardLines(board){
   const svgNS = 'http://www.w3.org/2000/svg';
   const svg = document.createElementNS(svgNS, 'svg');
   svg.setAttribute('viewBox', '0 0 9 10');
   svg.setAttribute('preserveAspectRatio', 'none');
-  svg.classList.add('jpalace-svg');
-  const addLine = (x1, y1, x2, y2) => {
-    const line = document.createElementNS(svgNS, 'line');
-    line.setAttribute('x1', x1); line.setAttribute('y1', y1);
-    line.setAttribute('x2', x2); line.setAttribute('y2', y2);
-    line.setAttribute('stroke', '#3a2510');
-    line.setAttribute('stroke-width', '0.09');
-    line.setAttribute('stroke-linecap', 'round');
-    line.setAttribute('vector-effect', 'non-scaling-stroke');
-    svg.appendChild(line);
+  svg.classList.add('jboard-lines');
+  const line = (x1, y1, x2, y2, color, width) => {
+    const l = document.createElementNS(svgNS, 'line');
+    l.setAttribute('x1', x1); l.setAttribute('y1', y1);
+    l.setAttribute('x2', x2); l.setAttribute('y2', y2);
+    l.setAttribute('stroke', color);
+    l.setAttribute('stroke-width', width);
+    l.setAttribute('stroke-linecap', 'round');
+    l.setAttribute('vector-effect', 'non-scaling-stroke');
+    svg.appendChild(l);
   };
-  addLine(3.5, 0.5, 5.5, 2.5); addLine(5.5, 0.5, 3.5, 2.5); // 상단 궁성
-  addLine(3.5, 7.5, 5.5, 9.5); addLine(5.5, 7.5, 3.5, 9.5); // 하단 궁성
+  // 기본 격자선: 점(교차점) 중심끼리만 정확히 연결
+  for (let row = 0; row < JROWS; row++) line(0.5, row + 0.5, 8.5, row + 0.5, '#5b4326', 0.025);
+  for (let col = 0; col < JCOLS; col++) line(col + 0.5, 0.5, col + 0.5, 9.5, '#5b4326', 0.025);
+  // 궁성 굵은 테두리 + 대각선 (상단/하단)
+  const palace = (topRow) => {
+    const bottomRow = topRow + 2;
+    const l = 3.5, r = 5.5, t = topRow + 0.5, b = bottomRow + 0.5;
+    line(l, t, r, t, '#3a2510', 0.05);
+    line(l, b, r, b, '#3a2510', 0.05);
+    line(l, t, l, b, '#3a2510', 0.05);
+    line(r, t, r, b, '#3a2510', 0.05);
+    line(l, t, r, b, '#3a2510', 0.05);
+    line(r, t, l, b, '#3a2510', 0.05);
+  };
+  palace(0); palace(7);
   board.appendChild(svg);
 }
 
@@ -478,7 +500,9 @@ async function startJanggi(){
   const body = {
     humanColor: jSetup.color,
     difficulty: jSetup.diff,
-    timeLimitSeconds: jSetup.time ? parseInt(jSetup.time, 10) : null
+    timeLimitSeconds: jSetup.time ? parseInt(jSetup.time, 10) : null,
+    humanFormation: jSetup.myFormation,
+    aiFormation: jSetup.aiFormation
   };
   const data = await fetch(JANGGI_API + '/new', {
     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
