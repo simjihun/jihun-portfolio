@@ -99,9 +99,9 @@
       <div class="btn-row">
         <button class="btn btn-amber" onclick="sendOne()">단건 요청</button>
       </div>
-      <label for="bulkCount">다중 요청 건수 (1~200)</label>
+      <label for="bulkCount">다중 요청 건수 (1~1000)</label>
       <div class="bulk-row">
-        <input type="number" id="bulkCount" min="1" max="200" value="10">
+        <input type="number" id="bulkCount" min="1" max="1000" value="10">
         <button class="btn btn-ghost" onclick="sendBulkInput()">다중 요청</button>
       </div>
       <span class="msg-result" id="sendResult"></span>
@@ -156,8 +156,8 @@ async function sendOne(){
 
 function sendBulkInput(){
   const n = parseInt($('bulkCount').value, 10);
-  if(!n || n < 1 || n > 200){
-    $('sendResult').textContent = '다중 요청 건수는 1~200 사이로 입력하세요';
+  if(!n || n < 1 || n > 1000){
+    $('sendResult').textContent = '다중 요청 건수는 1~1000 사이로 입력하세요';
     return;
   }
   sendBulk(n);

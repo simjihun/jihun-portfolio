@@ -25,6 +25,6 @@ spring:
 
 app:
   worker:
-    count: 3              # 발송 워커 쓰레드 개수
-    send-delay-ms: 1000   # 발송 시뮬레이션 소요 시간(ms)
-    max-retry: 2          # 발송 실패 시 자동 재시도 횟수
+    count: 5               # 발송 워커 쓰레드 개수
+    send-delay-ms: 1000    # 발송 시뮬레이션 소요 시간(ms)
+    max-retry: 2           # 발송 실패 시 자동 재시도 횟수
