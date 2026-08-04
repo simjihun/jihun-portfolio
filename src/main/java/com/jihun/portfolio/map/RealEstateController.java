@@ -17,6 +17,8 @@ import org.springframework.web.client.RestClient;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -28,6 +30,8 @@ import java.util.Map;
  *   Spring이 이중으로 인코딩하지 않도록 한다.
  * - 엔드포인트는 공공데이터포털 신규 통합 도메인(apis.data.go.kr, HTTPS)을 사용한다.
  * - 연결/응답 타임아웃을 명시해, 외부 API가 응답 없이 멈춰도 화면이 무한 대기하지 않게 한다.
+ * - 아파트 단지(아파트명+동) 단위로 네이버 지오코딩을 호출해 좌표를 붙여, 지도에 개별 위치로
+ *   표시할 수 있게 한다. 같은 단지의 여러 거래는 좌표를 재사용해 호출 횟수를 최소화한다.
  */
 @RestController
 @RequestMapping("/api/map")
@@ -36,11 +40,17 @@ public class RealEstateController {
     private static final Logger log = LoggerFactory.getLogger(RealEstateController.class);
     private static final String ENDPOINT =
             "https://apis.data.go.kr/1613000/RTMSDataSvcAptTradeDev/getRTMSDataSvcAptTradeDev";
+    private static final int GEOCODE_BUDGET = 40; // 요청 1회당 지오코딩 최대 호출 수(단지 단위)
 
     @Value("${REALESTATE_API_KEY:}")
     private String serviceKey;
 
+    private final NaverGeocodeService geocodeService;
     private final RestClient http = buildHttpClient();
+
+    public RealEstateController(NaverGeocodeService geocodeService) {
+        this.geocodeService = geocodeService;
+    }
 
     private static RestClient buildHttpClient() {
         SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
@@ -77,7 +87,6 @@ public class RealEstateController {
             String xml = http.get().uri(URI.create(url)).retrieve().body(String.class);
             Document doc = Jsoup.parse(xml, "", Parser.xmlParser());
 
-            // 응답 자체가 에러인 경우(인증키 오류 등) resultCode로 판단
             String resultCode = text(doc, "resultCode");
             if (resultCode != null && !resultCode.equals("00") && !resultCode.equals("000")) {
                 String msg = text(doc, "resultMsg");
@@ -85,8 +94,16 @@ public class RealEstateController {
                 return Map.of("items", List.of(), "count", 0, "error", "공공API 응답 오류: " + msg);
             }
 
+            String regionName = RealEstateRegions.ALL.stream()
+                    .filter(r -> r.code().equals(lawdCd))
+                    .findFirst()
+                    .map(RealEstateRegions.Region::name)
+                    .orElse("");
+
+            Map<String, double[]> geoCache = new HashMap<>();
             List<Map<String, Object>> items = new ArrayList<>();
             long sum = 0;
+
             for (Element item : doc.select("item")) {
                 String aptNm = text(item, "aptNm");
                 if (aptNm == null) continue;
@@ -100,16 +117,31 @@ public class RealEstateController {
                 String month = text(item, "dealMonth");
                 String day = text(item, "dealDay");
                 String dealDate = year + "-" + pad(month) + "-" + pad(day);
+                String dong = nz(text(item, "umdNm"));
 
-                items.add(new java.util.LinkedHashMap<>(Map.of(
-                        "aptNm", aptNm,
-                        "dong", nz(text(item, "umdNm")),
-                        "area", nz(text(item, "excluUseAr")),
-                        "floor", nz(text(item, "floor")),
-                        "buildYear", nz(text(item, "buildYear")),
-                        "dealAmount", formatAmount(amount),
-                        "dealDate", dealDate
-                )));
+                // 같은 단지(동+아파트명)는 좌표를 재사용해 지오코딩 호출을 최소화
+                String geoKey = dong + "|" + aptNm;
+                double[] coord;
+                if (geoCache.containsKey(geoKey)) {
+                    coord = geoCache.get(geoKey);
+                } else if (geoCache.size() < GEOCODE_BUDGET) {
+                    coord = geocodeService.geocode(regionName + " " + dong + " " + aptNm);
+                    geoCache.put(geoKey, coord);
+                } else {
+                    coord = null;
+                }
+
+                Map<String, Object> row = new LinkedHashMap<>();
+                row.put("aptNm", aptNm);
+                row.put("dong", dong);
+                row.put("area", nz(text(item, "excluUseAr")));
+                row.put("floor", nz(text(item, "floor")));
+                row.put("buildYear", nz(text(item, "buildYear")));
+                row.put("dealAmount", formatAmount(amount));
+                row.put("dealDate", dealDate);
+                row.put("lat", coord != null ? coord[0] : null);
+                row.put("lng", coord != null ? coord[1] : null);
+                items.add(row);
             }
 
             items.sort(Comparator.comparing(m -> (String) m.get("dealDate"), Comparator.reverseOrder()));
@@ -141,7 +173,6 @@ public class RealEstateController {
         return s.length() == 1 ? "0" + s : s;
     }
 
-    /** "123,000" 같은 만원 단위 문자열을 숫자로 변환 */
     private long parseAmount(String raw) {
         if (raw == null) return 0;
         try {
@@ -151,7 +182,6 @@ public class RealEstateController {
         }
     }
 
-    /** 만원 단위 정수를 "O억 O,OOO만원" 형식으로 표시 */
     private String formatAmount(long manwon) {
         long eok = manwon / 10000;
         long rem = manwon % 10000;
