@@ -18,10 +18,10 @@ public class WebConfig implements WebMvcConfigurer {
         registry.addViewController("/mms").setViewName("forward:/mms.html");
         // 뉴스
         registry.addViewController("/news").setViewName("forward:/news.html");
-        // 지도
+        // 지도 — 맛집/부동산을 하나의 통합 페이지에서 토글로 전환해 보여준다
         registry.addViewController("/map").setViewName("forward:/map.html");
-        registry.addViewController("/map/food").setViewName("forward:/map-food.html");
-        registry.addViewController("/map/estate").setViewName("forward:/map-estate.html");
+        registry.addViewController("/map/food").setViewName("forward:/map.html");
+        registry.addViewController("/map/estate").setViewName("forward:/map.html");
         // 게임 (추후 오픈)
         registry.addViewController("/game").setViewName("forward:/game.html");
     }

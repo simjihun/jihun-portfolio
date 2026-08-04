@@ -14,11 +14,9 @@ import org.springframework.web.client.RestClient;
 import java.util.Map;
 
 /**
- * 지도 기능 공통 API.
- *
+ * 지도 기능 공통 API (맛집 검색 + 설정 제공).
  * 카카오 Local API를 서버에서 호출해 응답을 중계한다.
- * REST API 키가 프론트엔드에 노출되지 않도록 다이렉트 코드에 포함하지 않고,
- * conf/app.conf 환경변수로만 관리한다.
+ * REST API 키가 프론트엔드에 노출되지 않도록 서버에서만 관리한다.
  */
 @RestController
 @RequestMapping("/api/map")
@@ -32,6 +30,9 @@ public class MapController {
 
     @Value("${NAVER_MAP_CLIENT_ID:}")
     private String naverMapClientId;
+
+    @Value("${REALESTATE_API_KEY:}")
+    private String realEstateApiKey;
 
     private final RestClient http = RestClient.create();
 
@@ -48,7 +49,6 @@ public class MapController {
         if (kakaoApiKey == null || kakaoApiKey.isBlank()) {
             return ResponseEntity.ok("{\"documents\":[],\"meta\":{\"total_count\":0},\"error\":\"KAKAO_API_KEY 미설정\"}");
         }
-
         try {
             String result = http.get()
                     .uri(KAKAO_LOCAL + "/keyword.json?query={q}&page={p}&size={s}",
@@ -64,21 +64,19 @@ public class MapController {
         }
     }
 
-    /**
-     * 네이버 지도 Client ID 제공 (JS에 노출해도 안전한 읽기 전용 키)
-     * REST API 키(기여성)와 다를므로 프론트엔드에 노출 없음
-     */
+    /** 네이버 지도 Client ID 제공 (읽기 전용 식별자라 프론트엔드 노출되어도 안전) */
     @GetMapping("/config")
     public Map<String, String> config() {
         return Map.of("naverMapClientId", naverMapClientId != null ? naverMapClientId : "");
     }
 
-    /** 헬스체크 */
+    /** API 키 설정 상태 확인용 헬스체크 */
     @GetMapping("/health")
     public Map<String, Object> health() {
         return Map.of(
                 "kakaoKeySet", kakaoApiKey != null && !kakaoApiKey.isBlank(),
-                "naverKeySet", naverMapClientId != null && !naverMapClientId.isBlank()
+                "naverKeySet", naverMapClientId != null && !naverMapClientId.isBlank(),
+                "realEstateKeySet", realEstateApiKey != null && !realEstateApiKey.isBlank()
         );
     }
 }
