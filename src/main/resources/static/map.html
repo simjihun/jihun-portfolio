@@ -19,6 +19,7 @@ main{padding-bottom:0}
 .search-bar button{padding:10px 18px;background:var(--amber);color:#131A2A;border:0;border-radius:8px;font-weight:700;cursor:pointer;white-space:nowrap}
 .search-bar button:hover{filter:brightness(1.1)}
 .search-bar .btn-loc{background:var(--panel);border:1px solid var(--line);color:var(--mut)}
+.search-bar .btn-loc.busy{opacity:.6;pointer-events:none}
 
 .map-area{display:grid;grid-template-columns:320px 1fr;gap:12px;min-height:0;height:calc(100vh - var(--navh) - 190px)}
 #naverMap{border-radius:12px;border:1px solid var(--line);overflow:hidden;min-height:320px}
@@ -32,6 +33,7 @@ main{padding-bottom:0}
 .result-item .url{font-size:11.5px;color:var(--blue);margin-top:2px;display:inline-block}
 .result-item .url:hover{text-decoration:underline}
 .result-item .price{font-family:var(--mono);font-weight:700;color:var(--green);font-size:14px;margin-top:4px}
+.result-item .nogeo{color:var(--dim);font-size:11px;margin-top:3px}
 .empty-msg{color:var(--dim);font-size:13px;padding:20px;text-align:center}
 .paging{display:flex;gap:8px;justify-content:center;margin-top:4px;flex:none}
 .paging button{padding:6px 14px;border-radius:6px;border:1px solid var(--line);background:transparent;color:var(--mut);cursor:pointer;font-size:12.5px}
@@ -45,6 +47,7 @@ main{padding-bottom:0}
 .iw .name{font-weight:700;font-size:14px;margin-bottom:4px}
 .iw .cat{font-size:11.5px;color:var(--amber)}
 .iw .addr{font-size:12px;color:var(--mut);margin-top:4px}
+.iw .price{font-family:var(--mono);font-weight:700;color:var(--green);font-size:13px;margin-top:6px}
 
 @media (max-width:900px){
   .map-area{display:flex;flex-direction:column;height:auto}
@@ -72,7 +75,7 @@ main{padding-bottom:0}
     <div class="search-bar" id="barFood">
       <input id="kw" placeholder="지역 + 업종 검색 (예: 화성 삼겹살, 수원 카페)" onkeydown="if(event.key==='Enter')searchFood()">
       <button onclick="searchFood()">검색</button>
-      <button class="btn-loc" onclick="searchNear()">현위치</button>
+      <button class="btn-loc" id="btnLoc" onclick="searchNear()">📍 현위치</button>
     </div>
 
     <!-- 부동산 검색바 -->
@@ -102,6 +105,7 @@ const API = '/api/map';
 let map, markers = [], infoWindow;
 let curPage = 1, totalPage = 1;
 let mode = 'food';
+let nearCoords = null; // 맛집 현위치 검색 좌표 {lat,lng}
 const $ = id => document.getElementById(id);
 const esc = s => (s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 
@@ -127,6 +131,7 @@ async function initMap() {
   const warns = [];
   if (!health.kakaoKeySet) warns.push('KAKAO_API_KEY 미설정 (맛집 검색 비활성화)');
   if (!health.naverKeySet) warns.push('NAVER_MAP_CLIENT_ID 미설정 (지도 표시 불가)');
+  if (!health.naverSecretSet) warns.push('NAVER_MAP_CLIENT_SECRET 미설정 (부동산 지도 좌표 표시 비활성화)');
   if (!health.realEstateKeySet) warns.push('REALESTATE_API_KEY 미설정 (부동산 조회 비활성화)');
   if (warns.length) {
     $('apiWarn').style.display = 'block';
@@ -156,11 +161,12 @@ function clearMarkers() {
   infoWindow && infoWindow.close();
 }
 
-function addMarker(pos, labelNum, onClick) {
+/** 지도 마커 생성. color로 맛집(앰버)/부동산(블루)을 구분한다. */
+function addMarker(pos, label, onClick, color) {
   const marker = new naver.maps.Marker({
     map, position: pos,
     icon: {
-      content: `<div style="background:#F2A93B;color:#131A2A;font-weight:700;font-size:12px;padding:4px 9px;border-radius:999px;white-space:nowrap;box-shadow:0 2px 6px rgba(0,0,0,.4)">${labelNum}</div>`,
+      content: `<div style="background:${color || '#F2A93B'};color:#0B101B;font-weight:700;font-size:11px;padding:4px 10px;border-radius:999px;white-space:nowrap;box-shadow:0 2px 6px rgba(0,0,0,.4);max-width:130px;overflow:hidden;text-overflow:ellipsis">${label}</div>`,
       anchor: new naver.maps.Point(14, 14)
     }
   });
@@ -227,28 +233,44 @@ function focusMarker(index) {
   highlightItem(index);
 }
 
-async function searchFood(page = 1) {
+/** 통합 검색 함수. nearCoords가 설정되어 있으면 현위치 기준으로 정렬 요청한다. */
+async function performFoodSearch(page = 1) {
   const kw = $('kw').value.trim();
   if (!kw) return;
-  const data = await fetch(`${API}/search?keyword=${encodeURIComponent(kw)}&page=${page}&size=15`).then(r => r.json());
+  let url = `${API}/search?keyword=${encodeURIComponent(kw)}&page=${page}&size=15`;
+  if (nearCoords) url += `&lat=${nearCoords.lat}&lng=${nearCoords.lng}`;
+  const data = await fetch(url).then(r => r.json());
   renderFoodResults(data.documents || [], page, data.meta?.total_count ?? 0);
 }
 
-async function searchNear() {
+function searchFood(page = 1) {
+  nearCoords = null; // 일반 검색은 전국 대상, 위치 제한 없음
+  performFoodSearch(page);
+}
+
+function searchNear() {
+  const btn = $('btnLoc');
+  btn.classList.add('busy');
+  btn.textContent = '위치 확인 중...';
   navigator.geolocation.getCurrentPosition(pos => {
     const { latitude: lat, longitude: lng } = pos.coords;
+    nearCoords = { lat, lng };
     map.setCenter(new naver.maps.LatLng(lat, lng));
     map.setZoom(15);
-    const kw = $('kw').value.trim() || '식당';
-    fetch(`${API}/search?keyword=${encodeURIComponent(kw)}&page=1`)
-      .then(r => r.json())
-      .then(data => renderFoodResults(data.documents || [], 1, data.meta?.total_count ?? 0));
-  }, () => alert('위치 정보 접근을 허용해주세요.'));
+    if (!$('kw').value.trim()) $('kw').value = '맛집';
+    performFoodSearch(1);
+    btn.classList.remove('busy');
+    btn.textContent = '📍 현위치';
+  }, () => {
+    alert('위치 정보 접근을 허용해주세요. (브라우저 주소창 왼쪽 자물쇠 아이콘에서 위치 권한을 확인하세요)');
+    btn.classList.remove('busy');
+    btn.textContent = '📍 현위치';
+  }, { enableHighAccuracy: true, timeout: 8000 });
 }
 
 function goPage(page) {
   if (page < 1 || page > totalPage) return;
-  if (mode === 'food') searchFood(page);
+  if (mode === 'food') performFoodSearch(page);
 }
 
 /* ===================================================
@@ -272,18 +294,18 @@ async function initEstateControls() {
   $('ymSel').innerHTML = opts.join('');
 }
 
+/** 짧은 가격 라벨 (지도 마커용): "11억 4,819만원" → "11억" */
+function shortPrice(amountStr) {
+  const m = amountStr.match(/^(\d+억)/);
+  return m ? m[1] : amountStr.split(' ')[0];
+}
+
 function renderEstateResults(items, count, avgAmount, region) {
   clearMarkers();
   const panel = $('resultPanel');
 
-  if (region) {
-    const pos = new naver.maps.LatLng(region.lat, region.lng);
-    map.setCenter(pos);
-    map.setZoom(12);
-    addMarker(pos, '📍', null);
-  }
-
   if (!items.length) {
+    if (region) { map.setCenter(new naver.maps.LatLng(region.lat, region.lng)); map.setZoom(12); }
     panel.innerHTML = '<div class="empty-msg">해당 조건의 거래 내역이 없습니다.</div>';
     $('estateStat').style.display = 'none';
     return;
@@ -292,13 +314,55 @@ function renderEstateResults(items, count, avgAmount, region) {
   $('estateStat').style.display = 'flex';
   $('estateStat').innerHTML = `<span>거래건수 <b>${count}</b>건</span><span>평균가 <b>${avgAmount}</b></span>`;
 
-  panel.innerHTML = items.map(it => `
-    <div class="result-item">
+  // 단지(아파트명+동) 단위로 마커를 만들고, 각 리스트 항목이 어느 마커에 속하는지 기록
+  const complexMarkerIdx = {};   // key -> markers 배열 인덱스
+  const itemMarkerIdx = [];      // items와 같은 순서로 매칭되는 마커 인덱스 (-1이면 위치 미확인)
+  const positions = [];
+
+  items.forEach(it => {
+    if (it.lat == null || it.lng == null) { itemMarkerIdx.push(-1); return; }
+    const key = it.dong + '|' + it.aptNm;
+    if (!(key in complexMarkerIdx)) {
+      const pos = new naver.maps.LatLng(it.lat, it.lng);
+      const label = shortPrice(it.dealAmount);
+      const marker = addMarker(pos, label, () => {
+        const html = `<div class="iw"><div class="name">${esc(it.aptNm)}</div><div class="cat">${esc(it.dong)}</div><div class="price">${esc(it.dealAmount)} · ${esc(it.dealDate)}</div></div>`;
+        infoWindow.setContent(html);
+        infoWindow.open(map, marker);
+      }, '#5AA2FF');
+      complexMarkerIdx[key] = markers.length - 1;
+      positions.push(pos);
+    }
+    itemMarkerIdx.push(complexMarkerIdx[key]);
+  });
+
+  if (positions.length) {
+    const bounds = new naver.maps.LatLngBounds(positions[0], positions[0]);
+    positions.forEach(p => bounds.extend(p));
+    map.fitBounds(bounds, { padding: 90 });
+  } else if (region) {
+    map.setCenter(new naver.maps.LatLng(region.lat, region.lng));
+    map.setZoom(13);
+  }
+
+  panel.innerHTML = items.map((it, i) => `
+    <div class="result-item" onclick="focusEstateItem(${itemMarkerIdx[i]}, ${i})">
       <div class="name">${esc(it.aptNm)}</div>
       <div class="cat">${esc(it.dong)} · ${esc(it.area)}㎡ · ${esc(it.floor)}층 · ${esc(it.buildYear)}년건축</div>
       <div class="price">${esc(it.dealAmount)}</div>
       <div class="addr">거래일 ${esc(it.dealDate)}</div>
+      ${it.lat == null ? '<div class="nogeo">지도 위치 확인 불가</div>' : ''}
     </div>`).join('');
+}
+
+function focusEstateItem(markerIdx, listIdx) {
+  highlightItem(listIdx);
+  if (markerIdx < 0) return;
+  const marker = markers[markerIdx];
+  if (!marker) return;
+  map.setCenter(marker.getPosition());
+  map.setZoom(16);
+  naver.maps.Event.trigger(marker, 'click');
 }
 
 async function searchEstate() {
