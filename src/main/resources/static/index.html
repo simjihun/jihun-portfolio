@@ -73,21 +73,18 @@ main{max-width:1080px}
 .mock-search div{flex:1;height:30px;background:var(--panel-2);border:1px solid var(--line);border-radius:7px}
 .mock-search span{width:56px;height:30px;background:var(--amber);border-radius:7px;flex:none}
 
-/* 오목판 실제 게임과 동일한 격자선 스타일로 표현 */
-.mock-board{position:relative;height:170px;border-radius:8px;border:1px solid #8a6a3f;
-  background:
-    linear-gradient(#5b4326 1px,transparent 1px) 0 0/12.5% 25px,
-    linear-gradient(90deg,#5b4326 1px,transparent 1px) 0 0/12.5% 25px,
-    #C99B5F;
-}
-.mock-stone{position:absolute;width:19px;height:19px;border-radius:50%;box-shadow:0 2px 4px rgba(0,0,0,.45);transform:translate(-50%,-50%)}
-.mock-stone.b{background:radial-gradient(circle at 32% 28%,#666,#0a0a0a)}
-.mock-stone.w{background:radial-gradient(circle at 32% 28%,#fff,#c9c9c9)}
+/* 보드게임 목업: 체커보드 형태라 셀 중앙에 말을 놓기만 하면 되어 정렬이 항상 정확함 */
+.mock-chess{display:grid;grid-template-columns:repeat(8,1fr);border-radius:8px;overflow:hidden;border:1px solid var(--line)}
+.mock-cell{aspect-ratio:1;display:flex;align-items:center;justify-content:center}
+.mock-cell.light{background:#2a3550}
+.mock-cell.dark{background:#1a2033}
+.mock-piece{width:62%;height:62%;border-radius:50%;box-shadow:0 2px 4px rgba(0,0,0,.45)}
+.mock-piece.b{background:radial-gradient(circle at 32% 28%,#666,#0a0a0a)}
+.mock-piece.w{background:radial-gradient(circle at 32% 28%,#fff,#c9c9c9)}
 
 /* ===== Backlog / footer ===== */
 .tail{padding:56px 0 64px}
-.tail h2{font-size:20px;margin-bottom:10px}
-.tail p{color:var(--mut);font-size:13.5px;line-height:1.8;margin-bottom:18px;max-width:560px}
+.tail h2{font-size:20px;margin-bottom:18px}
 .chips{display:flex;flex-wrap:wrap;gap:8px}
 .chips span{font-size:12.5px;color:var(--mut);background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:6px 14px}
 
@@ -107,7 +104,7 @@ main{max-width:1080px}
   <section class="hero">
     <div class="eyebrow">JAVA 개발자 · 2016.08 ~</div>
     <h1>hunit portfolio<span class="dot">.</span></h1>
-    <p>Java, Spring Boot, MySQL, AWS EC2 기반으로 구현한 웹 서비스 모음입니다.</p>
+    <p>여러 기능 추가 예정입니다.</p>
     <div class="stack">
       <span>Java</span><span>Spring Framework</span><span>Spring Data JPA</span><span>Netty</span>
       <span>TCP/IP 소켓통신</span><span>REST API</span><span>MySQL</span><span>MariaDB</span>
@@ -233,7 +230,7 @@ main{max-width:1080px}
       <div class="mockup">
         <div class="mockup-bar"><span></span><span></span><span></span></div>
         <div class="mockup-body">
-          <div class="mock-board" id="mockBoard"></div>
+          <div class="mock-chess" id="mockChess"></div>
         </div>
       </div>
     </div>
@@ -241,8 +238,7 @@ main{max-width:1080px}
 
   <!-- ===== Backlog ===== -->
   <section class="tail">
-    <h2>다음으로 만들 것들</h2>
-    <p>생각날 때마다 여기에 하나씩 추가합니다. 완성되면 위 목록에 새 섹션으로 올라갑니다.</p>
+    <h2>개발예정</h2>
     <div class="chips">
       <span>🏠 부동산 시세 지도 고도화</span>
       <span>♟️ 장기 AI 대국</span>
@@ -256,26 +252,25 @@ main{max-width:1080px}
 
 <script src="/js/nav.js"></script>
 <script>
-// 오목 목업: 실제 오목판과 동일한 격자 위에 돌 몇 개를 배치 (장식용, 실제 게임과 연동되지 않음)
+// 보드게임 목업: 8x4 체커보드에 말 몇 개를 배치 (장식용, 실제 게임과 연동되지 않음)
 (function(){
-  const board = document.getElementById('mockBoard');
+  const board = document.getElementById('mockChess');
   if (!board) return;
-  const stones = [
-    { x: 30, y: 25, c: 'b' },
-    { x: 42, y: 25, c: 'w' },
-    { x: 30, y: 45, c: 'b' },
-    { x: 30, y: 65, c: 'b' },
-    { x: 30, y: 85, c: 'b' },
-    { x: 54, y: 45, c: 'w' },
-    { x: 18, y: 65, c: 'w' }
-  ];
-  stones.forEach(s => {
-    const el = document.createElement('div');
-    el.className = 'mock-stone ' + s.c;
-    el.style.left = s.x + '%';
-    el.style.top = s.y + '%';
-    board.appendChild(el);
-  });
+  const cols = 8, rows = 4;
+  const pieces = { '0,2':'b', '1,2':'b', '1,4':'w', '2,1':'w', '3,3':'b', '2,5':'w' };
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      const cell = document.createElement('div');
+      cell.className = 'mock-cell ' + ((r + c) % 2 === 0 ? 'light' : 'dark');
+      const key = r + ',' + c;
+      if (pieces[key]) {
+        const piece = document.createElement('div');
+        piece.className = 'mock-piece ' + pieces[key];
+        cell.appendChild(piece);
+      }
+      board.appendChild(cell);
+    }
+  }
 })();
 </script>
 </body>
