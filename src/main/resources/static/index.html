@@ -73,11 +73,16 @@ main{max-width:1080px}
 .mock-search div{flex:1;height:30px;background:var(--panel-2);border:1px solid var(--line);border-radius:7px}
 .mock-search span{width:56px;height:30px;background:var(--amber);border-radius:7px;flex:none}
 
-.mock-board{display:grid;grid-template-columns:repeat(9,1fr);gap:2px;background:#C99B5F;border:1px solid #8a6a3f;border-radius:8px;padding:8px}
-.mock-board div{aspect-ratio:1;position:relative}
-.mock-board .st{position:absolute;inset:14%;border-radius:50%}
-.mock-board .st.b{background:#111}
-.mock-board .st.w{background:#eee}
+/* 오목판 실제 게임과 동일한 격자선 스타일로 표현 */
+.mock-board{position:relative;height:170px;border-radius:8px;border:1px solid #8a6a3f;
+  background:
+    linear-gradient(#5b4326 1px,transparent 1px) 0 0/12.5% 25px,
+    linear-gradient(90deg,#5b4326 1px,transparent 1px) 0 0/12.5% 25px,
+    #C99B5F;
+}
+.mock-stone{position:absolute;width:19px;height:19px;border-radius:50%;box-shadow:0 2px 4px rgba(0,0,0,.45);transform:translate(-50%,-50%)}
+.mock-stone.b{background:radial-gradient(circle at 32% 28%,#666,#0a0a0a)}
+.mock-stone.w{background:radial-gradient(circle at 32% 28%,#fff,#c9c9c9)}
 
 /* ===== Backlog / footer ===== */
 .tail{padding:56px 0 64px}
@@ -101,9 +106,8 @@ main{max-width:1080px}
   <!-- ===== 히어로 ===== -->
   <section class="hero">
     <div class="eyebrow">JAVA 개발자 · 2016.08 ~</div>
-    <h1>기능을 만들고,<br>직접 배포하고,<br>계속 쌓아가는 공간<span class="dot">.</span></h1>
-    <p>Java를 중심으로 장르를 가리지 않고 만듭니다. 아이디어가 생기면 이 서버(AWS EC2) 위에
-    실제로 동작하는 기능으로 하나씩 추가합니다 — 전부 제가 직접 설계하고 배포까지 운영하는 것들입니다.</p>
+    <h1>hunit portfolio<span class="dot">.</span></h1>
+    <p>Java, Spring Boot, MySQL, AWS EC2 기반으로 구현한 웹 서비스 모음입니다.</p>
     <div class="stack">
       <span>Java</span><span>Spring Framework</span><span>Spring Data JPA</span><span>Netty</span>
       <span>TCP/IP 소켓통신</span><span>REST API</span><span>MySQL</span><span>MariaDB</span>
@@ -252,20 +256,26 @@ main{max-width:1080px}
 
 <script src="/js/nav.js"></script>
 <script>
-// \uc624\ubaa9 \ubbf8\ub2c8 \ubcf4\ub4dc \uc7a5\uc2dd\uc6a9 \ub3cc 9\ubc30\uce58 (\ub79c\ub529\ud398\uc774\uc9c0 \uc7a5\uc2dd\uc774\ub77c \uc2e4\uc81c \uac8c\uc784\uacfc \uc5f0\ub3d9\ub418\uc9c0 \uc54a\uc74c)
+// 오목 목업: 실제 오목판과 동일한 격자 위에 돌 몇 개를 배치 (장식용, 실제 게임과 연동되지 않음)
 (function(){
   const board = document.getElementById('mockBoard');
   if (!board) return;
-  const stones = { 10:'b', 12:'w', 19:'b', 20:'w', 21:'b', 28:'w', 30:'b' };
-  for (let i = 0; i < 81; i++) {
-    const cell = document.createElement('div');
-    if (stones[i]) {
-      const st = document.createElement('div');
-      st.className = 'st ' + stones[i];
-      cell.appendChild(st);
-    }
-    board.appendChild(cell);
-  }
+  const stones = [
+    { x: 30, y: 25, c: 'b' },
+    { x: 42, y: 25, c: 'w' },
+    { x: 30, y: 45, c: 'b' },
+    { x: 30, y: 65, c: 'b' },
+    { x: 30, y: 85, c: 'b' },
+    { x: 54, y: 45, c: 'w' },
+    { x: 18, y: 65, c: 'w' }
+  ];
+  stones.forEach(s => {
+    const el = document.createElement('div');
+    el.className = 'mock-stone ' + s.c;
+    el.style.left = s.x + '%';
+    el.style.top = s.y + '%';
+    board.appendChild(el);
+  });
 })();
 </script>
 </body>
