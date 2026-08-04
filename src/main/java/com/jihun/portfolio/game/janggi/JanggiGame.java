@@ -43,13 +43,13 @@ public class JanggiGame {
         String[] backH = {"HR", "HN", "HE", "HA", null, "HA", "HE", "HN", "HR"};
         for (int c = 0; c < COLS; c++) board[0][c] = backH[c];
         board[1][4] = "HK";
-        board[2][2] = "HC"; board[2][6] = "HC";
+        board[2][1] = "HC"; board[2][7] = "HC"; // 포는 마와 같은 세로줄(1,7)에 위치
         for (int c = 0; c < COLS; c += 2) board[3][c] = "HP";
 
         String[] backO = {"OR", "ON", "OE", "OA", null, "OA", "OE", "ON", "OR"};
         for (int c = 0; c < COLS; c++) board[9][c] = backO[c];
         board[8][4] = "OK";
-        board[7][2] = "OC"; board[7][6] = "OC";
+        board[7][1] = "OC"; board[7][7] = "OC"; // 포는 마와 같은 세로줄(1,7)에 위치
         for (int c = 0; c < COLS; c += 2) board[6][c] = "OP";
     }
 
