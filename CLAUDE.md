@@ -18,25 +18,25 @@ Claude Code(또는 다른 Claude 세션)가 이 레포를 처음 열었을 때 �
 | MMS (`/mms`) | LIVE | 워커 5개, 다중발송 1000건, 매일 자정(Asia/Seoul) 이력 초기화 스케줄러 |
 | AI 뉴스 (`/news`) | LIVE | RSS 다중언론사(한국경제/SBS/동아일보/매일경제), Gemini 매일 07시 브리핑 |
 | 지도 API (`/map`) | LIVE | 맛집(카카오)+부동산(국토부 실거래가), 탭 통합, localStorage로 뷰·검색결과 세션 유지 |
-| 웹 게임 (`/game`) | LIVE(오목·숫자야구) | 오목: AI 대국(난이도/색상/제한시간), 순수 알고리즘(미니맥스), 외부 API 없음 |
-| 장기 | **작업 중** | 규칙엔진(`JanggiGame`/`JanggiRules`) 백엔드까지 커밋됨. AI서비스·컨트롤러·프론트엔드 미착수 |
-| 체스 | 미착수 | |
+| 웹 게임 (`/game`) | LIVE(오목·숫자야구·장기) | 오목: AI 대국(난이도/색상/제한시간), 순수 알고리즘(미니맥스), 외부 API 없음. 장기: AI 대국(기물가치평가+2플라이 탐색), 클릭 2단계(선택→이동) UI |
+| 체스 | 미착수 | 다음 순서 |
 | 가격비교, 주식AI분석 | 미착수 | 아이디어 단계 |
 
-## 지금 당장 이어서 할 일 (장기)
+## 장기 구현 완료 내역 (참고용)
 
-백엔드 파일 3개 커밋 완료:
 - `src/main/java/com/jihun/portfolio/game/janggi/JanggiGame.java` — 대국 상태(보드 9x10, 메모리 보관)
 - `src/main/java/com/jihun/portfolio/game/janggi/JanggiRules.java` — 기물 이동/장군/합법수 판정
+- `src/main/java/com/jihun/portfolio/game/janggi/JanggiAiService.java` — 기물가치 평가 + EASY(랜덤·잡는수 선호)/MEDIUM(1수 최선)/HARD(2플라이 탐색)
+- `src/main/java/com/jihun/portfolio/game/janggi/JanggiService.java` — ConcurrentHashMap 인메모리 대국, `create`/`move`/`timeout`/`legalMovesFrom`
+- `src/main/java/com/jihun/portfolio/game/janggi/JanggiController.java` — `/api/game/janggi/*`, move는 `{fromX,fromY,toX,toY}`, `/moves?x=&y=`로 선택 기물의 이동 가능 칸 조회
+- `game.html`에 장기 탭 추가 — 9x10 보드, 기물 클릭(선택+하이라이트) → 목적지 클릭(이동) 2단계 흐름. 기물은 원형 말 안에 한글 한 글자(궁/사/상/마/차/포, 병·졸) + 진영별 색상(한=빨강, 초=파랑)
 
-**아직 안 만든 것**:
-1. `JanggiAiService.java` — 오목의 `OmokAiService.java`를 참고해서 같은 패턴(난이도별 휴리스틱+미니맥스, 외부 API 없음)으로 구현
-2. `JanggiService.java` — 오목의 `OmokService.java` 패턴(ConcurrentHashMap 인메모리 대국, `create`/`move`/`timeout`)
-3. `JanggiController.java` — 오목의 `OmokController.java` 패턴. 단, move는 `{fromX,fromY,toX,toY}` 4개 좌표 필요(오목은 좌표 1개였음)
-4. `game.html`에 장기 탭 추가 — 9x10 보드 UI, 기물 클릭 → 이동 가능 칸 하이라이트 → 클릭 이동 (오목처럼 클릭 한 번이 아니라 "말 선택 → 목적지 선택" 2단계 흐름 필요)
-5. 기물 표시는 원형 말 안에 한글 한 글자(궁/사/상/마/차/포/졸·병) + 진영별 색상으로 표현 권장
+**간소화한 규칙**: 차·포·병(졸)의 궁성 대각선 특수 이동은 생략함(궁·사만 궁성 대각선 지원). 승패는 합법수 소진 여부로 판정(궁 잡힘 케이스는 legalMoves가 자기 궁 노출수를 걸러내므로 발생하지 않음). 사용자에게 이미 고지했고 동의받음.
 
-**알아둘 것 — 간소화한 규칙**: 차·포·병(졸)의 궁성 대각선 특수 이동은 생략함(궁·사만 궁성 대각선 지원). 사용자에게 이미 고지했고 동의받음.
+## 다음에 이어서 할 일 (체스)
+
+장기와 동일한 패턴으로 진행하면 됨: `com.jihun.portfolio.game.chess` 패키지에 `ChessGame`/`ChessRules`/`ChessAiService`/`ChessService`/`ChessController` + `game.html`에 탭 추가.
+체스는 앙파상·캐슬링·프로모션 등 장기보다 특수룰이 많으니, 기본 이동+체크메이트부터 만들고 특수룰은 필요시 사용자와 상의해서 범위를 정할 것.
 
 ## 최근에 겪은 실수/함정 (반복하지 말 것)
 
