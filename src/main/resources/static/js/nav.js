@@ -1,11 +1,12 @@
 (function(){
   // 사이트 전체 공통 네비게이션. 새 기능 추가 시 이 배열에만 항목을 추가하면 모든 페이지에 반영된다.
+  // 순서 = 메인화면 기능 섹션 순서와 동일하게 유지한다.
   const NAV_ITEMS = [
-    { type: 'link', href: '/mms', label: 'MMS' },
     { type: 'link', href: '/news', label: 'AI 뉴스' },
+    { type: 'link', href: '/stock', label: 'AI 주식' },
     { type: 'link', href: '/map', label: '지도 API' },
-    { type: 'link', href: '/game', label: '웹 게임' },
-    { type: 'link', href: '/stock', label: '주식 AI' }
+    { type: 'link', href: '/mms', label: 'MMS' },
+    { type: 'link', href: '/game', label: '웹 게임' }
   ];
 
   const path = location.pathname;
