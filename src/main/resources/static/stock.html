@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>주식 AI · hunit 포트폴리오</title>
+<title>AI 주식 · hunit 포트폴리오</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/css/base.css">
@@ -49,36 +49,39 @@
 .week-item::before{content:'•';color:var(--amber);margin-right:7px}
 
 .seg{display:flex;gap:6px;background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:4px;width:fit-content}
-.seg button{padding:7px 16px;border-radius:7px;border:0;background:transparent;color:var(--mut);font-size:13px;font-weight:600;cursor:pointer}
+.seg button{padding:7px 14px;border-radius:7px;border:0;background:transparent;color:var(--mut);font-size:13px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:6px}
 .seg button.on{background:var(--amber);color:#131A2A}
+.seg button img{width:16px;height:12px;border-radius:2px;display:block;flex:none}
 .rank-controls{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
 .refresh-btn{margin-left:auto;display:flex;align-items:center;gap:8px;font-size:12px;color:var(--mut)}
 
-.rank-table{width:100%;border-collapse:collapse;font-size:13.5px}
+.rank-table{width:100%;border-collapse:collapse;font-size:13.5px;min-width:620px}
 .rank-table th{text-align:right;color:var(--dim);font-weight:600;font-size:12px;padding:8px 10px;border-bottom:1px solid var(--line)}
 .rank-table th:nth-child(1),.rank-table th:nth-child(2){text-align:left}
-.rank-table td{padding:9px 10px;border-bottom:1px solid var(--line);text-align:right;font-family:var(--mono)}
+.rank-table td{padding:9px 10px;border-bottom:1px solid var(--line);text-align:right;font-family:var(--mono);transition:background-color .5s}
 .rank-table td:nth-child(1){color:var(--dim);text-align:left;width:36px}
 .rank-table td:nth-child(2){text-align:left;font-family:inherit;font-weight:600;color:var(--ink)}
 .rank-table td .sym{display:block;font-size:11px;color:var(--dim);font-weight:400}
+.rank-table tr{transition:transform .35s ease}
 .rank-table tr:hover td{background:rgba(255,255,255,.02)}
 .badge-rate{padding:2px 8px;border-radius:6px;font-weight:700;font-size:12.5px}
 .badge-rate.up{background:rgba(240,68,82,.12)}
 .badge-rate.down{background:rgba(49,130,246,.12)}
+.flash-up{background-color:rgba(240,68,82,.28) !important}
+.flash-down{background-color:rgba(49,130,246,.28) !important}
 .empty-msg{padding:24px;text-align:center;color:var(--dim);font-size:13px}
 .disclaim{font-size:11.5px;color:var(--dim);margin-top:10px;line-height:1.6}
-@media (max-width:700px){ .hide-m{display:none} }
 </style>
 </head>
 <body>
 <div id="site-nav"></div>
 
 <main>
-  <header class="page"><h1>📈 주식 AI 대시보드</h1></header>
-  <p class="game-desc" style="color:var(--mut);font-size:13.5px;line-height:1.8;margin-bottom:16px;max-width:720px">
-    토스증권 Open API 시세를 기반으로 국내·미국 시장 지표, 외국인·기관 수급, 실시간 랭킹을 보여주고
-    Gemini가 시황을 요약합니다. 서버가 데이터를 캐싱하므로(시세 60초, AI 브리핑 30분) 과도한 API 호출 없이 동작합니다.
-  </p>
+  <header class="page"><h1>📈 AI 주식</h1></header>
+  <div class="skill-row">
+    <span class="skill-label">적용 Skill</span>
+    <span>토스증권 Open API</span><span>Gemini API</span><span>Java</span><span>Vue.js(실시간 차트)</span><span>업비트 공개 API</span>
+  </div>
 
   <!-- 상단: 지표 + 주요 일정 -->
   <div class="top-grid">
@@ -113,13 +116,13 @@
     <div class="disclaim">※ AI가 생성한 참고용 요약이며 투자 권유가 아닙니다. 투자 판단과 책임은 본인에게 있습니다.</div>
   </div>
 
-  <!-- 하단: 랭킹 -->
+  <!-- 하단: 실시간 차트 -->
   <div class="panel rank-panel">
-    <h2>실시간 랭킹</h2>
+    <h2>실시간 차트</h2>
     <div class="rank-controls">
       <div class="seg" id="countrySeg">
-        <button class="on" data-v="KR" onclick="setCountry('KR')">🇰🇷 국내</button>
-        <button data-v="US" onclick="setCountry('US')">🇺🇸 미국</button>
+        <button class="on" data-v="KR" onclick="setCountry('KR')"><img src="https://flagcdn.com/20x15/kr.png" alt=""> 국내</button>
+        <button data-v="US" onclick="setCountry('US')"><img src="https://flagcdn.com/20x15/us.png" alt=""> 미국</button>
       </div>
       <div class="seg" id="tabSeg">
         <button class="on" data-v="amount" onclick="setTab('amount')">거래대금</button>
@@ -128,16 +131,18 @@
       </div>
       <div class="refresh-btn">
         <span id="refreshInfo"></span>
-        <button class="btn btn-ghost" style="padding:6px 14px;font-size:12.5px" onclick="refreshAll(true)">↻ 새로고침</button>
+        <button class="btn btn-ghost" style="padding:6px 14px;font-size:12.5px" onclick="loadRankings(true)">↻ 새로고침</button>
       </div>
     </div>
-    <table class="rank-table">
-      <thead><tr>
-        <th>#</th><th>종목명</th><th>현재가</th><th>등락률</th><th class="hide-m">거래대금</th><th class="hide-m">시가총액</th>
-      </tr></thead>
-      <tbody id="rankBody"><tr><td colspan="6"><div class="empty-msg">불러오는 중...</div></td></tr></tbody>
-    </table>
-    <div class="disclaim">거래대금 랭킹은 실시간, 급상승·급하락은 1일 기준입니다 (토스증권 Open API). 데이터는 60초 단위로 갱신됩니다.</div>
+    <div class="table-scroll">
+      <table class="rank-table">
+        <thead><tr>
+          <th>#</th><th>종목명</th><th>현재가</th><th>등락률</th><th>거래대금</th><th>시가총액</th>
+        </tr></thead>
+        <tbody id="rankBody"><tr><td colspan="6"><div class="empty-msg">불러오는 중...</div></td></tr></tbody>
+      </table>
+    </div>
+    <div class="disclaim">거래대금 랭킹은 실시간, 급상승·급하락은 1일 기준입니다 (토스증권 Open API). 데이터는 60초 단위로 갱신되며, 값이 바뀐 셀은 상승 빨강/하락 파랑으로 잠깐 표시됩니다.</div>
   </div>
 </main>
 
@@ -176,7 +181,7 @@ function fmtAmountKR(v, currency){
 
 /* ===== 스파크라인 ===== */
 function drawSpark(canvas, data, isUp){
-  if (!data || data.length < 2) { canvas.style.display = 'none'; return; }
+  if (!canvas || !data || data.length < 2) { if (canvas) canvas.style.display = 'none'; return; }
   const dpr = window.devicePixelRatio || 1;
   const w = 64, h = 34;
   canvas.width = w * dpr; canvas.height = h * dpr;
@@ -194,7 +199,7 @@ function drawSpark(canvas, data, isUp){
   ctx.stroke();
 }
 
-/* ===== 상단 지표 ===== */
+/* ===== 상단 지표 (2분 주기) ===== */
 async function loadDashboard(){
   const data = await fetch('/api/stock/dashboard').then(r => r.json()).catch(() => null);
   if (!data) return;
@@ -233,12 +238,11 @@ async function loadDashboard(){
     return row('외국인', f.foreigner) + row('기관', f.institution) + row('개인', f.individual);
   }).join('');
   $('flowBox').innerHTML = flowHtml || '<div class="empty-msg">수급 데이터 없음</div>';
-
-  // 장 캘린더 → 향후 7일 중 특이사항(휴장 등) 위주
-  renderCalendar(data.calendar);
 }
 
-function renderCalendar(cal){
+/* ===== 주요 일정 (서버 재시작 시 + 12시간마다만 재요청 — dashboard 폴링과 완전히 분리) ===== */
+async function loadCalendar(){
+  const cal = await fetch('/api/stock/calendar').then(r => r.json()).catch(() => null);
   if (!cal) return;
   const today = new Date(); today.setHours(0,0,0,0);
   const week = new Date(today.getTime() + 7 * 86400000);
@@ -251,18 +255,18 @@ function renderCalendar(cal){
     const isOpen = d.open ?? d.isOpen ?? d.marketOpen;
     const name = d.holidayName || d.name || d.description || '';
     if (isOpen === false || name) {
-      rows.push({ dt, text: `${flag} ${name || '휴장'}` });
+      const dLabel = dt.getTime() === today.getTime() ? '오늘' : (dt.getDate() + '일');
+      rows.push({ dt, text: `${flag} ${name || '휴장'}`, dLabel });
     }
   });
   scan(cal.kr, '🇰🇷'); scan(cal.us, '🇺🇸');
   rows.sort((a, b) => a.dt - b.dt);
-  const calRows = rows.map(r =>
-    `<div class="cal-row"><span class="d">${r.dt.getMonth()+1}/${r.dt.getDate()}</span><span class="t">${esc(r.text)}</span></div>`);
-  window._calMarket = calRows; // AI 주간 일정과 합칠 때 사용
-  $('calList').innerHTML = calRows.join('') || '<div class="cal-row"><span class="t">향후 7일간 국내·미국 모두 정상 개장 예정입니다.</span></div>';
+  window._calMarket = rows.map(r =>
+    `<div class="cal-row"><span class="d">${r.dLabel}</span><span class="t">${esc(r.text)}</span></div>`);
+  $('calList').innerHTML = window._calMarket.join('') || '<div class="cal-row"><span class="t">향후 7일간 국내·미국 모두 정상 개장 예정입니다.</span></div>';
 }
 
-/* ===== AI 브리핑 ===== */
+/* ===== AI 브리핑 (수동 새로고침 시에만 재요청 — 서버 30분 캐시) ===== */
 async function loadBriefing(){
   const data = await fetch('/api/stock/briefing').then(r => r.json()).catch(() => null);
   if (!data) return;
@@ -277,57 +281,139 @@ async function loadBriefing(){
   const week = data.weekAhead || [];
   $('weekBox').innerHTML = !week.length ? '<div class="empty-msg">-</div>' :
     week.map(w => `<div class="week-item">${esc(w)}</div>`).join('');
-  // 주요 일정 패널에도 AI 주간 일정을 병합 표시
   if (week.length) {
     const aiRows = week.map(w => `<div class="cal-row"><span class="d">AI</span><span class="t">${esc(w)}</span></div>`);
     $('calList').innerHTML = (window._calMarket || []).join('') + aiRows.join('');
   }
 }
 
-/* ===== 랭킹 ===== */
-function setCountry(v){ country = v; segSync('countrySeg', v); loadRankings(); }
-function setTab(v){ tab = v; segSync('tabSeg', v); loadRankings(); }
+/* ===================================================
+   실시간 차트 (랭킹 테이블) — 새로고침마다 통째로 지우지 않고,
+   기존 행을 심볼 키로 재사용해 가격/등락률이 바뀐 셀만 잠깐 색이 반짝이고,
+   순위가 바뀌면 FLIP 기법으로 행이 위아래로 부드럽게 이동한다.
+   =================================================== */
+let rankRowsBySymbol = new Map(); // symbol -> <tr> element
+let lastRankKey = null;           // country+tab 조합 — 바뀌면 완전히 새로 그림
+
+function setCountry(v){ country = v; segSync('countrySeg', v); loadRankings(true); }
+function setTab(v){ tab = v; segSync('tabSeg', v); loadRankings(true); }
 function segSync(segId, v){
   document.querySelectorAll('#' + segId + ' button').forEach(b => b.classList.toggle('on', b.dataset.v === v));
 }
 
-async function loadRankings(){
-  $('rankBody').innerHTML = '<tr><td colspan="6"><div class="empty-msg">불러오는 중...</div></td></tr>';
+function rankRowHtml(r){
+  const rate = r.changeRate;
+  const rateCls = rate > 0 ? 'up' : rate < 0 ? 'down' : 'flat';
+  const rateTxt = rate == null ? '-' : (rate > 0 ? '+' : '') + rate.toFixed(2) + '%';
+  return `<td class="c-rank">${r.rank}</td>
+    <td>${esc(r.name || r.symbol)}<span class="sym">${esc(r.symbol || '')}</span></td>
+    <td class="c-price">${fmtPrice(r.price, r.currency)}</td>
+    <td class="c-rate"><span class="badge-rate ${rateCls}">${rateTxt}</span></td>
+    <td class="c-amt">${fmtAmountKR(r.tradingAmount, r.currency)}</td>
+    <td class="c-cap">${fmtAmountKR(r.marketCap, r.currency)}</td>`;
+}
+
+function flash(cell, cls){
+  if (!cell) return;
+  cell.classList.remove('flash-up', 'flash-down');
+  void cell.offsetWidth;
+  cell.classList.add(cls);
+  setTimeout(() => cell.classList.remove(cls), 700);
+}
+
+async function loadRankings(forceFullReload){
+  const key = country + ':' + tab;
+  const isSwitch = key !== lastRankKey;
+  lastRankKey = key;
+
   const data = await fetch(`/api/stock/rankings?country=${country}&tab=${tab}`).then(r => r.json()).catch(() => null);
-  const list = data && data.rankings || [];
+  const list = (data && data.rankings) || [];
+  const tbody = $('rankBody');
+
+  if (isSwitch || forceFullReload && rankRowsBySymbol.size === 0) {
+    // 국가/탭이 바뀌었을 때만 완전히 새로 그린다 (그 외에는 항상 기존 행을 재사용)
+    rankRowsBySymbol = new Map();
+    tbody.innerHTML = '';
+  }
+
   if (!list.length) {
-    $('rankBody').innerHTML = '<tr><td colspan="6"><div class="empty-msg">랭킹 데이터가 없습니다. (장 시간 외이거나 API 설정을 확인해주세요)</div></td></tr>';
+    if (tbody.children.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="6"><div class="empty-msg">랭킹 데이터가 없습니다. (장 시간 외이거나 API 설정을 확인해주세요)</div></td></tr>';
+    }
     return;
   }
-  $('rankBody').innerHTML = list.map(r => {
-    const rate = r.changeRate;
-    const rateCls = rate > 0 ? 'up' : rate < 0 ? 'down' : 'flat';
-    const rateTxt = rate == null ? '-' : (rate > 0 ? '+' : '') + rate.toFixed(2) + '%';
-    return `<tr>
-      <td>${r.rank}</td>
-      <td>${esc(r.name || r.symbol)}<span class="sym">${esc(r.symbol || '')}</span></td>
-      <td>${fmtPrice(r.price, r.currency)}</td>
-      <td><span class="badge-rate ${rateCls}">${rateTxt}</span></td>
-      <td class="hide-m">${fmtAmountKR(r.tradingAmount, r.currency)}</td>
-      <td class="hide-m">${fmtAmountKR(r.marketCap, r.currency)}</td>
-    </tr>`;
-  }).join('');
+
+  // 1) FLIP: 재정렬 전 각 행의 현재 위치 기록
+  const firstRects = new Map();
+  rankRowsBySymbol.forEach((tr, sym) => { firstRects.set(sym, tr.getBoundingClientRect().top); });
+
+  const seen = new Set();
+  let prevNode = null;
+  list.forEach(r => {
+    const sym = r.symbol || ('#' + r.rank);
+    seen.add(sym);
+    let tr = rankRowsBySymbol.get(sym);
+    if (!tr) {
+      tr = document.createElement('tr');
+      tr.innerHTML = rankRowHtml(r);
+      rankRowsBySymbol.set(sym, tr);
+    } else {
+      const prevPrice = tr.dataset.price ? parseFloat(tr.dataset.price) : null;
+      const prevRate = tr.dataset.rate ? parseFloat(tr.dataset.rate) : null;
+      tr.innerHTML = rankRowHtml(r);
+      if (prevPrice != null && r.price != null && r.price !== prevPrice) {
+        flash(tr.querySelector('.c-price'), r.price > prevPrice ? 'flash-up' : 'flash-down');
+      }
+      if (prevRate != null && r.changeRate != null && r.changeRate !== prevRate) {
+        flash(tr.querySelector('.c-rate'), r.changeRate > prevRate ? 'flash-up' : 'flash-down');
+      }
+    }
+    tr.dataset.price = r.price ?? '';
+    tr.dataset.rate = r.changeRate ?? '';
+    // 순서대로 재삽입 (이미 올바른 위치면 브라우저가 사실상 no-op으로 처리)
+    if (prevNode) prevNode.after(tr); else tbody.prepend(tr);
+    prevNode = tr;
+  });
+  // 더 이상 랭킹에 없는 종목 제거
+  Array.from(rankRowsBySymbol.keys()).forEach(sym => {
+    if (!seen.has(sym)) { rankRowsBySymbol.get(sym).remove(); rankRowsBySymbol.delete(sym); }
+  });
+
+  // 2) FLIP: 새 위치와 이전 위치 차이만큼 역보정 트랜스폼을 준 뒤 0으로 애니메이션
+  if (!isSwitch) {
+    rankRowsBySymbol.forEach((tr, sym) => {
+      const before = firstRects.get(sym);
+      if (before == null) return; // 새로 추가된 행은 애니메이션 생략
+      const after = tr.getBoundingClientRect().top;
+      const delta = before - after;
+      if (Math.abs(delta) < 1) return;
+      tr.style.transition = 'none';
+      tr.style.transform = `translateY(${delta}px)`;
+      requestAnimationFrame(() => {
+        tr.style.transition = 'transform .35s ease';
+        tr.style.transform = '';
+      });
+    });
+  }
+
   $('refreshInfo').textContent = '마지막 갱신 ' + new Date().toLocaleTimeString('ko-KR', {hour:'2-digit',minute:'2-digit',second:'2-digit'});
 }
 
 /* ===== 갱신 사이클 ===== */
 function refreshAll(manual){
   loadDashboard();
-  loadRankings();
-  if (manual) loadBriefing(); // AI 브리핑은 30분 서버 캐시라 수동 새로고침 때만 재요청
+  loadRankings(false);
+  if (manual) { loadBriefing(); loadCalendar(); } // AI 브리핑·캘린더는 긴 캐시라 수동 새로고침 때만 재요청
   clearTimeout(refreshTimer);
   refreshTimer = setTimeout(() => refreshAll(false), REFRESH_MS);
 }
 
 loadDashboard();
-loadRankings();
+loadRankings(true);
 loadBriefing();
+loadCalendar();
 refreshTimer = setTimeout(() => refreshAll(false), REFRESH_MS);
+setInterval(loadCalendar, 12 * 3600 * 1000); // 캘린더는 12시간마다만 재요청
 </script>
 </body>
 </html>
