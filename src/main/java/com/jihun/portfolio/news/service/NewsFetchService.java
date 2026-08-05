@@ -27,6 +27,7 @@ import java.util.Map;
  * 30분마다 카테고리별 RSS를 순회하며 새 기사를 수집한다.
  * 카테고리마다 여러 언론사 소스를 등록해 다양한 매체의 기사를 함께 모은다.
  * - 링크 기준 중복 제거
+ * - 제목이 완전히 같은 기사는 언론사가 다르더라도 중복으로 보고 거르는다 (먼저 수집된 것 유지)
  * - 제목에 [속보]/[단독]가 포함되면 속보로 표시
  * - 3일 지난 기사는 자동 삭제 (테이블 관리)
  * - 소스 하나가 장애나도 나머지는 계속 수집 (소스 단위 장애 격리)
@@ -125,7 +126,8 @@ public class NewsFetchService {
             String link = trim(e.getLink(), 600);
             String title = trim(e.getTitle(), 300);
             if (link == null || title == null || title.isBlank()) continue;
-            if (newsRepository.existsByLink(link)) continue;   // 중복 제거
+            if (newsRepository.existsByLink(link)) continue;    // 링크 기준 중복 제거
+            if (newsRepository.existsByTitle(title)) continue;  // 언론사만 다른 동일 제목 중복 제거 (먼저 수집된 것 유지)
 
             LocalDateTime publishedAt = e.getPublishedDate() != null
                     ? LocalDateTime.ofInstant(e.getPublishedDate().toInstant(), ZoneId.of("Asia/Seoul"))

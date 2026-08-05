@@ -14,13 +14,14 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.time.LocalDateTime;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
+import java.util.concurrent.CompletableFuture;
 
 @RestController
 @RequestMapping("/api/news")
 public class NewsController {
+
+    private static final int HIGHLIGHT_TARGET = 10;
 
     private final NewsRepository newsRepository;
     private final NewsBriefingRepository briefingRepository;
@@ -49,15 +50,55 @@ public class NewsController {
         return newsRepository.findTop30ByCategoryOrderByPublishedAtDesc(category);
     }
 
+    /**
+     * 주요 뉴스 하이라이트. 전체 최신순으로만 뿑으면 특정 카테고리가 배제되므로,
+     * 카테고리당 최신 1건을 먼저 보장한 뒤 전체 최신순으로 나머지를 채운다.
+     * 각 기사에는 OpenGraph 대표 이미지를 병렬로 붙여 반환한다(이미지는 수집 후 캐시되어 재요청 비용이 없다).
+     */
     @GetMapping("/highlights")
     public Map<String, Object> highlights() {
-        return Map.of(
-                "breaking", newsRepository.findTop6ByBreakingTrueAndPublishedAtAfterOrderByPublishedAtDesc(
-                        LocalDateTime.now().minusHours(24)),
-                "latest", newsRepository.findTop8ByOrderByPublishedAtDesc(),
-                "lastFetchAt", fetchService.getLastFetchAt(),
-                "total", newsRepository.count()
-        );
+        List<NewsArticle> balanced = new ArrayList<>();
+        Set<Long> used = new HashSet<>();
+        for (NewsCategory cat : NewsCategory.values()) {
+            List<NewsArticle> top = newsRepository.findTop30ByCategoryOrderByPublishedAtDesc(cat);
+            if (!top.isEmpty()) {
+                NewsArticle a = top.get(0);
+                balanced.add(a);
+                used.add(a.getId());
+            }
+        }
+        for (NewsArticle a : newsRepository.findTop20ByOrderByPublishedAtDesc()) {
+            if (balanced.size() >= HIGHLIGHT_TARGET) break;
+            if (used.add(a.getId())) balanced.add(a);
+        }
+        balanced.sort(Comparator.comparing(NewsArticle::getPublishedAt).reversed());
+
+        // 이미지는 외부 페이지 링크 미리보기를 병렬로 가져온다 (캐시 되어있으면 즉시 반환)
+        List<CompletableFuture<Map<String, Object>>> futures = balanced.stream()
+                .map(a -> CompletableFuture.supplyAsync(() -> toHighlightMap(a)))
+                .toList();
+        List<Map<String, Object>> latestWithImages = futures.stream().map(CompletableFuture::join).toList();
+
+        Map<String, Object> res = new HashMap<>();
+        res.put("breaking", newsRepository.findTop6ByBreakingTrueAndPublishedAtAfterOrderByPublishedAtDesc(
+                LocalDateTime.now().minusHours(24)));
+        res.put("latest", latestWithImages);
+        res.put("lastFetchAt", fetchService.getLastFetchAt());
+        res.put("total", newsRepository.count());
+        return res;
+    }
+
+    private Map<String, Object> toHighlightMap(NewsArticle a) {
+        Map<String, Object> m = new HashMap<>();
+        m.put("id", a.getId());
+        m.put("title", a.getTitle());
+        m.put("categoryLabel", a.getCategoryLabel());
+        m.put("press", a.getPress());
+        m.put("publishedAt", a.getPublishedAt());
+        m.put("breaking", a.isBreaking());
+        NewsPreviewService.Preview p = previewService.getPreview(a.getId());
+        m.put("image", (p != null && p.image() != null && !p.image().isBlank()) ? p.image() : null);
+        return m;
     }
 
     /** 카테고리별 AI 3줄 브리핑 전체 */
