@@ -32,7 +32,8 @@ main{max-width:1080px}
 .feature.rev .feature-text{order:1}
 .feature-text .tag{display:inline-flex;align-items:center;gap:6px;font-family:var(--mono);font-size:11px;color:var(--green);background:rgba(62,207,142,.1);border:1px solid rgba(62,207,142,.25);border-radius:999px;padding:4px 12px;margin-bottom:16px}
 .feature-text h2{font-size:28px;letter-spacing:-.6px;margin-bottom:14px}
-.feature-text p{color:var(--mut);font-size:14.5px;line-height:1.9;margin-bottom:18px}
+.feature-text .skills{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:20px}
+.feature-text .skills span{font-family:var(--mono);font-size:11px;color:var(--mut);border:1px solid var(--line);border-radius:999px;padding:4px 12px;background:var(--panel-2)}
 .feature-text ul{display:flex;flex-direction:column;gap:9px;margin-bottom:22px}
 .feature-text li{display:flex;align-items:baseline;gap:9px;font-size:13.5px;color:var(--ink)}
 .feature-text li::before{content:'→';color:var(--amber);font-family:var(--mono);flex:none}
@@ -82,6 +83,14 @@ main{max-width:1080px}
 .mock-piece.w{color:#f2f2f2;text-shadow:0 1px 2px rgba(0,0,0,.5)}
 .mock-piece.b{color:var(--amber);text-shadow:0 1px 2px rgba(0,0,0,.4)}
 
+/* 주식 지표 목업 */
+.mock-ticker{display:flex;flex-direction:column;gap:7px;margin-bottom:12px}
+.mock-tick-row{display:flex;align-items:center;justify-content:space-between;background:var(--panel-2);border:1px solid var(--line);border-radius:7px;padding:8px 10px;font-family:var(--mono);font-size:11px}
+.mock-tick-row .up{color:var(--red)}
+.mock-tick-row .down{color:var(--blue)}
+.mock-rank{display:flex;justify-content:space-between;font-size:11px;color:var(--mut);padding:5px 0;border-bottom:1px solid var(--line)}
+.mock-rank:last-child{border-bottom:0}
+
 /* ===== Backlog / footer ===== */
 .tail{padding:56px 0 64px}
 .tail h2{font-size:20px;margin-bottom:18px}
@@ -118,13 +127,108 @@ main{max-width:1080px}
 
   <div id="projects"></div>
 
-  <!-- ===== MMS ===== -->
+  <!-- ===== AI 뉴스 ===== -->
   <section class="feature">
     <div class="feature-text">
       <span class="tag">● LIVE</span>
+      <h2>AI 뉴스 — RSS 수집 + Gemini 브리핑</h2>
+      <div class="skills">
+        <span>Java</span><span>Spring Scheduler</span><span>ROME(RSS)</span><span>JSoup</span><span>Gemini API</span><span>MySQL</span>
+      </div>
+      <ul>
+        <li>정치·경제·사회·생활문화·세계·연예·주식 7개 카테고리, 언론사별 RSS 30분 주기 수집</li>
+        <li>[속보]/[단독] 자동 감지 + 상단 하이라이트, 카테고리 균형 배치</li>
+        <li>Gemini 무료 한도 안에서 매일 07시 1회 카테고리별 3줄 브리핑 생성</li>
+        <li>저작권 안전: 본문 대신 OpenGraph 미리보기(제목·이미지·요약)만 표시, 원문은 언론사로 연결</li>
+      </ul>
+      <a class="feature-link" href="/news">AI 뉴스 보러가기 →</a>
+    </div>
+    <div class="feature-visual">
+      <div class="mockup">
+        <div class="mockup-bar"><span></span><span></span><span></span></div>
+        <div class="mockup-body">
+          <div class="mock-tabs"><span class="on">정치</span><span>경제</span><span>사회</span><span>세계</span></div>
+          <div class="mock-brief"><div></div><div></div><div></div></div>
+          <div class="mock-headline"><span>정부, 내년 예산안 발표</span><span>09:41</span></div>
+          <div class="mock-headline"><span>국회 본회의 통과 소식</span><span>09:12</span></div>
+          <div class="mock-headline"><span>여야 합의안 도출</span><span>08:55</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== AI 주식 ===== -->
+  <section class="feature rev">
+    <div class="feature-text">
+      <span class="tag">● LIVE</span>
+      <h2>AI 주식 — 토스증권 시세 + Gemini 시황</h2>
+      <div class="skills">
+        <span>토스증권 Open API</span><span>Gemini API</span><span>Java</span><span>Vue.js</span><span>업비트 공개 API</span>
+      </div>
+      <ul>
+        <li>코스피·코스닥·미국 대표지수·환율·비트코인 실시간 지표 + 미니 차트</li>
+        <li>외국인·기관 수급, 거래대금/급상승/급하락 실시간 랭킹 (국내·미국 탭)</li>
+        <li>Gemini가 지표·수급·거래대금 데이터를 근거로 매 30분 시황 요약</li>
+        <li>서버 TTL 캐시 + 요청 스로틀로 AWS 프리티어·API 호출 한도 보호</li>
+      </ul>
+      <a class="feature-link" href="/stock">AI 주식 보러가기 →</a>
+    </div>
+    <div class="feature-visual">
+      <div class="mockup">
+        <div class="mockup-bar"><span></span><span></span><span></span></div>
+        <div class="mockup-body">
+          <div class="mock-ticker">
+            <div class="mock-tick-row"><span>코스피</span><span class="up">+1.62%</span></div>
+            <div class="mock-tick-row"><span>나스닥</span><span class="up">+2.12%</span></div>
+            <div class="mock-tick-row"><span>달러환율</span><span class="down">-0.21%</span></div>
+          </div>
+          <div class="mock-rank"><span>1. 삼성전자</span><span class="up">+0.8%</span></div>
+          <div class="mock-rank"><span>2. SK하이닉스</span><span class="up">+5.1%</span></div>
+          <div class="mock-rank"><span>3. NAVER</span><span class="down">-0.3%</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== 지도 API ===== -->
+  <section class="feature">
+    <div class="feature-text">
+      <span class="tag">● LIVE</span>
+      <h2>지도 API — 맛집 지도 · 부동산 시세</h2>
+      <div class="skills">
+        <span>Java</span><span>카카오 Local API</span><span>네이버 지도 API</span><span>국토교통부 실거래가 API</span>
+      </div>
+      <ul>
+        <li>현위치 검색 + 지도를 옮긴 뒤 "이 지역에서 재검색"</li>
+        <li>아파트 실거래가를 단지별 좌표·가격으로 지도에 표시</li>
+        <li>키워드 기반 지오코딩으로 건물명 인식률 개선</li>
+        <li>localStorage로 검색 결과·지도 위치를 세션 간 유지</li>
+      </ul>
+      <a class="feature-link" href="/map">지도 API 열어보기 →</a>
+    </div>
+    <div class="feature-visual">
+      <div class="mockup">
+        <div class="mockup-bar"><span></span><span></span><span></span></div>
+        <div class="mockup-body">
+          <div class="mock-map">
+            <div class="mock-pin" style="top:38%;left:30%"></div>
+            <div class="mock-pin" style="top:56%;left:52%;background:var(--blue)"></div>
+            <div class="mock-pin" style="top:24%;left:66%"></div>
+          </div>
+          <div class="mock-search"><div></div><span></span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== MMS ===== -->
+  <section class="feature rev">
+    <div class="feature-text">
+      <span class="tag">● LIVE</span>
       <h2>MMS — 메시징 발송 시스템</h2>
-      <p>이동통신 메시징 시스템의 축소판입니다. API는 발송을 직접 처리하지 않고 큐에 적재만 한 뒤 즉시 응답하며,
-      백그라운드의 멀티쓰레드 워커들이 실제 발송을 처리합니다.</p>
+      <div class="skills">
+        <span>Java</span><span>Spring Boot</span><span>Multi-thread Worker Pool</span><span>Queue</span><span>Chart.js</span>
+      </div>
       <ul>
         <li>워커 5개가 큐를 공유하며 병렬로 발송 처리</li>
         <li>발송 실패 시 최대 2회 자동 재시도, 이후 수동 재발송 가능</li>
@@ -152,77 +256,19 @@ main{max-width:1080px}
     </div>
   </section>
 
-  <!-- ===== AI 뉴스 ===== -->
-  <section class="feature rev">
-    <div class="feature-text">
-      <span class="tag">● LIVE</span>
-      <h2>AI 뉴스 — RSS 수집 + Gemini 브리핑</h2>
-      <p>매일경제·한국경제·SBS·동아일보의 RSS를 30분마다 자동 수집합니다. 카테고리별로 최근 헤드라인을
-      Gemini에 전달해 매일 아침 3줄 브리핑을 생성하고, 기사는 본문을 긁지 않고 OpenGraph 미리보기로 보여줍니다.</p>
-      <ul>
-        <li>정치·경제·사회·생활문화·세계·연예·주식 7개 카테고리</li>
-        <li>[속보]/[단독] 자동 감지 + 상단 하이라이트</li>
-        <li>Gemini 무료 한도 안에서 매일 07시 1회 브리핑 생성</li>
-        <li>저작권 안전: 제목·이미지·요약만 표시, 원문은 언론사로 연결</li>
-      </ul>
-      <a class="feature-link" href="/news">AI 뉴스 보러가기 →</a>
-    </div>
-    <div class="feature-visual">
-      <div class="mockup">
-        <div class="mockup-bar"><span></span><span></span><span></span></div>
-        <div class="mockup-body">
-          <div class="mock-tabs"><span class="on">정치</span><span>경제</span><span>사회</span><span>세계</span></div>
-          <div class="mock-brief"><div></div><div></div><div></div></div>
-          <div class="mock-headline"><span>정부, 내년 예산안 발표</span><span>09:41</span></div>
-          <div class="mock-headline"><span>국회 본회의 통과 소식</span><span>09:12</span></div>
-          <div class="mock-headline"><span>여야 합의안 도출</span><span>08:55</span></div>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ===== 지도 API ===== -->
+  <!-- ===== 웹 게임 ===== -->
   <section class="feature">
     <div class="feature-text">
       <span class="tag">● LIVE</span>
-      <h2>지도 API — 맛집 지도 · 부동산 시세</h2>
-      <p>카카오 Local API와 네이버 지도, 국토교통부 실거래가 공공 API를 엮은 위치 기반 서비스입니다.
-      맛집 지도와 부동산 시세는 완전히 독립된 지도로 동작하며, 마지막으로 보던 화면을 브라우저에 기억합니다.</p>
-      <ul>
-        <li>현위치 검색 + 지도를 옮긴 뒤 "이 지역에서 재검색"</li>
-        <li>아파트 실거래가를 단지별 좌표·가격으로 지도에 표시</li>
-        <li>키워드 기반 지오코딩으로 건물명 인식률 개선</li>
-        <li>localStorage로 검색 결과·지도 위치를 세션 간 유지</li>
-      </ul>
-      <a class="feature-link" href="/map">지도 API 열어보기 →</a>
-    </div>
-    <div class="feature-visual">
-      <div class="mockup">
-        <div class="mockup-bar"><span></span><span></span><span></span></div>
-        <div class="mockup-body">
-          <div class="mock-map">
-            <div class="mock-pin" style="top:38%;left:30%"></div>
-            <div class="mock-pin" style="top:56%;left:52%;background:var(--blue)"></div>
-            <div class="mock-pin" style="top:24%;left:66%"></div>
-          </div>
-          <div class="mock-search"><div></div><span></span></div>
-        </div>
+      <h2>웹 게임 — 오목 · 숫자야구 · 장기 AI</h2>
+      <div class="skills">
+        <span>Java</span><span>알파베타 미니맥스</span><span>SVG</span><span>순수 알고리즘(외부 AI API 미사용)</span>
       </div>
-    </div>
-  </section>
-
-  <!-- ===== 웹 게임 ===== -->
-  <section class="feature rev">
-    <div class="feature-text">
-      <span class="tag">● LIVE</span>
-      <h2>웹 게임 — 오목 AI · 숫자야구</h2>
-      <p>브라우저에서 바로 즐기는 미니 게임입니다. 오목은 외부 AI API 없이 서버가 직접 계산하는
-      패턴 평가 + 미니맥스 알고리즘으로 상대해주며, 난이도와 제한시간을 고를 수 있습니다.</p>
       <ul>
         <li>오목: 초급·중급·고급 난이도, 흑/백 선택, 턴 제한시간</li>
+        <li>장기: 마·상 포진 4종 선택, 알파베타 완전탐색 AI, 궁성 대각선 규칙까지 구현</li>
         <li>숫자야구: 스트라이크/볼 추리 + 최소 시도 랭킹</li>
-        <li>모든 게임 AI는 순수 알고리즘 — 외부 API 비용 없음</li>
-        <li>장기·체스는 규칙 엔진을 준비 중</li>
+        <li>모든 게임 AI는 서버가 직접 계산 — 외부 API 비용 없음, 체스는 준비 중</li>
       </ul>
       <a class="feature-link" href="/game">웹 게임 하러가기 →</a>
     </div>
@@ -241,10 +287,8 @@ main{max-width:1080px}
     <h2>개발예정</h2>
     <div class="chips">
       <span>🏠 부동산 시세 지도 고도화</span>
-      <span>♟️ 장기 AI 대국</span>
       <span>♞ 체스 AI 대국</span>
       <span>🛒 가격 비교</span>
-      <span>📊 주식 AI 분석</span>
       <span>💡 + 계속 추가 예정</span>
     </div>
   </section>
