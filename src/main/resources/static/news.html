@@ -19,8 +19,11 @@
 .breaking .t{color:var(--ink)}
 
 .hl-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-bottom:20px}
-.hl{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:8px;transition:border-color .15s;cursor:pointer}
+.hl{background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden;display:flex;flex-direction:column;transition:border-color .15s;cursor:pointer}
 .hl:hover{border-color:var(--amber)}
+.hl .thumb{width:100%;aspect-ratio:16/9;background:var(--panel-2) center/cover no-repeat;flex:none}
+.hl .thumb.empty{display:flex;align-items:center;justify-content:center;color:var(--dim);font-size:22px}
+.hl .body{padding:12px 14px;display:flex;flex-direction:column;gap:8px;flex:1}
 .hl .cat{font-size:10.5px;font-weight:700;color:var(--amber);letter-spacing:.4px}
 .hl .t{font-size:13.5px;line-height:1.55;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;flex:1}
 .hl .meta{font-family:var(--mono);font-size:10.5px;color:var(--dim)}
@@ -185,9 +188,12 @@ async function loadHighlights(){
       </a>`).join('');
     $('hlGrid').innerHTML = (h.latest || []).map(a => `
       <div class="hl" onclick="openPreview(${a.id})">
-        <span class="cat">${a.categoryLabel}</span>
-        <span class="t">${esc(a.title)}</span>
-        <span class="meta">${esc(a.press)} · ${fmtT(a.publishedAt)}</span>
+        ${a.image ? `<div class="thumb" style="background-image:url('${esc(a.image)}')"></div>` : `<div class="thumb empty">📰</div>`}
+        <div class="body">
+          <span class="cat">${a.categoryLabel}</span>
+          <span class="t">${esc(a.title)}</span>
+          <span class="meta">${esc(a.press)} · ${fmtT(a.publishedAt)}</span>
+        </div>
       </div>`).join('');
   }catch(e){}
 }
