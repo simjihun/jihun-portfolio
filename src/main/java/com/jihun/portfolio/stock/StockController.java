@@ -7,6 +7,8 @@ import java.util.Map;
 
 /**
  * 주식 대시보드 REST API. 모든 응답은 서버 측 TTL 캐시를 거친다(외부 API·프리티어 보호).
+ * 캘린더는 자주 바뀌지 않아 /dashboard의 짧은 폴링 주기와 분리된 별도 엔드포인트로 뺐다
+ * (프론트에서 12시간 간격으로만 호출 — 체감상 자주 새로고침되는 느낌을 없애기 위함).
  */
 @RestController
 @RequestMapping("/api/stock")
@@ -18,14 +20,19 @@ public class StockController {
         this.service = service;
     }
 
-    /** 상단 지표 + 수급 + 장 캘린더를 한 번에 반환 (페이지 초기 로딩용) */
+    /** 상단 지표 + 수급 (짧은 주기로 폴링되는 부분만) */
     @GetMapping("/dashboard")
     public Map<String, Object> dashboard() {
         Map<String, Object> res = new HashMap<>();
         res.put("indicators", service.getIndicators());
         res.put("investorTrading", service.getInvestorTrading());
-        res.put("calendar", service.getCalendar());
         return res;
+    }
+
+    /** 장 운영 캘린더 (서버 12시간 캐시 — 프론트도 자주 호출하지 않는다) */
+    @GetMapping("/calendar")
+    public Map<String, Object> calendar() {
+        return service.getCalendar();
     }
 
     @GetMapping("/rankings")
