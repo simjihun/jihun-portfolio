@@ -9,6 +9,8 @@ import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -17,26 +19,30 @@ import java.util.concurrent.ConcurrentHashMap;
  *
  * 보호장치 3중:
  *  1) TossApiClient 전역 스로틀(300ms 간격) + 429 재시도
- *  2) TTL 캐시: 지표/랭킹 60초, 수급 10분, 캘린더 6시간, AI 브리핑 30분, 종목마스터 24시간
+ *  2) TTL 캐시: 지표/랭킹 60초, 수급 10분, 캘린더 12시간(서버 재시작 시에도 새로 채워짐), AI 브리핑 30분, 종목마스터 24시간
  *  3) 요청 병합: cached()가 동기화되어 같은 데이터를 동시에 중복 로드하지 않음
  *
  * 스키마(공식 문서 확인):
  *  - RankingItem: rank/symbol/currency/price{lastPrice,basePrice,changeRate(소수비율)}/tradingVolume/tradingAmount
  *    → 종목명·시총은 없음. /api/v1/stocks(종목마스터: name, sharesOutstanding)를 조인해 시총=발행주식수×현재가로 계산.
  *  - MarketIndicatorPriceResponse / PriceResponse: lastPrice만 있고 등락률 없음 → 일봉 2개로 전일대비 계산.
- *  - exchange-rate: baseCurrency=USD&quoteCurrency=KRW 필수.
+ *  - exchange-rate: baseCurrency=USD&quoteCurrency=KRW 필수. 등락률 필드가 없어 자체 수집 이력으로 당일 대비를 계산한다.
  *  - 캘린더는 전일/당일/익일 3영업일만 반환.
  */
 @Service
 public class StockDashboardService {
 
     private static final Logger log = LoggerFactory.getLogger(StockDashboardService.class);
+    private static final ZoneId KST = ZoneId.of("Asia/Seoul");
 
     private final TossApiClient toss;
     private final RestTemplate rest;
     private final ObjectMapper mapper = new ObjectMapper();
     private final Map<String, CacheEntry> cache = new ConcurrentHashMap<>();
     private volatile String workingGeminiModel = null;
+
+    /** 환율은 등락률 API가 없어 서버가 직접 당일 샘플을 모아 시가 대비 등락률·스파크라인을 만든다. */
+    private final Deque<double[]> fxHistory = new ArrayDeque<>(); // {epochDay, rate}
 
     @Value("${GEMINI_API_KEY:}")
     private String geminiApiKey;
@@ -139,7 +145,7 @@ public class StockDashboardService {
             items.add(indicator(symbol, "KOSPI".equals(symbol) ? "코스피" : "코스닥", last, changeRate, change, "KRW", spark));
         }
 
-        // 미국 지수 프록시 ETF: 현재가(PriceResponse.lastPrice) + 일봉 2개로 전일대비
+        // 미국 지수 프록시 ETF: 현재가(PriceResponse.lastPrice) + 일봉 2개 전일대비 + 1분봉 스파크라인
         String[][] usProxies = {{"SPY", "S&P 500 (SPY)"}, {"QQQ", "나스닥100 (QQQ)"}, {"DIA", "다우존스 (DIA)"}};
         Map<String, Object> usRes = toss.get("/api/v1/prices?symbols=SPY,QQQ,DIA");
         List<Map<String, Object>> usList = listOf(usRes, "prices", "items", "list");
@@ -156,14 +162,18 @@ public class StockDashboardService {
                 double prev = daily.get(daily.size() - 2);
                 if (prev != 0) { change = last - prev; changeRate = (last - prev) / prev * 100; }
             }
-            items.add(indicator(proxy[0], proxy[1], last, changeRate, change, "USD", null));
+            List<Double> spark = closesOf(toss.get("/api/v1/candles?symbol=" + proxy[0] + "&interval=1m&count=60"));
+            items.add(indicator(proxy[0], proxy[1], last, changeRate, change, "USD", spark));
         }
 
-        // 환율: baseCurrency/quoteCurrency 필수 파라미터
+        // 환율: baseCurrency/quoteCurrency 필수 파라미터. 등락률 API가 없어 당일 첫 샘플 대비로 직접 계산.
         Map<String, Object> fxRes = unwrap(toss.get("/api/v1/exchange-rate?baseCurrency=USD&quoteCurrency=KRW"));
         if (fxRes != null) {
             Double rate = pickNum(fxRes, "rate", "exchangeRate", "value", "price", "lastPrice");
-            if (rate != null) items.add(indicator("USDKRW", "달러 환율", rate, null, null, "KRW", null));
+            if (rate != null) {
+                double[] fxChange = recordFxSample(rate);
+                items.add(indicator("USDKRW", "달러 환율", rate, fxChange[0], fxChange[1], "KRW", fxSpark()));
+            }
         }
 
         // 비트코인 (업비트 공개 API)
@@ -185,6 +195,26 @@ public class StockDashboardService {
         result.put("updatedAt", System.currentTimeMillis());
         result.put("tossConfigured", toss.isConfigured());
         return result;
+    }
+
+    /** 당일(KST) 첫 샘플을 기준가로 삼아 {changeRate, change}를 반환하고, 자정이 지나면 이력을 초기화한다. */
+    private synchronized double[] recordFxSample(double rate) {
+        long today = LocalDate.now(KST).toEpochDay();
+        if (!fxHistory.isEmpty() && (long) fxHistory.peekFirst()[0] != today) fxHistory.clear();
+        fxHistory.addLast(new double[]{today, rate});
+        while (fxHistory.size() > 200) fxHistory.removeFirst();
+        double base = fxHistory.peekFirst()[1];
+        if (base == 0) return new double[]{null == null ? 0 : 0, 0}; // 방어적 처리(발생하지 않음)
+        double change = rate - base;
+        double changeRate = base != 0 ? change / base * 100 : 0;
+        return new double[]{changeRate, change};
+    }
+
+    private synchronized List<Double> fxSpark() {
+        if (fxHistory.size() < 2) return null;
+        List<Double> spark = new ArrayList<>();
+        for (double[] s : fxHistory) spark.add(s[1]);
+        return spark;
     }
 
     private Map<String, Object> indicator(String symbol, String label, Double price, Double changeRate, Double change, String currency, List<Double> spark) {
@@ -223,8 +253,9 @@ public class StockDashboardService {
 
     /* ===================== 장 운영 캘린더 ===================== */
 
+    /** 서버 재시작 시 + 12시간마다만 토스에 재요청한다(체감상 자주 새로고침되는 느낌을 주지 않기 위함). */
     public Map<String, Object> getCalendar() {
-        return cached("calendar", 6 * 3600_000, () -> {
+        return cached("calendar", 12 * 3600_000, () -> {
             Map<String, Object> result = new HashMap<>();
             result.put("kr", listOf(toss.get("/api/v1/market-calendar/KR"), "days", "items", "calendar", "list"));
             result.put("us", listOf(toss.get("/api/v1/market-calendar/US"), "days", "items", "calendar", "list"));
