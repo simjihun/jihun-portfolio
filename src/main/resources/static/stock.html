@@ -170,7 +170,7 @@
         <tbody id="rankBody"><tr><td colspan="8"><div class="empty-msg">불러오는 중...</div></td></tr></tbody>
       </table>
     </div>
-    <div class="disclaim">거래대금 랭킹은 실시간, 급상승·급하락은 1일 기준입니다 (토스증권 Open API). 종목명·현재가·등락률·거래대금·시가총액은 한눈에, 산업·AI 요약은 필요할 때만 확인하도록 오른쪽에 구분해뒀습니다.</div>
+    <div class="disclaim">거래대금 랭킹은 실시간, 급상승·급하락은 1일 기준입니다 (토스증권 Open API). 산업·AI 요약은 토스 API 범위 밖이라 클릭 시 Gemini가 생성하며(종목당 12시간 캐시, 새로고침해도 유지), 종목명·현재가·등락률·거래대금·시가총액은 한눈에 보이도록 왼쪽에 촘촘히 배치했습니다.</div>
   </div>
 </main>
 
@@ -188,7 +188,7 @@
       <div><div class="k">시장</div><div class="v" id="smMarket">-</div></div>
     </div>
     <div class="sm-ai" id="smAiBox"><div class="sm-loading">AI 분석 불러오는 중...</div></div>
-    <div class="sm-disclaim">※ AI가 생성한 참고용 요약이며 투자 권유가 아닙니다.</div>
+    <div class="sm-disclaim">※ 산업 분류·요약 모두 AI가 추정한 참고용 정보이며 투자 권유가 아닙니다.</div>
   </div>
 </div>
 
@@ -202,9 +202,9 @@ let country = 'KR', tab = 'amount';
    로컬 캐시 — 페이지에 다시 들어올 때마다 서버를 새로 부르지 않고,
    localStorage에 남아있는 값을 먼저 보여준 뒤, 그 항목의 캐시 유효기간이
    끝나는 시점에만 다시 불러온다(항목마다 유효기간이 다름: 지표/랭킹 60초,
-   브리핑 30분, 캘린더 12시간 — 서버 TTL과 동일하게 맞춤).
+   브리핑 30분, 캘린더 12시간, 종목별 AI 요약 12시간 — 서버 TTL과 동일하게 맞춤).
    =================================================== */
-const TTL = { dashboard: 60_000, rank: 60_000, briefing: 30 * 60_000, calendar: 12 * 3600_000 };
+const TTL = { dashboard: 60_000, rank: 60_000, briefing: 30 * 60_000, calendar: 12 * 3600_000, insight: 12 * 3600_000 };
 function cacheGet(key){
   try{ const raw = localStorage.getItem(key); return raw ? JSON.parse(raw) : null; }catch(e){ return null; }
 }
@@ -397,7 +397,20 @@ async function loadBriefing(force){
 let rankRowsBySymbol = new Map(); // symbol -> <tr> element
 let rankDataBySymbol = new Map(); // symbol -> 최신 행 데이터 (팝업에서 사용)
 let lastRankKey = null;           // country+tab 조합 — 바뀌면 완전히 새로 그림
-let insightCache = new Map();     // symbol -> {tag, summary} (이번 세션에서 이미 확인한 AI 요약)
+
+/**
+ * 종목별 AI 요약(태그·산업·설명)을 localStorage에 12시간 보관한다.
+ * 서버도 같은 12시간 캐시라, 새로고침해도 다시 "AI 분석" 버튼을 누를 필요가 없다.
+ */
+const insightCache = {
+  get(symbol){
+    const c = cacheGet('stock:insight:' + symbol);
+    return (c && c.expiresAt > Date.now()) ? c.data : null;
+  },
+  set(symbol, data){
+    cacheSet('stock:insight:' + symbol, data, TTL.insight);
+  }
+};
 
 function setCountry(v){ country = v; segSync('countrySeg', v); loadRankings(false); }
 function setTab(v){ tab = v; segSync('tabSeg', v); loadRankings(false); }
@@ -411,6 +424,7 @@ function rankRowHtml(r){
   const rateTxt = rate == null ? '-' : (rate > 0 ? '+' : '') + rate.toFixed(2) + '%';
   const sym = r.symbol || '';
   const cachedInsight = insightCache.get(sym);
+  const industry = (cachedInsight && cachedInsight.industry) || r.industry || '-';
   const aiCell = cachedInsight && cachedInsight.tag
     ? `<span class="ai-tag" onclick="openStockModal('${sym}')">${esc(cachedInsight.tag)}</span>`
     : `<button class="ai-btn" onclick="openStockModal('${sym}')">AI 분석</button>`;
@@ -420,7 +434,7 @@ function rankRowHtml(r){
     <td class="c-rate"><span class="badge-rate ${rateCls}">${rateTxt}</span></td>
     <td class="c-amt">${fmtAmountKR(r.tradingAmount, r.currency)}</td>
     <td class="c-cap">${fmtAmountKR(r.marketCap, r.currency)}</td>
-    <td class="c-industry">${esc(r.industry || '-')}</td>
+    <td class="c-industry">${esc(industry)}</td>
     <td class="c-ai">${aiCell}</td>`;
 }
 
@@ -525,8 +539,9 @@ async function loadRankings(force){
 }
 
 /* ===================================================
-   종목 상세 + AI 요약 팝업 — 클릭했을 때만 생성(서버 2시간 캐시)해서
+   종목 상세 + AI 요약 팝업 — 클릭했을 때만 생성(서버 12시간 캐시)해서
    30개 종목을 자동으로 전부 분석하지 않고 필요한 종목만 확인한다.
+   토스 Open API에는 업종 분류가 없어 AI 요약과 함께 업종도 추정해 채운다.
    =================================================== */
 function externalLink(symbol){
   return country === 'US'
@@ -536,17 +551,17 @@ function externalLink(symbol){
 
 async function openStockModal(symbol){
   const r = rankDataBySymbol.get(symbol) || {};
+  const cached = insightCache.get(symbol);
   $('smName').textContent = r.name || symbol;
   $('smSymbol').textContent = symbol;
   $('smPrice').textContent = fmtPrice(r.price, r.currency);
   $('smRate').innerHTML = fmtRate(r.changeRate);
   $('smAmount').textContent = fmtAmountKR(r.tradingAmount, r.currency);
   $('smCap').textContent = fmtAmountKR(r.marketCap, r.currency);
-  $('smIndustry').textContent = r.industry || '-';
+  $('smIndustry').textContent = (cached && cached.industry) || r.industry || '-';
   $('smMarket').textContent = country === 'US' ? '미국' : '국내';
   $('stockModalBg').classList.add('show');
 
-  const cached = insightCache.get(symbol);
   if (cached) { renderInsight(symbol, cached); return; }
 
   $('smAiBox').innerHTML = '<div class="sm-loading">AI 분석 불러오는 중...</div>';
@@ -566,16 +581,19 @@ function renderInsight(symbol, insight){
       <a class="sm-fallback-link" href="${externalLink(symbol)}" target="_blank" rel="noopener">바로가기 — 외부 시세 페이지에서 확인 →</a>`;
   } else {
     $('smAiBox').innerHTML = (insight.tag ? `<span class="tag">${esc(insight.tag)}</span><br>` : '') + esc(insight.summary);
+    if (insight.industry) $('smIndustry').textContent = insight.industry;
   }
-  // 목록의 AI 요약 셀도 즉시 갱신 (다시 클릭하지 않아도 태그가 보이도록)
+  // 목록의 AI 요약·산업 셀도 즉시 갱신 (다시 클릭하지 않아도 보이도록)
   const tr = rankRowsBySymbol.get(symbol);
   if (tr) {
-    const cell = tr.querySelector('.c-ai');
-    if (cell) {
-      cell.innerHTML = (!failed && insight.tag)
+    const aiCell = tr.querySelector('.c-ai');
+    if (aiCell) {
+      aiCell.innerHTML = (!failed && insight.tag)
         ? `<span class="ai-tag" onclick="openStockModal('${symbol}')">${esc(insight.tag)}</span>`
         : `<button class="ai-btn" onclick="openStockModal('${symbol}')">바로가기</button>`;
     }
+    const indCell = tr.querySelector('.c-industry');
+    if (indCell && !failed && insight.industry) indCell.textContent = insight.industry;
   }
 }
 
