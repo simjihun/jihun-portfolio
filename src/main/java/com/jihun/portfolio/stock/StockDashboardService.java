@@ -19,12 +19,14 @@ import java.util.concurrent.ConcurrentHashMap;
  *
  * 보호장치 3중:
  *  1) TossApiClient 전역 스로틀(300ms 간격) + 429 재시도
- *  2) TTL 캐시: 지표/랭킹 60초, 수급 10분, 캘린더 12시간(서버 재시작 시에도 새로 채워짐), AI 브리핑 30분, 종목마스터 24시간, 종목별 AI 요약 2시간
+ *  2) TTL 캐시: 지표/랭킹 60초, 수급 10분, 캘린더 12시간(서버 재시작 시에도 새로 채워짐), AI 브리핑 30분, 종목마스터 24시간, 종목별 AI 요약 12시간
  *  3) 요청 병합: cached()가 동기화되어 같은 데이터를 동시에 중복 로드하지 않음
  *
  * 스키마(공식 문서 확인):
  *  - RankingItem: rank/symbol/currency/price{lastPrice,basePrice,changeRate(소수비율)}/tradingVolume/tradingAmount
- *    → 종목명·시총은 없음. /api/v1/stocks(종목마스터: name, sharesOutstanding, industry 후보 필드)를 조인해 시총·산업 부여.
+ *    → 종목명·시총은 없음. /api/v1/stocks(종목마스터: name, sharesOutstanding)를 조인해 시총 계산.
+ *  - Stock Info 카테고리는 공식 커버리지상 "stock master data and stock warnings"뿐이라 업종/섹터 필드는 없음
+ *    (developers.tossinvest.com/llms.txt 확인). 업종은 종목별 AI 요약에서 Gemini가 함께 추정한다.
  *  - MarketIndicatorPriceResponse / PriceResponse: lastPrice만 있고 등락률 없음 → 일봉 2개로 전일대비 계산.
  *  - exchange-rate: baseCurrency=USD&quoteCurrency=KRW 필수. 등락률 필드가 없어 자체 수집 이력으로 당일 대비를 계산한다.
  *  - 캘린더는 전일/당일/익일 3영업일만 반환.
@@ -287,9 +289,15 @@ public class StockDashboardService {
         });
     }
 
-    /* ===================== 종목 마스터 (이름·발행주식수·산업) ===================== */
+    /* ===================== 종목 마스터 (이름·발행주식수) ===================== */
 
-    /** 종목명·발행주식수·산업분류는 거의 안 바뀌므로 24시간 캐시. 랭킹에 종목명·시총·산업을 붙이는 데 사용. */
+    /**
+     * 종목명·발행주식수는 거의 안 바뀌므로 24시간 캐시. 랭킹에 종목명·시총을 붙이는 데 사용.
+     * (참고) 토스 Open API 공식 문서(developers.tossinvest.com/llms.txt)의 API 커버리지에는
+     * "Stock Info: stock master data and stock warnings"라고만 명시되어 있어, 업종/섹터 분류
+     * 필드는 공식 API 범위에 없다. 그래서 업종은 이 마스터가 아니라 종목별 AI 요약(getStockInsight)에서
+     * Gemini가 함께 추정해 채워준다.
+     */
     @SuppressWarnings("unchecked")
     private Map<String, Map<String, Object>> stockMaster(List<String> symbols) {
         if (symbols.isEmpty()) return Map.of();
@@ -304,7 +312,6 @@ public class StockDashboardService {
                 Map<String, Object> info = new HashMap<>();
                 info.put("name", pickStr(s, "name", "englishName"));
                 info.put("sharesOutstanding", pickNum(s, "sharesOutstanding"));
-                info.put("industry", pickStr(s, "industry", "industryName", "sector", "sectorName", "industryGroup"));
                 master.put(sym, info);
             }
             return master.isEmpty() ? null : master;
@@ -327,7 +334,7 @@ public class StockDashboardService {
                     + "&duration=" + fd + "&count=30&excludeInvestmentCaution=false");
             List<Map<String, Object>> rankings = listOf(raw, "rankings", "items", "list");
 
-            // 종목명·발행주식수·산업 조인 (랭킹 응답엔 symbol만 있음)
+            // 종목명·발행주식수 조인 (랭킹 응답엔 symbol만 있음)
             List<String> symbols = new ArrayList<>();
             for (Map<String, Object> item : rankings) {
                 String s = pickStr(item, "symbol");
@@ -351,7 +358,6 @@ public class StockDashboardService {
                 n.put("rank", rank != null ? rank.intValue() : fallbackRank);
                 n.put("symbol", symbol);
                 n.put("name", info == null ? null : pickStr(info, "name"));
-                n.put("industry", info == null ? null : pickStr(info, "industry"));
                 n.put("price", last);
                 n.put("changeRate", rateRatio == null ? null : rateRatio * 100);
                 n.put("tradingAmount", pickNum(item, "tradingAmount"));
@@ -372,17 +378,19 @@ public class StockDashboardService {
 
     /**
      * 사용자가 "AI 분석" 버튼을 눌렀을 때만 생성한다(랭킹 30건마다 자동 생성하면 Gemini 호출량이 과도해짐).
-     * 심볼당 2시간 캐시. tag=목록에 표시할 한 줄(예: "반도체 강세"), summary=팝업에 표시할 2~3문장.
+     * 심볼당 12시간 캐시(사용자가 새로고침해도 다시 안 사라지도록 프론트 localStorage와 동일 주기로 맞춤).
+     * tag=목록에 표시할 한 줄, industry=업종 추정(토스 API엔 없어 Gemini가 함께 추정), summary=팝업 2~3문장.
      */
     public Map<String, Object> getStockInsight(String symbol, String country) {
         String key = "insight:" + symbol;
-        return cached(key, 2 * 3600_000, () -> loadStockInsight(symbol, country));
+        return cached(key, 12 * 3600_000, () -> loadStockInsight(symbol, country));
     }
 
     @SuppressWarnings("unchecked")
     private Map<String, Object> loadStockInsight(String symbol, String country) {
         Map<String, Object> fallback = new HashMap<>();
         fallback.put("tag", null);
+        fallback.put("industry", null);
         fallback.put("summary", "AI 요약을 생성하지 못했습니다.");
         if (geminiApiKey == null || geminiApiKey.isBlank()) {
             fallback.put("summary", "GEMINI_API_KEY가 설정되지 않아 AI 요약을 생성할 수 없습니다.");
@@ -403,6 +411,7 @@ public class StockDashboardService {
             String prompt = "당신은 증권사 애널리스트입니다. 아래 종목의 실시간 데이터(JSON)를 참고해 한국어로 분석하세요.\n"
                     + "반드시 순수 JSON만 출력하세요(마크다운 백틱 금지). 스키마:\n"
                     + "{\"tag\": \"목록에 표시할 8자 내외 짧은 키워드(예: 반도체 강세, 실적 호조, 매수의견 개시)\",\n"
+                    + " \"industry\": \"이 종목이 속한 업종/섹터를 한 단어~짧은 구로 (예: 반도체, 2차전지, 바이오, 인터넷·플랫폼). 확신 없으면 알고 있는 선에서 가장 근접한 분류\",\n"
                     + " \"summary\": \"2~3문장 요약. 등락 배경이나 소속 산업 특징 위주로, 확인되지 않은 사실은 단정하지 말 것\"}\n"
                     + "투자 권유가 아닌 데이터 기반 관찰만 서술하세요.\n\n종목: " + symbol + "\n데이터: " + dataJson;
 
