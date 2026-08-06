@@ -45,4 +45,11 @@ public class StockController {
     public Map<String, Object> briefing() {
         return service.getAiBriefing();
     }
+
+    /** 종목 하나에 대한 온디맨드 AI 요약 — 클릭할 때만 생성(2시간 캐시)해 Gemini 호출량을 아낀다. */
+    @GetMapping("/insight")
+    public Map<String, Object> insight(@RequestParam String symbol,
+                                       @RequestParam(defaultValue = "KR") String country) {
+        return service.getStockInsight(symbol, country);
+    }
 }
