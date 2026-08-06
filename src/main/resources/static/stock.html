@@ -55,13 +55,17 @@
 .rank-controls{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
 .refresh-btn{margin-left:auto;display:flex;align-items:center;gap:8px;font-size:12px;color:var(--mut)}
 
-.rank-table{width:100%;border-collapse:collapse;font-size:13.5px;min-width:620px}
-.rank-table th{text-align:right;color:var(--dim);font-weight:600;font-size:12px;padding:8px 10px;border-bottom:1px solid var(--line)}
-.rank-table th:nth-child(1),.rank-table th:nth-child(2){text-align:left}
-.rank-table td{padding:9px 10px;border-bottom:1px solid var(--line);text-align:right;font-family:var(--mono);transition:background-color .5s}
-.rank-table td:nth-child(1){color:var(--dim);text-align:left;width:36px}
-.rank-table td:nth-child(2){text-align:left;font-family:inherit;font-weight:600;color:var(--ink)}
+/* 왼쪽(순위~시가총액)은 촘촘하게, 오른쪽(산업/AI요약)은 구분선을 두고 여유있게 */
+.rank-table{width:100%;border-collapse:collapse;font-size:13.5px;min-width:760px}
+.rank-table th{text-align:right;color:var(--dim);font-weight:600;font-size:12px;padding:8px 7px;border-bottom:1px solid var(--line);white-space:nowrap}
+.rank-table th:nth-child(1),.rank-table th:nth-child(2),.rank-table th:nth-child(7),.rank-table th:nth-child(8){text-align:left}
+.rank-table td{padding:8px 7px;border-bottom:1px solid var(--line);text-align:right;font-family:var(--mono);transition:background-color .5s}
+.rank-table td:nth-child(1){color:var(--dim);text-align:left;width:28px;padding-right:2px}
+.rank-table td:nth-child(2){text-align:left;font-family:inherit;font-weight:600;color:var(--ink);padding-right:12px}
 .rank-table td .sym{display:block;font-size:11px;color:var(--dim);font-weight:400}
+.rank-table td.c-industry{border-left:1px solid var(--line);padding-left:14px;text-align:left;font-family:inherit;font-size:12px;color:var(--mut);white-space:nowrap}
+.rank-table th:nth-child(7){border-left:1px solid var(--line);padding-left:14px}
+.rank-table td.c-ai{text-align:left;font-family:inherit}
 .rank-table tr{transition:transform .35s ease}
 .rank-table tr:hover td{background:rgba(255,255,255,.02)}
 .badge-rate{padding:2px 8px;border-radius:6px;font-weight:700;font-size:12.5px}
@@ -69,8 +73,32 @@
 .badge-rate.down{background:rgba(49,130,246,.12)}
 .flash-up{background-color:rgba(240,68,82,.28) !important}
 .flash-down{background-color:rgba(49,130,246,.28) !important}
+.ai-btn{padding:4px 10px;border-radius:6px;border:1px solid var(--line);background:transparent;color:var(--mut);font-size:11.5px;cursor:pointer;white-space:nowrap}
+.ai-btn:hover{color:var(--amber);border-color:var(--amber)}
+.ai-tag{display:inline-block;padding:3px 9px;border-radius:6px;background:rgba(242,169,59,.12);color:var(--amber);font-size:11.5px;font-weight:600;cursor:pointer;white-space:nowrap}
+.ai-tag:hover{filter:brightness(1.1)}
 .empty-msg{padding:24px;text-align:center;color:var(--dim);font-size:13px}
 .disclaim{font-size:11.5px;color:var(--dim);margin-top:10px;line-height:1.6}
+
+/* ===== 종목 상세/AI 요약 팝업 ===== */
+.stock-modal-bg{position:fixed;inset:0;background:rgba(5,8,15,.72);display:none;place-items:center;z-index:300;padding:20px}
+.stock-modal-bg.show{display:grid}
+.stock-modal{background:var(--panel);border:1px solid var(--line);border-radius:14px;max-width:440px;width:100%;position:relative;padding:22px 22px 18px}
+.stock-modal .modal-x{position:absolute;top:10px;right:10px;width:30px;height:30px;border-radius:8px;border:0;background:transparent;color:var(--mut);font-size:15px;cursor:pointer}
+.stock-modal .modal-x:hover{color:var(--ink)}
+.sm-head{display:flex;align-items:baseline;gap:8px;margin-bottom:4px}
+.sm-head b{font-size:17px}
+.sm-head .sym{font-family:var(--mono);font-size:12px;color:var(--dim)}
+.sm-price{font-family:var(--mono);font-size:20px;font-weight:700;margin:6px 0 2px}
+.sm-meta{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:14px 0;font-size:12.5px}
+.sm-meta div{background:var(--panel-2);border:1px solid var(--line);border-radius:8px;padding:8px 10px}
+.sm-meta .k{color:var(--dim);font-size:11px;margin-bottom:3px}
+.sm-meta .v{font-family:var(--mono);font-weight:600;color:var(--ink)}
+.sm-ai{background:var(--panel-2);border:1px solid var(--line);border-left:3px solid var(--amber);border-radius:8px;padding:12px 14px;font-size:13px;line-height:1.75;color:var(--ink);min-height:60px}
+.sm-ai .tag{display:inline-block;font-size:11px;font-weight:700;color:var(--amber);margin-bottom:6px}
+.sm-loading{color:var(--dim);font-size:12.5px;text-align:center;padding:14px 0}
+.sm-fallback-link{display:inline-block;margin-top:8px;padding:7px 14px;border-radius:7px;background:var(--amber);color:#131A2A;font-size:12.5px;font-weight:700}
+.sm-disclaim{font-size:11px;color:var(--dim);margin-top:10px}
 </style>
 </head>
 <body>
@@ -137,22 +165,57 @@
     <div class="table-scroll">
       <table class="rank-table">
         <thead><tr>
-          <th>#</th><th>종목명</th><th>현재가</th><th>등락률</th><th>거래대금</th><th>시가총액</th>
+          <th>#</th><th>종목명</th><th>현재가</th><th>등락률</th><th>거래대금</th><th>시가총액</th><th>산업</th><th>AI 요약</th>
         </tr></thead>
-        <tbody id="rankBody"><tr><td colspan="6"><div class="empty-msg">불러오는 중...</div></td></tr></tbody>
+        <tbody id="rankBody"><tr><td colspan="8"><div class="empty-msg">불러오는 중...</div></td></tr></tbody>
       </table>
     </div>
-    <div class="disclaim">거래대금 랭킹은 실시간, 급상승·급하락은 1일 기준입니다 (토스증권 Open API). 데이터는 60초 단위로 갱신되며, 값이 바뀐 셀은 상승 빨강/하락 파랑으로 잠깐 표시됩니다.</div>
+    <div class="disclaim">거래대금 랭킹은 실시간, 급상승·급하락은 1일 기준입니다 (토스증권 Open API). 종목명·현재가·등락률·거래대금·시가총액은 한눈에, 산업·AI 요약은 필요할 때만 확인하도록 오른쪽에 구분해뒀습니다.</div>
   </div>
 </main>
+
+<!-- 종목 상세 + AI 요약 팝업 -->
+<div class="stock-modal-bg" id="stockModalBg" onclick="if(event.target===this)closeStockModal()">
+  <div class="stock-modal">
+    <button class="modal-x" onclick="closeStockModal()" aria-label="닫기">✕</button>
+    <div class="sm-head"><b id="smName">-</b><span class="sym" id="smSymbol"></span></div>
+    <div class="sm-price" id="smPrice">-</div>
+    <div id="smRate"></div>
+    <div class="sm-meta">
+      <div><div class="k">거래대금</div><div class="v" id="smAmount">-</div></div>
+      <div><div class="k">시가총액</div><div class="v" id="smCap">-</div></div>
+      <div><div class="k">산업</div><div class="v" id="smIndustry">-</div></div>
+      <div><div class="k">시장</div><div class="v" id="smMarket">-</div></div>
+    </div>
+    <div class="sm-ai" id="smAiBox"><div class="sm-loading">AI 분석 불러오는 중...</div></div>
+    <div class="sm-disclaim">※ AI가 생성한 참고용 요약이며 투자 권유가 아닙니다.</div>
+  </div>
+</div>
 
 <script src="/js/nav.js"></script>
 <script>
 const $ = id => document.getElementById(id);
 const esc = s => (s ?? '').toString().replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 let country = 'KR', tab = 'amount';
-const REFRESH_MS = 120000; // 2분 자동 갱신 (서버 캐시 60초와 조합해 외부 API 호출 최소화)
-let refreshTimer = null;
+
+/* ===================================================
+   로컬 캐시 — 페이지에 다시 들어올 때마다 서버를 새로 부르지 않고,
+   localStorage에 남아있는 값을 먼저 보여준 뒤, 그 항목의 캐시 유효기간이
+   끝나는 시점에만 다시 불러온다(항목마다 유효기간이 다름: 지표/랭킹 60초,
+   브리핑 30분, 캘린더 12시간 — 서버 TTL과 동일하게 맞춤).
+   =================================================== */
+const TTL = { dashboard: 60_000, rank: 60_000, briefing: 30 * 60_000, calendar: 12 * 3600_000 };
+function cacheGet(key){
+  try{ const raw = localStorage.getItem(key); return raw ? JSON.parse(raw) : null; }catch(e){ return null; }
+}
+function cacheSet(key, data, ttlMs){
+  try{ localStorage.setItem(key, JSON.stringify({ data, expiresAt: Date.now() + ttlMs })); }catch(e){}
+}
+const timers = {};
+function scheduleNext(name, delay, fn){
+  clearTimeout(timers[name]);
+  timers[name] = setTimeout(fn, Math.max(delay, 3000));
+}
 
 /* ===== 포맷터 ===== */
 function fmtPrice(v, currency){
@@ -199,11 +262,8 @@ function drawSpark(canvas, data, isUp){
   ctx.stroke();
 }
 
-/* ===== 상단 지표 (2분 주기) ===== */
-async function loadDashboard(){
-  const data = await fetch('/api/stock/dashboard').then(r => r.json()).catch(() => null);
-  if (!data) return;
-
+/* ===== 상단 지표 ===== */
+function applyDashboard(data){
   const ind = data.indicators || {};
   const items = ind.items || [];
   if (ind.tossConfigured === false) {
@@ -225,7 +285,6 @@ async function loadDashboard(){
     items.forEach((it, i) => drawSpark($('spark' + i), it.spark, (it.changeRate ?? 0) >= 0));
   }
 
-  // 수급
   const flow = data.investorTrading || {};
   const flowHtml = ['KOSPI','KOSDAQ'].filter(k => flow[k]).map(k => {
     const f = flow[k];
@@ -240,10 +299,23 @@ async function loadDashboard(){
   $('flowBox').innerHTML = flowHtml || '<div class="empty-msg">수급 데이터 없음</div>';
 }
 
-/* ===== 주요 일정 (서버 재시작 시 + 12시간마다만 재요청 — dashboard 폴링과 완전히 분리) ===== */
-async function loadCalendar(){
-  const cal = await fetch('/api/stock/calendar').then(r => r.json()).catch(() => null);
-  if (!cal) return;
+async function loadDashboard(force){
+  const key = 'stock:dashboard';
+  if (!force) {
+    const c = cacheGet(key);
+    if (c && c.expiresAt > Date.now()) {
+      applyDashboard(c.data);
+      scheduleNext('dashboard', c.expiresAt - Date.now(), loadDashboard);
+      return;
+    }
+  }
+  const data = await fetch('/api/stock/dashboard').then(r => r.json()).catch(() => null);
+  if (data) { applyDashboard(data); cacheSet(key, data, TTL.dashboard); }
+  scheduleNext('dashboard', TTL.dashboard, loadDashboard);
+}
+
+/* ===== 주요 일정 (서버 12시간 캐시와 동일하게 프론트도 12시간마다만 재요청) ===== */
+function applyCalendar(cal){
   const today = new Date(); today.setHours(0,0,0,0);
   const week = new Date(today.getTime() + 7 * 86400000);
   const rows = [];
@@ -266,10 +338,23 @@ async function loadCalendar(){
   $('calList').innerHTML = window._calMarket.join('') || '<div class="cal-row"><span class="t">향후 7일간 국내·미국 모두 정상 개장 예정입니다.</span></div>';
 }
 
-/* ===== AI 브리핑 (수동 새로고침 시에만 재요청 — 서버 30분 캐시) ===== */
-async function loadBriefing(){
-  const data = await fetch('/api/stock/briefing').then(r => r.json()).catch(() => null);
-  if (!data) return;
+async function loadCalendar(force){
+  const key = 'stock:calendar';
+  if (!force) {
+    const c = cacheGet(key);
+    if (c && c.expiresAt > Date.now()) {
+      applyCalendar(c.data);
+      scheduleNext('calendar', c.expiresAt - Date.now(), loadCalendar);
+      return;
+    }
+  }
+  const cal = await fetch('/api/stock/calendar').then(r => r.json()).catch(() => null);
+  if (cal) { applyCalendar(cal); cacheSet(key, cal, TTL.calendar); }
+  scheduleNext('calendar', TTL.calendar, loadCalendar);
+}
+
+/* ===== AI 브리핑 (서버 30분 캐시와 동일 주기) ===== */
+function applyBriefing(data){
   $('briefSummary').textContent = data.summary || '-';
   if (data.generatedAt) {
     $('briefTime').textContent = '· ' + new Date(data.generatedAt).toLocaleTimeString('ko-KR', {hour:'2-digit',minute:'2-digit'}) + ' 생성 (30분 캐시)';
@@ -287,16 +372,35 @@ async function loadBriefing(){
   }
 }
 
+async function loadBriefing(force){
+  const key = 'stock:briefing';
+  if (!force) {
+    const c = cacheGet(key);
+    if (c && c.expiresAt > Date.now()) {
+      applyBriefing(c.data);
+      scheduleNext('briefing', c.expiresAt - Date.now(), loadBriefing);
+      return;
+    }
+  }
+  const data = await fetch('/api/stock/briefing').then(r => r.json()).catch(() => null);
+  if (data) { applyBriefing(data); cacheSet(key, data, TTL.briefing); }
+  scheduleNext('briefing', TTL.briefing, loadBriefing);
+}
+
 /* ===================================================
    실시간 차트 (랭킹 테이블) — 새로고침마다 통째로 지우지 않고,
    기존 행을 심볼 키로 재사용해 가격/등락률이 바뀐 셀만 잠깐 색이 반짝이고,
    순위가 바뀌면 FLIP 기법으로 행이 위아래로 부드럽게 이동한다.
+   페이지에 들어올 때는 localStorage 캐시가 남아있으면 그걸 즉시 보여주고,
+   캐시 만료 시점에만 서버를 다시 부른다.
    =================================================== */
 let rankRowsBySymbol = new Map(); // symbol -> <tr> element
+let rankDataBySymbol = new Map(); // symbol -> 최신 행 데이터 (팝업에서 사용)
 let lastRankKey = null;           // country+tab 조합 — 바뀌면 완전히 새로 그림
+let insightCache = new Map();     // symbol -> {tag, summary} (이번 세션에서 이미 확인한 AI 요약)
 
-function setCountry(v){ country = v; segSync('countrySeg', v); loadRankings(true); }
-function setTab(v){ tab = v; segSync('tabSeg', v); loadRankings(true); }
+function setCountry(v){ country = v; segSync('countrySeg', v); loadRankings(false); }
+function setTab(v){ tab = v; segSync('tabSeg', v); loadRankings(false); }
 function segSync(segId, v){
   document.querySelectorAll('#' + segId + ' button').forEach(b => b.classList.toggle('on', b.dataset.v === v));
 }
@@ -305,12 +409,19 @@ function rankRowHtml(r){
   const rate = r.changeRate;
   const rateCls = rate > 0 ? 'up' : rate < 0 ? 'down' : 'flat';
   const rateTxt = rate == null ? '-' : (rate > 0 ? '+' : '') + rate.toFixed(2) + '%';
+  const sym = r.symbol || '';
+  const cachedInsight = insightCache.get(sym);
+  const aiCell = cachedInsight && cachedInsight.tag
+    ? `<span class="ai-tag" onclick="openStockModal('${sym}')">${esc(cachedInsight.tag)}</span>`
+    : `<button class="ai-btn" onclick="openStockModal('${sym}')">AI 분석</button>`;
   return `<td class="c-rank">${r.rank}</td>
     <td>${esc(r.name || r.symbol)}<span class="sym">${esc(r.symbol || '')}</span></td>
     <td class="c-price">${fmtPrice(r.price, r.currency)}</td>
     <td class="c-rate"><span class="badge-rate ${rateCls}">${rateTxt}</span></td>
     <td class="c-amt">${fmtAmountKR(r.tradingAmount, r.currency)}</td>
-    <td class="c-cap">${fmtAmountKR(r.marketCap, r.currency)}</td>`;
+    <td class="c-cap">${fmtAmountKR(r.marketCap, r.currency)}</td>
+    <td class="c-industry">${esc(r.industry || '-')}</td>
+    <td class="c-ai">${aiCell}</td>`;
 }
 
 function flash(cell, cls){
@@ -321,29 +432,21 @@ function flash(cell, cls){
   setTimeout(() => cell.classList.remove(cls), 700);
 }
 
-async function loadRankings(forceFullReload){
-  const key = country + ':' + tab;
-  const isSwitch = key !== lastRankKey;
-  lastRankKey = key;
-
-  const data = await fetch(`/api/stock/rankings?country=${country}&tab=${tab}`).then(r => r.json()).catch(() => null);
-  const list = (data && data.rankings) || [];
+function renderRankings(list, isSwitch){
   const tbody = $('rankBody');
 
-  if (isSwitch || forceFullReload && rankRowsBySymbol.size === 0) {
-    // 국가/탭이 바뀌었을 때만 완전히 새로 그린다 (그 외에는 항상 기존 행을 재사용)
+  if (isSwitch) {
     rankRowsBySymbol = new Map();
     tbody.innerHTML = '';
   }
 
   if (!list.length) {
     if (tbody.children.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="6"><div class="empty-msg">랭킹 데이터가 없습니다. (장 시간 외이거나 API 설정을 확인해주세요)</div></td></tr>';
+      tbody.innerHTML = '<tr><td colspan="8"><div class="empty-msg">랭킹 데이터가 없습니다. (장 시간 외이거나 API 설정을 확인해주세요)</div></td></tr>';
     }
     return;
   }
 
-  // 1) FLIP: 재정렬 전 각 행의 현재 위치 기록
   const firstRects = new Map();
   rankRowsBySymbol.forEach((tr, sym) => { firstRects.set(sym, tr.getBoundingClientRect().top); });
 
@@ -352,6 +455,7 @@ async function loadRankings(forceFullReload){
   list.forEach(r => {
     const sym = r.symbol || ('#' + r.rank);
     seen.add(sym);
+    rankDataBySymbol.set(sym, r);
     let tr = rankRowsBySymbol.get(sym);
     if (!tr) {
       tr = document.createElement('tr');
@@ -370,20 +474,17 @@ async function loadRankings(forceFullReload){
     }
     tr.dataset.price = r.price ?? '';
     tr.dataset.rate = r.changeRate ?? '';
-    // 순서대로 재삽입 (이미 올바른 위치면 브라우저가 사실상 no-op으로 처리)
     if (prevNode) prevNode.after(tr); else tbody.prepend(tr);
     prevNode = tr;
   });
-  // 더 이상 랭킹에 없는 종목 제거
   Array.from(rankRowsBySymbol.keys()).forEach(sym => {
     if (!seen.has(sym)) { rankRowsBySymbol.get(sym).remove(); rankRowsBySymbol.delete(sym); }
   });
 
-  // 2) FLIP: 새 위치와 이전 위치 차이만큼 역보정 트랜스폼을 준 뒤 0으로 애니메이션
   if (!isSwitch) {
     rankRowsBySymbol.forEach((tr, sym) => {
       const before = firstRects.get(sym);
-      if (before == null) return; // 새로 추가된 행은 애니메이션 생략
+      if (before == null) return;
       const after = tr.getBoundingClientRect().top;
       const delta = before - after;
       if (Math.abs(delta) < 1) return;
@@ -399,21 +500,93 @@ async function loadRankings(forceFullReload){
   $('refreshInfo').textContent = '마지막 갱신 ' + new Date().toLocaleTimeString('ko-KR', {hour:'2-digit',minute:'2-digit',second:'2-digit'});
 }
 
-/* ===== 갱신 사이클 ===== */
-function refreshAll(manual){
-  loadDashboard();
-  loadRankings(false);
-  if (manual) { loadBriefing(); loadCalendar(); } // AI 브리핑·캘린더는 긴 캐시라 수동 새로고침 때만 재요청
-  clearTimeout(refreshTimer);
-  refreshTimer = setTimeout(() => refreshAll(false), REFRESH_MS);
+async function loadRankings(force){
+  const key = country + ':' + tab;
+  const isSwitch = key !== lastRankKey;
+  lastRankKey = key;
+  const cacheKey = 'stock:rank:' + key;
+
+  let list = null;
+  if (!force) {
+    const c = cacheGet(cacheKey);
+    if (c && c.expiresAt > Date.now()) {
+      list = (c.data && c.data.rankings) || [];
+      renderRankings(list, isSwitch);
+      scheduleNext('rank', c.expiresAt - Date.now(), () => loadRankings(false));
+      return;
+    }
+  }
+
+  const data = await fetch(`/api/stock/rankings?country=${country}&tab=${tab}`).then(r => r.json()).catch(() => null);
+  list = (data && data.rankings) || [];
+  renderRankings(list, isSwitch);
+  if (data) cacheSet(cacheKey, data, TTL.rank);
+  scheduleNext('rank', TTL.rank, () => loadRankings(false));
 }
 
-loadDashboard();
-loadRankings(true);
-loadBriefing();
-loadCalendar();
-refreshTimer = setTimeout(() => refreshAll(false), REFRESH_MS);
-setInterval(loadCalendar, 12 * 3600 * 1000); // 캘린더는 12시간마다만 재요청
+/* ===================================================
+   종목 상세 + AI 요약 팝업 — 클릭했을 때만 생성(서버 2시간 캐시)해서
+   30개 종목을 자동으로 전부 분석하지 않고 필요한 종목만 확인한다.
+   =================================================== */
+function externalLink(symbol){
+  return country === 'US'
+    ? `https://finance.yahoo.com/quote/${encodeURIComponent(symbol)}`
+    : `https://finance.naver.com/item/main.naver?code=${encodeURIComponent(symbol)}`;
+}
+
+async function openStockModal(symbol){
+  const r = rankDataBySymbol.get(symbol) || {};
+  $('smName').textContent = r.name || symbol;
+  $('smSymbol').textContent = symbol;
+  $('smPrice').textContent = fmtPrice(r.price, r.currency);
+  $('smRate').innerHTML = fmtRate(r.changeRate);
+  $('smAmount').textContent = fmtAmountKR(r.tradingAmount, r.currency);
+  $('smCap').textContent = fmtAmountKR(r.marketCap, r.currency);
+  $('smIndustry').textContent = r.industry || '-';
+  $('smMarket').textContent = country === 'US' ? '미국' : '국내';
+  $('stockModalBg').classList.add('show');
+
+  const cached = insightCache.get(symbol);
+  if (cached) { renderInsight(symbol, cached); return; }
+
+  $('smAiBox').innerHTML = '<div class="sm-loading">AI 분석 불러오는 중...</div>';
+  try {
+    const insight = await fetch(`/api/stock/insight?symbol=${encodeURIComponent(symbol)}&country=${country}`).then(res => res.json());
+    insightCache.set(symbol, insight);
+    renderInsight(symbol, insight);
+  } catch (e) {
+    renderInsight(symbol, null);
+  }
+}
+
+function renderInsight(symbol, insight){
+  const failed = !insight || !insight.summary || /생성하지 못했|설정되지 않아/.test(insight.summary);
+  if (failed) {
+    $('smAiBox').innerHTML = `<div>AI 요약을 아직 준비하지 못했습니다.</div>
+      <a class="sm-fallback-link" href="${externalLink(symbol)}" target="_blank" rel="noopener">바로가기 — 외부 시세 페이지에서 확인 →</a>`;
+  } else {
+    $('smAiBox').innerHTML = (insight.tag ? `<span class="tag">${esc(insight.tag)}</span><br>` : '') + esc(insight.summary);
+  }
+  // 목록의 AI 요약 셀도 즉시 갱신 (다시 클릭하지 않아도 태그가 보이도록)
+  const tr = rankRowsBySymbol.get(symbol);
+  if (tr) {
+    const cell = tr.querySelector('.c-ai');
+    if (cell) {
+      cell.innerHTML = (!failed && insight.tag)
+        ? `<span class="ai-tag" onclick="openStockModal('${symbol}')">${esc(insight.tag)}</span>`
+        : `<button class="ai-btn" onclick="openStockModal('${symbol}')">바로가기</button>`;
+    }
+  }
+}
+
+function closeStockModal(){ $('stockModalBg').classList.remove('show'); }
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeStockModal(); });
+
+/* ===== 초기 로딩 — 전부 캐시 우선(force=false), 각자 자기 TTL에 맞춰 독립적으로 갱신 예약 ===== */
+loadDashboard(false);
+loadRankings(false);
+loadBriefing(false);
+loadCalendar(false);
 </script>
 </body>
 </html>
