@@ -1,1 +1,1199 @@
-PLACEHOLDER
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>웹 게임 · hunit 포트폴리오</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/base.css">
+<style>
+.mode-tabs{display:flex;gap:6px;background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:4px;width:fit-content;margin-bottom:14px;flex-wrap:wrap}
+.mode-tab{padding:8px 18px;border-radius:7px;border:0;background:transparent;color:var(--mut);font-size:13.5px;font-weight:600;cursor:pointer}
+.mode-tab.on{background:var(--amber);color:#131A2A}
+.mode-tab.disabled{opacity:.4;cursor:default}
+.game-desc{color:var(--mut);font-size:13.5px;line-height:1.8;margin-bottom:18px;max-width:640px}
+.game-desc b{color:var(--ink)}
+
+.choice-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:4px}
+.choice{padding:9px 16px;border-radius:8px;border:1px solid var(--line);background:var(--panel-2);color:var(--mut);font-size:13.5px;font-weight:600;cursor:pointer}
+.choice:hover{color:var(--ink);border-color:var(--mut)}
+.choice.on{background:rgba(242,169,59,.12);border-color:var(--amber);color:var(--amber)}
+
+.board-wrap{display:flex;flex-direction:column;align-items:center;gap:14px}
+.turn-banner{display:flex;align-items:center;gap:10px;font-size:14px;color:var(--mut)}
+.turn-dot{width:14px;height:14px;border-radius:50%;border:2px solid var(--line)}
+.turn-dot.B{background:#1a1a1a}
+.turn-dot.W{background:#f2f2f2}
+.turn-dot.H{background:#c0392b}
+.turn-dot.O{background:#2874a6}
+.timer{font-family:var(--mono);font-weight:700;color:var(--amber)}
+.timer.warn{color:var(--red)}
+.board{display:grid;grid-template-columns:repeat(15,minmax(20px,28px));grid-template-rows:repeat(15,minmax(20px,28px));background:#C99B5F;border:2px solid #8a6a3f;border-radius:6px;padding:8px}
+.cell{position:relative;display:flex;align-items:center;justify-content:center;cursor:pointer}
+.cell::before,.cell::after{content:'';position:absolute;background:#5b4326}
+.cell::before{left:0;right:0;top:50%;height:1px}
+.cell::after{top:0;bottom:0;left:50%;width:1px}
+.stone{width:78%;height:78%;border-radius:50%;box-shadow:0 2px 3px rgba(0,0,0,.4);z-index:2}
+.stone.B{background:radial-gradient(circle at 35% 30%,#555,#000)}
+.stone.W{background:radial-gradient(circle at 35% 30%,#fff,#ccc)}
+.result-banner{font-size:18px;font-weight:700;padding:10px 20px;border-radius:10px;background:var(--panel-2);border:1px solid var(--line);display:none}
+.result-banner.show{display:block}
+@media (max-width:600px){ .board{grid-template-columns:repeat(15,minmax(16px,22px));grid-template-rows:repeat(15,minmax(16px,22px))} }
+
+.jboard{position:relative;display:grid;grid-template-columns:repeat(9,minmax(28px,40px));grid-template-rows:repeat(10,minmax(28px,40px));background:#D9C08A;border:2px solid #8a6a3f;border-radius:6px;padding:8px;transition:box-shadow .15s}
+.jboard.check-H{animation:jboardGlowH 1s ease-in-out infinite}
+.jboard.check-O{animation:jboardGlowO 1s ease-in-out infinite}
+@keyframes jboardGlowH{0%,100%{box-shadow:0 0 0 3px rgba(192,57,43,.55),0 0 18px 4px rgba(192,57,43,.35)}50%{box-shadow:0 0 0 5px rgba(192,57,43,.95),0 0 26px 8px rgba(192,57,43,.65)}}
+@keyframes jboardGlowO{0%,100%{box-shadow:0 0 0 3px rgba(40,116,166,.55),0 0 18px 4px rgba(40,116,166,.35)}50%{box-shadow:0 0 0 5px rgba(40,116,166,.95),0 0 26px 8px rgba(40,116,166,.65)}}
+.jcell{position:relative;z-index:1;display:flex;align-items:center;justify-content:center;cursor:pointer}
+.jcell.selected{background:rgba(242,169,59,.4)}
+.jcell.dest{background:rgba(62,207,142,.3)}
+.jcell.last-move{box-shadow:inset 0 0 0 3px rgba(242,169,59,.8)}
+.jcell.in-check-H{animation:jkingRingH 1s ease-in-out infinite}
+.jcell.in-check-O{animation:jkingRingO 1s ease-in-out infinite}
+@keyframes jkingRingH{0%,100%{box-shadow:inset 0 0 0 3px rgba(192,57,43,.6)}50%{box-shadow:inset 0 0 0 3px rgba(192,57,43,1)}}
+@keyframes jkingRingO{0%,100%{box-shadow:inset 0 0 0 3px rgba(40,116,166,.6)}50%{box-shadow:inset 0 0 0 3px rgba(40,116,166,1)}}
+.jboard-lines{position:absolute;top:8px;left:8px;right:8px;bottom:8px;pointer-events:none;z-index:0}
+.jpiece{width:82%;height:82%;object-fit:contain;z-index:2;filter:drop-shadow(0 2px 2px rgba(0,0,0,.35))}
+@media (max-width:600px){ .jboard{grid-template-columns:repeat(9,minmax(24px,30px));grid-template-rows:repeat(10,minmax(24px,30px))} }
+.jcheck-banner{display:none;font-weight:800;font-size:14px;padding:5px 14px;border-radius:20px;letter-spacing:.5px}
+.jcheck-banner.show{display:inline-block;animation:jcheckPulse .9s ease-in-out infinite}
+.jcheck-banner.H{background:rgba(192,57,43,.16);color:#c0392b;border:1px solid #c0392b}
+.jcheck-banner.O{background:rgba(40,116,166,.16);color:#2874a6;border:1px solid #2874a6}
+@keyframes jcheckPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.12)}}
+
+.two-col{display:grid;grid-template-columns:1fr 320px;gap:16px;align-items:start}
+.guess-input{display:flex;gap:8px}
+.guess-input input{font-family:var(--mono);font-size:20px;letter-spacing:6px;text-align:center}
+.history{margin-top:16px;display:flex;flex-direction:column-reverse;gap:6px;max-height:340px;overflow-y:auto}
+.history-row{display:flex;justify-content:space-between;align-items:center;background:var(--panel-2);border:1px solid var(--line);border-radius:8px;padding:8px 12px;font-family:var(--mono);font-size:13px}
+.history-row .no{color:var(--dim);width:26px}
+.history-row .guess{letter-spacing:3px;flex:1}
+.history-row .result span{padding:2px 7px;border-radius:6px;font-weight:700;margin-left:4px}
+.s-badge{background:rgba(62,207,142,.14);color:var(--green)}
+.b-badge{background:rgba(242,169,59,.14);color:var(--amber)}
+.win-banner{display:none;background:rgba(62,207,142,.1);border:1px solid var(--green);border-radius:10px;padding:14px 16px;margin-bottom:14px}
+.win-banner.show{display:block}
+.win-banner b{color:var(--green)}
+.nick-row{display:flex;gap:8px;margin-top:10px}
+.rank-row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--line);font-size:13px}
+.rank-row:last-child{border-bottom:0}
+.rank-row .no{color:var(--amber);font-family:var(--mono);width:24px}
+@media (max-width:800px){ .two-col{grid-template-columns:1fr} }
+
+.volley-canvas{width:100%;max-width:640px;background:#c9ecff;border:2px solid var(--line);border-radius:10px;touch-action:none;display:block}
+.volley-hint{display:flex;gap:16px;color:var(--dim);font-size:12px;font-family:var(--mono)}
+.volley-touch{display:none;gap:10px;margin-top:6px}
+.volley-touch button{width:56px;height:44px;border-radius:10px;border:1px solid var(--line);background:var(--panel-2);color:var(--ink);font-size:18px}
+@media (max-width:640px){ .volley-touch{display:flex} }
+</style>
+</head>
+<body>
+<div id="site-nav"></div>
+
+<main>
+  <header class="page"><h1>🎮 웹 게임</h1></header>
+
+  <div class="mode-tabs">
+    <button class="mode-tab on" id="tabOmok" onclick="switchMode('omok')">⚪ 오목</button>
+    <button class="mode-tab" id="tabBaseball" onclick="switchMode('baseball')">⚾ 숫자야구</button>
+    <button class="mode-tab" id="tabJanggi" onclick="switchMode('janggi')">♟️ 장기</button>
+    <button class="mode-tab" id="tabVolley" onclick="switchMode('volley')">🏐 발리볼</button>
+    <button class="mode-tab disabled" disabled>♞ 체스 · 준비중</button>
+  </div>
+
+  <!-- ===== 오목 ===== -->
+  <section id="panelOmok">
+    <p class="game-desc">
+      15×15 바둥판에서 <b>AI와 1:1 대국</b>합니다. 원하는 돌 색과 난이도를 고르고 시작하세요.
+      가로·세로·대각선 어느 방향으로든 먼저 5목을 이으면 승리입니다. AI는 외부 API 없이
+      <b>서버에서 직접 계산하는 알고리즘</b>(패턴 평가 + 미니맥스)으로 동작해 응답이 즉각적입니다.
+    </p>
+
+    <div class="panel" id="omokSetup">
+      <h2>대국 설정</h2>
+      <label>내 돌 색</label>
+      <div class="choice-row" id="colorRow">
+        <button class="choice on" data-v="B" onclick="pick('colorRow','color','B')">⚫ 흑돌 (선공)</button>
+        <button class="choice" data-v="W" onclick="pick('colorRow','color','W')">⚪ 백돌 (후공)</button>
+      </div>
+      <label>난이도</label>
+      <div class="choice-row" id="diffRow">
+        <button class="choice" data-v="EASY" onclick="pick('diffRow','diff','EASY')">초급</button>
+        <button class="choice on" data-v="MEDIUM" onclick="pick('diffRow','diff','MEDIUM')">중급</button>
+        <button class="choice" data-v="HARD" onclick="pick('diffRow','diff','HARD')">고급</button>
+      </div>
+      <label>내 차례 제한시간</label>
+      <div class="choice-row" id="timeRow">
+        <button class="choice on" data-v="" onclick="pick('timeRow','time','')">없음</button>
+        <button class="choice" data-v="30" onclick="pick('timeRow','time','30')">30초</button>
+        <button class="choice" data-v="60" onclick="pick('timeRow','time','60')">60초</button>
+      </div>
+      <button class="btn btn-amber" style="margin-top:18px" onclick="startOmok()">대국 시작</button>
+    </div>
+
+    <div class="panel board-wrap" id="omokGame" style="display:none">
+      <div class="result-banner" id="resultBanner"></div>
+      <div class="turn-banner">
+        <span class="turn-dot" id="turnDot"></span>
+        <span id="turnText">-</span>
+        <span class="timer" id="timerText"></span>
+      </div>
+      <div class="board" id="board"></div>
+      <button class="btn btn-ghost" onclick="backToSetup()">설정으로 돌아가기</button>
+    </div>
+  </section>
+
+  <!-- ===== 숫자야구 ===== -->
+  <section id="panelBaseball" style="display:none">
+    <p class="game-desc">
+      <b>1~9 중복 없는 숫자 4자리</b>를 서버가 무작위로 정해두면, 여러분이 추리해서 맞히는 게임입니다.
+      숫자와 자릿수가 모두 일치하면 <b>스트라이크(S)</b>, 숫자만 일치하면 <b>볼(B)</b>입니다.
+      최소 시도 횟수로 맞히면 랭킹에 이름을 올릴 수 있어요.
+    </p>
+
+    <div class="two-col">
+      <div class="panel">
+        <h2>추리하기</h2>
+        <div class="win-banner" id="winBanner">
+          <b id="winText"></b>
+          <div class="nick-row">
+            <input id="nickname" placeholder="랭킹에 등록할 닉네임 (선택)" maxlength="12">
+            <button class="btn btn-amber" onclick="saveScore()">등록</button>
+          </div>
+        </div>
+        <div class="guess-input">
+          <input id="guessInput" maxlength="4" placeholder="1234" inputmode="numeric" onkeydown="if(event.key==='Enter')submitGuess()">
+          <button class="btn btn-amber" onclick="submitGuess()">제출</button>
+        </div>
+        <span style="display:block;margin-top:8px;color:var(--mut);font-size:12.5px" id="guessMsg"></span>
+        <div class="history" id="history"></div>
+      </div>
+      <div class="panel">
+        <h2>랭킹 · 최소 시도</h2>
+        <div id="ranking"><div class="empty-msg">아직 등록된 기록이 없습니다.</div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== 장기 ===== -->
+  <section id="panelJanggi" style="display:none">
+    <p class="game-desc">
+      9×10 궁성이 있는 전통 장기판에서 <b>AI와 1:1 대국</b>합니다. 진영과 포진을 고르고 시작한 뒤,
+      기물을 클릭하면 이동 가능한 칸이 초록색으로 표시됩니다 — 그 칸을 다시 클릭하면 이동합니다.
+      직전 수(내 수·AI 수 모두)는 주황색 테두리로, 장군 상태는 장군을 부른 쪽의 색(한=빨강/초=파랑)으로 보드 테두리와 궁 칸이 함께 깜뱡이며 표시됩니다.
+      AI는 외부 API 없이 <b>서버에서 직접 계산하는 알고리즘</b>(기물 가치 평가 + 알파베타 완전탐색)으로 동작하며, 사람 수가 반영된 뒤 잠깜(약 1초) 뛈을 들이고 응수합니다.
+      병(졸)의 궁성 대각선 이동만 간소화를 위해 생략했습니다.
+    </p>
+
+    <div class="panel" id="janggiSetup">
+      <h2>대국 설정</h2>
+      <label>내 진영</label>
+      <div class="choice-row" id="jColorRow">
+        <button class="choice on" data-v="H" onclick="jPick('jColorRow','color','H')">🔴 한 (후공)</button>
+        <button class="choice" data-v="O" onclick="jPick('jColorRow','color','O')">🔵 초 (선공)</button>
+      </div>
+      <label>내 포진 (마·상 배치)</label>
+      <div class="choice-row" id="jMyFormRow">
+        <button class="choice on" data-v="MSMS" onclick="jPick('jMyFormRow','myFormation','MSMS')">마상마상</button>
+        <button class="choice" data-v="MSSM" onclick="jPick('jMyFormRow','myFormation','MSSM')">마상상마</button>
+        <button class="choice" data-v="SMSM" onclick="jPick('jMyFormRow','myFormation','SMSM')">상마상마</button>
+        <button class="choice" data-v="SMMS" onclick="jPick('jMyFormRow','myFormation','SMMS')">상마마상</button>
+      </div>
+      <label>상대(AI) 포진</label>
+      <div class="choice-row" id="jAiFormRow">
+        <button class="choice on" data-v="MSMS" onclick="jPick('jAiFormRow','aiFormation','MSMS')">마상마상</button>
+        <button class="choice" data-v="MSSM" onclick="jPick('jAiFormRow','aiFormation','MSSM')">마상상마</button>
+        <button class="choice" data-v="SMSM" onclick="jPick('jAiFormRow','aiFormation','SMSM')">상마상마</button>
+        <button class="choice" data-v="SMMS" onclick="jPick('jAiFormRow','aiFormation','SMMS')">상마마상</button>
+      </div>
+      <label>난이도</label>
+      <div class="choice-row" id="jDiffRow">
+        <button class="choice" data-v="EASY" onclick="jPick('jDiffRow','diff','EASY')">초급</button>
+        <button class="choice on" data-v="MEDIUM" onclick="jPick('jDiffRow','diff','MEDIUM')">중급</button>
+        <button class="choice" data-v="HARD" onclick="jPick('jDiffRow','diff','HARD')">고급</button>
+      </div>
+      <label>내 차례 제한시간</label>
+      <div class="choice-row" id="jTimeRow">
+        <button class="choice on" data-v="" onclick="jPick('jTimeRow','time','')">없음</button>
+        <button class="choice" data-v="30" onclick="jPick('jTimeRow','time','30')">30초</button>
+        <button class="choice" data-v="60" onclick="jPick('jTimeRow','time','60')">60초</button>
+      </div>
+      <button class="btn btn-amber" style="margin-top:18px" onclick="startJanggi()">대국 시작</button>
+    </div>
+
+    <div class="panel board-wrap" id="janggiGame" style="display:none">
+      <div class="result-banner" id="jResultBanner"></div>
+      <div class="turn-banner">
+        <span class="turn-dot" id="jTurnDot"></span>
+        <span id="jTurnText">-</span>
+        <span class="timer" id="jTimerText"></span>
+        <span class="jcheck-banner" id="jCheckBanner"></span>
+      </div>
+      <div class="jboard" id="jBoard"></div>
+      <button class="btn btn-ghost" onclick="jBackToSetup()">설정으로 돌아가기</button>
+    </div>
+  </section>
+
+  <!-- ===== 발리볼 ===== -->
+  <section id="panelVolley" style="display:none">
+    <p class="game-desc">
+      오리지널 병아리 캐릭터 <b>목이</b>로 AI와 실시간 비치발리볼 대결을 합니다. ←→(또는 A/D)로 이동, 스페이스바(또는 ↑)로 점프해서
+      공을 상대 코트로 넘기세요. 대결 전 <b>총 라운드 수(10/20/30판)</b>를 정해두고, 그 라운드를 모두 마치면 승패와 무관하게
+      대결이 끝나며 최종 스코어(예: 7:13)가 랭킹에 남습니다. 대결 시작 전 5→1 카운트다운, 매 라운드 사이에도 3→1 카운트다운이 있어
+      갑자기 실점하는 일이 없습니다. 캐릭터가 공을 맞을 때는 <b>맞은 각도와 그 순간의 상승/하강 속도에 따라</b> 공이 다르게 튀겨나가고
+      (뛰어오르며 맞으면 더 높이, 내려오면서 맞으면 스매시처럼), 실점한 쪽은 잠깜 휘청이는 모션이 나옵니다. 난이도 선택 없이 AI는 항상
+      공의 낙하 지점을 미리 예측해서 움직이는 상당히 까다로운 상대입니다. 물리 연산은 서버 왕복 없이
+      <b>브라우저에서 매 프레임(Canvas + requestAnimationFrame)</b> 직접 계산합니다.
+    </p>
+
+    <div class="panel" id="volleySetup">
+      <h2>대결 설정</h2>
+      <label>총 라운드 수</label>
+      <div class="choice-row" id="vRoundsRow">
+        <button class="choice" data-v="10" onclick="vPickRounds(10)">10판</button>
+        <button class="choice on" data-v="20" onclick="vPickRounds(20)">20판</button>
+        <button class="choice" data-v="30" onclick="vPickRounds(30)">30판</button>
+      </div>
+      <button class="btn btn-amber" style="margin-top:18px" onclick="startVolley()">대결 시작</button>
+    </div>
+
+    <div class="two-col" id="volleyGame" style="display:none">
+      <div class="panel board-wrap">
+        <div class="turn-banner">
+          <span id="vScoreText">🐤 목이 0 : 0 블루목이 🐧</span>
+          <span class="timer" id="vRoundText">라운드 0/20</span>
+        </div>
+        <canvas class="volley-canvas" id="volleyCanvas" width="640" height="360"></canvas>
+        <div class="volley-hint"><span>← → 이동</span><span>스페이스 / ↑ 점프</span></div>
+        <div class="volley-touch">
+          <button id="vBtnLeft">◀</button>
+          <button id="vBtnJump">▲</button>
+          <button id="vBtnRight">▶</button>
+        </div>
+        <div class="result-banner" id="vResultBanner"></div>
+        <div class="win-banner" id="vWinBanner">
+          <b id="vWinText"></b>
+          <div class="nick-row">
+            <input id="vNickname" placeholder="랭킹에 등록할 닉네임 (선택)" maxlength="12">
+            <button class="btn btn-amber" onclick="saveVolleyScore()">등록</button>
+          </div>
+          <button class="btn btn-ghost" style="margin-top:10px" onclick="vRetryRun()">🔁 다시 도전</button>
+        </div>
+        <button class="btn btn-ghost" onclick="vBackToSetup()">설정으로 돌아가기</button>
+      </div>
+      <div class="panel">
+        <h2>랭킹 · 최다 승수</h2>
+        <div id="vRanking"><div class="empty-msg">아직 등록된 기록이 없습니다.</div></div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script src="/js/nav.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const esc = s => (s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+let mode = 'omok';
+
+function switchMode(next){
+  const leavingVolley = (mode === 'volley' && next !== 'volley');
+  mode = next;
+  $('tabOmok').classList.toggle('on', mode === 'omok');
+  $('tabBaseball').classList.toggle('on', mode === 'baseball');
+  $('tabJanggi').classList.toggle('on', mode === 'janggi');
+  $('tabVolley').classList.toggle('on', mode === 'volley');
+  $('panelOmok').style.display = mode === 'omok' ? 'block' : 'none';
+  $('panelBaseball').style.display = mode === 'baseball' ? 'block' : 'none';
+  $('panelJanggi').style.display = mode === 'janggi' ? 'block' : 'none';
+  $('panelVolley').style.display = mode === 'volley' ? 'block' : 'none';
+  const path = mode === 'baseball' ? '/game/baseball' : mode === 'janggi' ? '/game/janggi' : mode === 'volley' ? '/game/volleyball' : '/game/omok';
+  history.replaceState(null, '', path);
+  if (mode === 'baseball' && !baseballGameId) newBaseball();
+  if (leavingVolley && vRAF) { cancelAnimationFrame(vRAF); vRAF = null; }
+  if (mode === 'volley' && !vRAF && $('volleyGame').style.display !== 'none') vLoop(); // 대결 중 탭을 나갔다 돌아오면 루프 재개
+}
+
+/* ===================================================
+   오목 (AI 대국)
+   =================================================== */
+const OMOK_API = '/api/game/omok';
+const SIZE = 15;
+let omokGameId = null;
+let setup = { color: 'B', diff: 'MEDIUM', time: '' };
+let timerHandle = null;
+let humanColorGlobal = 'B', timeLimitGlobal = null, turnStartedGlobal = 0;
+
+function pick(rowId, key, value){
+  document.querySelectorAll('#' + rowId + ' .choice').forEach(b => b.classList.toggle('on', b.dataset.v === value));
+  setup[key] = value;
+}
+
+function buildBoard(){
+  const board = $('board');
+  if (board.children.length) return; // 이미 만들어져 있으면 재생성 생략
+  for (let y = 0; y < SIZE; y++) {
+    for (let x = 0; x < SIZE; x++) {
+      const cell = document.createElement('div');
+      cell.className = 'cell';
+      cell.dataset.x = x; cell.dataset.y = y;
+      cell.onclick = () => omokMove(x, y);
+      board.appendChild(cell);
+    }
+  }
+}
+
+function backToSetup(){
+  clearInterval(timerHandle);
+  omokGameId = null;
+  $('omokGame').style.display = 'none';
+  $('omokSetup').style.display = 'block';
+}
+
+async function startOmok(){
+  buildBoard();
+  const body = {
+    humanColor: setup.color,
+    difficulty: setup.diff,
+    timeLimitSeconds: setup.time ? parseInt(setup.time, 10) : null
+  };
+  const data = await fetch(OMOK_API + '/new', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
+  }).then(r => r.json());
+  omokGameId = data.id;
+  $('omokSetup').style.display = 'none';
+  $('omokGame').style.display = 'flex';
+  $('resultBanner').classList.remove('show');
+  renderOmok(data);
+}
+
+async function omokMove(x, y){
+  if (!omokGameId) return;
+  const data = await fetch(`${OMOK_API}/${omokGameId}/move`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ x, y })
+  }).then(r => r.json());
+  if (data.error) return;
+  renderOmok(data);
+}
+
+async function omokTimeoutTick(){
+  const data = await fetch(`${OMOK_API}/${omokGameId}/timeout`, { method: 'POST' }).then(r => r.json());
+  renderOmok(data);
+}
+
+function renderOmok(data){
+  humanColorGlobal = data.humanColor;
+  timeLimitGlobal = data.timeLimitSeconds;
+  turnStartedGlobal = data.turnStartedAt;
+
+  const board = data.board;
+  document.querySelectorAll('.cell').forEach(cell => {
+    const x = +cell.dataset.x, y = +cell.dataset.y;
+    const v = board[y][x];
+    cell.innerHTML = v === '.' ? '' : `<div class="stone ${v}"></div>`;
+  });
+
+  $('turnDot').className = 'turn-dot ' + data.currentPlayer;
+
+  clearInterval(timerHandle);
+  if (data.status === 'PLAYING') {
+    const isHumanTurn = data.currentPlayer === humanColorGlobal;
+    $('turnText').textContent = (isHumanTurn ? '내' : 'AI') + ' 차례입니다 (' + (data.currentPlayer === 'B' ? '흑돌' : '백돌') + ')';
+    $('resultBanner').classList.remove('show');
+
+    if (isHumanTurn && timeLimitGlobal) {
+      timerHandle = setInterval(() => {
+        const remain = timeLimitGlobal - Math.floor((Date.now() - turnStartedGlobal) / 1000);
+        if (remain <= 0) { $('timerText').textContent = '시간 초과'; omokTimeoutTick(); return; }
+        $('timerText').textContent = remain + '초';
+        $('timerText').classList.toggle('warn', remain <= 10);
+      }, 1000);
+    } else {
+      $('timerText').textContent = '';
+    }
+  } else {
+    const label = data.status === 'BLACK_WIN' ? '⚫ 흑돌 승리!' : data.status === 'WHITE_WIN' ? '⚪ 백돌 승리!' : '무승부';
+    const who = data.status === (humanColorGlobal === 'B' ? 'BLACK_WIN' : 'WHITE_WIN') ? ' (나의 승리)'
+              : data.status === 'DRAW' ? '' : ' (AI 승리)';
+    $('turnText').textContent = '대국 종료';
+    $('timerText').textContent = '';
+    $('resultBanner').textContent = label + who;
+    $('resultBanner').classList.add('show');
+  }
+}
+
+/* ===================================================
+   숫자야구
+   =================================================== */
+const BASEBALL_API = '/api/game/baseball';
+let baseballGameId = null;
+let baseballFinished = false;
+
+async function newBaseball(){
+  const data = await fetch(BASEBALL_API + '/new', { method: 'POST' }).then(r => r.json());
+  baseballGameId = data.id;
+  baseballFinished = false;
+  $('winBanner').classList.remove('show');
+  $('guessMsg').textContent = '';
+  $('guessInput').value = '';
+  $('history').innerHTML = '';
+  loadRanking();
+}
+
+async function submitGuess(){
+  if (baseballFinished || !baseballGameId) return;
+  const guess = $('guessInput').value.trim();
+  if (!/^[1-9]{4}$/.test(guess) || new Set(guess).size !== 4) {
+    $('guessMsg').textContent = '1~9 숫자 4자리를 중복 없이 입력하세요';
+    return;
+  }
+  const data = await fetch(`${BASEBALL_API}/${baseballGameId}/guess`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ guess })
+  }).then(r => r.json());
+
+  if (data.error) { $('guessMsg').textContent = data.error; return; }
+  $('guessMsg').textContent = '';
+  $('guessInput').value = '';
+  renderHistory(data.history);
+
+  if (data.status === 'WON') {
+    baseballFinished = true;
+    $('winText').textContent = `🎉 정답입니다! 총 ${data.attempts}번 만에 맞혔어요.`;
+    $('winBanner').classList.add('show');
+  }
+}
+
+function renderHistory(hist){
+  $('history').innerHTML = hist.map((h, i) => {
+    const [guess, result] = h.split(':');
+    const s = result.match(/(\d)S/)[1], b = result.match(/(\d)B/)[1];
+    return `<div class="history-row">
+      <span class="no">#${i + 1}</span>
+      <span class="guess">${esc(guess)}</span>
+      <span class="result"><span class="s-badge">${s}S</span><span class="b-badge">${b}B</span></span>
+    </div>`;
+  }).join('');
+}
+
+async function saveScore(){
+  if (!baseballGameId) return;
+  const nickname = $('nickname').value.trim();
+  await fetch(`${BASEBALL_API}/${baseballGameId}/score`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nickname })
+  });
+  $('nickname').disabled = true;
+  loadRanking();
+}
+
+async function loadRanking(){
+  const list = await fetch(BASEBALL_API + '/ranking').then(r => r.json());
+  $('ranking').innerHTML = !list.length ? '<div class="empty-msg">아직 등록된 기록이 없습니다.</div>' :
+    list.map((r, i) => `<div class="rank-row"><span><span class="no">${i + 1}</span> ${esc(r.nickname)}</span><span>${r.metric}회</span></div>`).join('');
+}
+
+/* ===================================================
+   장기 (AI 대국) — 기물 클릭 → 목적지 클릭, 2단계 흐름
+   =================================================== */
+const JANGGI_API = '/api/game/janggi';
+const JCOLS = 9, JROWS = 10;
+const JANGGI_AI_DELAY_MS = 1000; // 사람 수가 반영된 뒤 AI가 응수하기까지의 텀 — 장군 표시를 볼 수 있게
+let janggiGameId = null;
+let jSetup = { color: 'H', myFormation: 'MSMS', aiFormation: 'MSMS', diff: 'MEDIUM', time: '' };
+let jTimerHandle = null;
+let jAiMoveTimer = null;
+let jHumanColorGlobal = 'H', jTimeLimitGlobal = null, jTurnStartedGlobal = 0;
+let jSelected = null;      // { x, y } 논리 좌표
+let jDestinations = [];    // [[x,y], ...] 논리 좌표
+let jLastData = null, jLastBoard = null;
+
+function jPick(rowId, key, value){
+  document.querySelectorAll('#' + rowId + ' .choice').forEach(b => b.classList.toggle('on', b.dataset.v === value));
+  jSetup[key] = value;
+}
+
+/** flip=true면 한(H)을 플레이어 하단에 오도록 180도 뒤집어 그린다. 클릭핸들러는 항상 논리(보드 배열) 좌표를 쓴다. */
+function buildJanggiBoard(flip){
+  const board = $('jBoard');
+  board.innerHTML = '';
+  board.classList.remove('check-H', 'check-O');
+  for (let row = 0; row < JROWS; row++) {
+    for (let col = 0; col < JCOLS; col++) {
+      const x = flip ? JCOLS - 1 - col : col;
+      const y = flip ? JROWS - 1 - row : row;
+      const cell = document.createElement('div');
+      cell.className = 'jcell';
+      cell.dataset.x = x; cell.dataset.y = y;
+      cell.onclick = () => jCellClick(x, y);
+      board.appendChild(cell);
+    }
+  }
+  appendBoardLines(board);
+}
+
+/**
+ * 격자선 전체(가로10줄+세로9줄)와 궁성 굵은 테두리+대각선을 교차점 좌표(0.5 단위 오프셋)로
+ * 정확히 이어서 그린다. 셀 단위(::before/::after)로 그리던 예전 방식은 가장자리·궁성 경계에서
+ * 반 칸씩 생기느는 문제가 있었는데, 이 방식은 시작/끝점이 명확해 전혀 생기지 않는다.
+ */
+function appendBoardLines(board){
+  const svgNS = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(svgNS, 'svg');
+  svg.setAttribute('viewBox', '0 0 9 10');
+  svg.setAttribute('preserveAspectRatio', 'none');
+  svg.classList.add('jboard-lines');
+  const line = (x1, y1, x2, y2, color, width) => {
+    const l = document.createElementNS(svgNS, 'line');
+    l.setAttribute('x1', x1); l.setAttribute('y1', y1);
+    l.setAttribute('x2', x2); l.setAttribute('y2', y2);
+    l.setAttribute('stroke', color);
+    l.setAttribute('stroke-width', width);
+    l.setAttribute('stroke-linecap', 'round');
+    svg.appendChild(l);
+  };
+  // 기본 격자선: 점(교차점) 중심끼리 정확히 연결
+  for (let row = 0; row < JROWS; row++) line(0.5, row + 0.5, 8.5, row + 0.5, '#000000', 0.05);
+  for (let col = 0; col < JCOLS; col++) line(col + 0.5, 0.5, col + 0.5, 9.5, '#000000', 0.05);
+  // 궁성 굵은 테두리 + 대각선 (상단/하단)
+  const palace = (topRow) => {
+    const bottomRow = topRow + 2;
+    const l = 3.5, r = 5.5, t = topRow + 0.5, b = bottomRow + 0.5;
+    line(l, t, r, t, '#000000', 0.09);
+    line(l, b, r, b, '#000000', 0.09);
+    line(l, t, l, b, '#000000', 0.09);
+    line(r, t, r, b, '#000000', 0.09);
+    line(l, t, r, b, '#000000', 0.09);
+    line(r, t, l, b, '#000000', 0.09);
+  };
+  palace(0); palace(7);
+  board.appendChild(svg);
+}
+
+function jBackToSetup(){
+  clearInterval(jTimerHandle);
+  clearTimeout(jAiMoveTimer);
+  janggiGameId = null;
+  jSelected = null; jDestinations = [];
+  $('janggiGame').style.display = 'none';
+  $('janggiSetup').style.display = 'block';
+}
+
+async function startJanggi(){
+  buildJanggiBoard(jSetup.color === 'H'); // 한을 고르면 내 진영이 화면 하단에 오도록 뒤집는다
+  const body = {
+    humanColor: jSetup.color,
+    difficulty: jSetup.diff,
+    timeLimitSeconds: jSetup.time ? parseInt(jSetup.time, 10) : null,
+    humanFormation: jSetup.myFormation,
+    aiFormation: jSetup.aiFormation
+  };
+  const data = await fetch(JANGGI_API + '/new', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
+  }).then(r => r.json());
+  janggiGameId = data.id;
+  $('janggiSetup').style.display = 'none';
+  $('janggiGame').style.display = 'flex';
+  $('jResultBanner').classList.remove('show');
+  jSelected = null; jDestinations = [];
+  renderJanggi(data);
+}
+
+async function jCellClick(x, y){
+  if (!janggiGameId || !jLastBoard) return;
+  const piece = jLastBoard[y][x];
+
+  // 이동 가능한 칸을 다시 클릭 → 이동 실행 (사람 수만 반영됨 — AI 응수는 별도로 지연 후 자동 호출)
+  if (jSelected && jDestinations.some(d => d[0] === x && d[1] === y)) {
+    const fx = jSelected.x, fy = jSelected.y;
+    jSelected = null; jDestinations = [];
+    const data = await fetch(`${JANGGI_API}/${janggiGameId}/move`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fromX: fx, fromY: fy, toX: x, toY: y })
+    }).then(r => r.json());
+    if (data.error) { renderJanggiBoardOnly(); return; }
+    renderJanggi(data);
+    return;
+  }
+
+  // 내 기물을 클릭 → 선택하고 이동 가능한 칸 조회 (내 차례일 때만)
+  if (piece && piece.startsWith(jHumanColorGlobal) && jLastData && jLastData.currentPlayer === jHumanColorGlobal) {
+    jSelected = { x, y };
+    const data = await fetch(`${JANGGI_API}/${janggiGameId}/moves?x=${x}&y=${y}`).then(r => r.json());
+    jDestinations = data.destinations || [];
+    renderJanggiBoardOnly();
+    return;
+  }
+
+  // 그 외 클릭 → 선택 해제
+  jSelected = null; jDestinations = [];
+  renderJanggiBoardOnly();
+}
+
+async function jTimeoutTick(){
+  const data = await fetch(`${JANGGI_API}/${janggiGameId}/timeout`, { method: 'POST' }).then(r => r.json());
+  jSelected = null; jDestinations = [];
+  renderJanggi(data);
+}
+
+/** 지금 상태가 "AI가 둘 차례"라면, 잠깜(1초) 텀을 두고 AI 수를 요청한다.
+ *  이 텀 덕분에 사람이 직전 수로 장군을 불렁을 때, AI가 바로 응수해버려 장군 표시가
+ *  화면에 뛰 새도 없이 사라지는 문제 없이 확실히 보고 넘어갈 수 있다. */
+function scheduleAiMoveIfNeeded(){
+  clearTimeout(jAiMoveTimer);
+  if (jLastData && jLastData.status === 'PLAYING' && jLastData.currentPlayer === jLastData.aiColor) {
+    jAiMoveTimer = setTimeout(triggerAiMove, JANGGI_AI_DELAY_MS);
+  }
+}
+
+async function triggerAiMove(){
+  if (!janggiGameId) return;
+  const data = await fetch(`${JANGGI_API}/${janggiGameId}/ai-move`, { method: 'POST' }).then(r => r.json());
+  if (data.error) return;
+  renderJanggi(data);
+}
+
+function renderJanggi(data){
+  jLastData = data;
+  jLastBoard = data.board;
+  jHumanColorGlobal = data.humanColor;
+  jTimeLimitGlobal = data.timeLimitSeconds;
+  jTurnStartedGlobal = data.turnStartedAt;
+
+  renderJanggiBoardOnly();
+  renderCheckEffects(data.checkColor);
+
+  clearInterval(jTimerHandle);
+  if (data.status === 'PLAYING') {
+    const isHumanTurn = data.currentPlayer === jHumanColorGlobal;
+    $('jTurnText').textContent = (isHumanTurn ? '내' : 'AI') + ' 차례입니다 (' + (data.currentPlayer === 'H' ? '한' : '초') + ')';
+    $('jTurnDot').className = 'turn-dot ' + data.currentPlayer;
+    $('jResultBanner').classList.remove('show');
+
+    if (isHumanTurn && jTimeLimitGlobal) {
+      jTimerHandle = setInterval(() => {
+        const remain = jTimeLimitGlobal - Math.floor((Date.now() - jTurnStartedGlobal) / 1000);
+        if (remain <= 0) { $('jTimerText').textContent = '시간 초과'; jTimeoutTick(); return; }
+        $('jTimerText').textContent = remain + '초';
+        $('jTimerText').classList.toggle('warn', remain <= 10);
+      }, 1000);
+    } else {
+      $('jTimerText').textContent = '';
+    }
+  } else {
+    const label = data.status === 'H_WIN' ? '🔴 한 승리!' : '🔵 초 승리!';
+    const who = data.status === (jHumanColorGlobal === 'H' ? 'H_WIN' : 'O_WIN') ? ' (나의 승리)' : ' (AI 승리)';
+    $('jTurnText').textContent = '대국 종료';
+    $('jTimerText').textContent = '';
+    $('jResultBanner').textContent = label + who;
+    $('jResultBanner').classList.add('show');
+  }
+
+  scheduleAiMoveIfNeeded();
+}
+
+/**
+ * checkColor: 장군에 걸린 쪽 색("H"/"O"/null). 장군을 "부른" 공격 측 색으로
+ * (1) 턴 배너 옷 배지, (2) 보드 테두리 발광, (3) 장군 걸린 궁 칸 테두리 — 세 군데를 동시에
+ * 계속 깜뱡이게 해서 절대 놓칠 수 없게 표시한다. 장군이 풀리면 즉시 전부 사라진다.
+ */
+function renderCheckEffects(checkColor){
+  const attacker = checkColor === 'H' ? 'O' : (checkColor === 'O' ? 'H' : null);
+  const banner = $('jCheckBanner');
+  const boardEl = $('jBoard');
+
+  boardEl.classList.remove('check-H', 'check-O');
+  document.querySelectorAll('.jcell').forEach(c => c.classList.remove('in-check-H', 'in-check-O'));
+
+  if (!attacker) {
+    banner.className = 'jcheck-banner';
+    banner.textContent = '';
+    return;
+  }
+
+  banner.textContent = (attacker === 'H' ? '🔴' : '🔵') + ' 장군!';
+  banner.className = 'jcheck-banner show ' + attacker;
+  boardEl.classList.add('check-' + attacker);
+
+  if (jLastBoard) {
+    for (let y = 0; y < JROWS; y++) {
+      for (let x = 0; x < JCOLS; x++) {
+        if (jLastBoard[y][x] === checkColor + 'K') {
+          const cell = boardEl.querySelector(`.jcell[data-x="${x}"][data-y="${y}"]`);
+          if (cell) cell.classList.add('in-check-' + attacker);
+        }
+      }
+    }
+  }
+}
+
+function renderJanggiBoardOnly(){
+  if (!jLastBoard) return;
+  const lm = jLastData && jLastData.lastMove;
+  document.querySelectorAll('.jcell').forEach(cell => {
+    const x = +cell.dataset.x, y = +cell.dataset.y;
+    const v = jLastBoard[y][x];
+    cell.classList.toggle('selected', !!(jSelected && jSelected.x === x && jSelected.y === y));
+    cell.classList.toggle('dest', jDestinations.some(d => d[0] === x && d[1] === y));
+    cell.classList.toggle('last-move', !!lm && ((x === lm.fromX && y === lm.fromY) || (x === lm.toX && y === lm.toY)));
+    cell.innerHTML = v ? `<img class="jpiece" src="/images/janggi/${v[0]}_${v[1]}.svg" alt="${v}">` : '';
+  });
+}
+
+/* ===================================================
+   발리볼 (목이 발리볼) — 실시간 물리 시뮬레이션, 서버 왕복 없이 전부 클라이언트에서 계산.
+   난이도 선택 없이 AI는 항상 공의 낙하 지점을 예측해서 움직이는 고정 강난이도.
+   정해진 총 라운드(10/20/30판)를 모두 마치면 승패와 무관하게 끝나고, 최종 스코어를 랭킹에 남긴다.
+   =================================================== */
+const VOLLEY_API = '/api/game/volleyball';
+const V_W = 640, V_H = 360, V_GROUND = V_H - 30, V_GRAVITY = 0.24; // 낙하 속도를 한 번 더 낮춤(체공시간 최대한 확보)
+const V_NET_HALF = 6, V_NET_H = 88;
+const V_AI_SPEED = 7.2, V_AI_JUMP_MARGIN = 72, V_AI_ERR = 6;
+const V_MOVE_ACCEL = 1.7, V_MOVE_MAX = 9.6, V_FRICTION = 0.87; // 이동을 더 빠르고 매끄럽게(관성 유지 시간↑)
+const V_JUMP_VY = -9.6; // 중력이 낮아진 만큼 점프 높이가 비슷하게 유지되도록 같이 낮춤
+const V_START_STEPS = [
+  { text: 'START', ms: 800 }, { text: '5', ms: 500 }, { text: '4', ms: 500 },
+  { text: '3', ms: 500 }, { text: '2', ms: 500 }, { text: '1', ms: 500 }
+];
+const V_ROUND_STEPS = [{ text: '3', ms: 480 }, { text: '2', ms: 480 }, { text: '1', ms: 480 }];
+
+let vCtx = null, vRAF = null, vKeyListenersAdded = false, vRunId = 0;
+let vKeys = { left: false, right: false, jump: false };
+let vPlayer, vAi, vBall, vScore, vTotalRounds = 20, vRoundsPlayed, vRally, vState, vServeSide;
+let vHitCooldownUntil = 0, vPointFlashUntil = 0, vPointFlashText = '', vCountdownDisplay = null;
+let vPlayerHitUntil = 0, vAiHitUntil = 0;      // 방금 공에 맞았을 때 잠깜 반짝이는 효과용
+let vFallenSide = null, vFallenAt = 0;         // 실점한 쪽이 잠깜 휘청이는 모션용
+
+function clamp(v, min, max){ return Math.max(min, Math.min(max, v)); }
+
+function vPickRounds(n){
+  vTotalRounds = n;
+  document.querySelectorAll('#vRoundsRow .choice').forEach(b => b.classList.toggle('on', +b.dataset.v === n));
+}
+
+function vAddKeyListeners(){
+  document.addEventListener('keydown', e => {
+    if (mode !== 'volley') return;
+    if (e.code === 'ArrowLeft' || e.code === 'KeyA') vKeys.left = true;
+    if (e.code === 'ArrowRight' || e.code === 'KeyD') vKeys.right = true;
+    if (e.code === 'ArrowUp' || e.code === 'Space' || e.code === 'KeyW') { vKeys.jump = true; e.preventDefault(); }
+  });
+  document.addEventListener('keyup', e => {
+    if (e.code === 'ArrowLeft' || e.code === 'KeyA') vKeys.left = false;
+    if (e.code === 'ArrowRight' || e.code === 'KeyD') vKeys.right = false;
+    if (e.code === 'ArrowUp' || e.code === 'Space' || e.code === 'KeyW') vKeys.jump = false;
+  });
+  const bind = (id, key) => {
+    const el = $(id);
+    const on = ev => { ev.preventDefault(); vKeys[key] = true; };
+    const off = ev => { ev.preventDefault(); vKeys[key] = false; };
+    el.addEventListener('touchstart', on); el.addEventListener('touchend', off);
+    el.addEventListener('mousedown', on); el.addEventListener('mouseup', off); el.addEventListener('mouseleave', off);
+  };
+  bind('vBtnLeft', 'left'); bind('vBtnRight', 'right'); bind('vBtnJump', 'jump');
+}
+
+function vServeBall(){
+  const sx = vServeSide === 'p' ? vPlayer.x : vAi.x;
+  vBall = { x: sx, y: 55, vx: 0, vy: 0, r: 20 };
+  vRally = 0;
+  vState = 'playing';
+}
+
+/**
+ * "START"(최초 1회) 또는 "3-2-1"(매 라운드 사이) 카운트다운을 화면에 표시한 뒤 onDone을 호출한다.
+ * vRunId로 낡은 타이머(탭을 나갔다가 새로 시작한 경우 등)가 뒤늘게 실행되는 것을 막는다.
+ */
+function runCountdown(steps, onDone){
+  const runId = vRunId;
+  vState = 'countdown';
+  let i = 0;
+  (function next(){
+    if (runId !== vRunId) return;
+    if (i >= steps.length) { vCountdownDisplay = null; onDone(); return; }
+    vCountdownDisplay = steps[i].text;
+    const ms = steps[i].ms; i++;
+    setTimeout(next, ms);
+  })();
+}
+
+function vInitState(){
+  vRunId++;
+  vPlayer = { x: 150, y: V_GROUND, vy: 0, vx: 0, r: 22, onGround: true };
+  vAi = { x: V_W - 150, y: V_GROUND, vy: 0, vx: 0, r: 22, onGround: true };
+  vScore = { p: 0, a: 0 };
+  vRoundsPlayed = 0;
+  vBall = { x: V_W / 2, y: 55, vx: 0, vy: 0, r: 20 }; // 카운트다운 중에도 렌더링할 임시 공 위치
+  vServeSide = 'p';
+  vState = 'countdown';
+  vFallenSide = null;
+  updateVScore(); updateVRoundText();
+}
+
+async function startVolley(){
+  $('volleySetup').style.display = 'none';
+  $('volleyGame').style.display = 'grid';
+  $('vResultBanner').classList.remove('show');
+  $('vWinBanner').classList.remove('show');
+  $('vNickname').disabled = false; $('vNickname').value = '';
+  loadVolleyRanking();
+  if (!vCtx) vCtx = $('volleyCanvas').getContext('2d');
+  if (!vKeyListenersAdded) { vAddKeyListeners(); vKeyListenersAdded = true; }
+  vInitState();
+  if (vRAF) cancelAnimationFrame(vRAF);
+  vLoop();
+  runCountdown(V_START_STEPS, vServeBall);
+}
+
+function vBackToSetup(){
+  if (vRAF) { cancelAnimationFrame(vRAF); vRAF = null; }
+  vRunId++; // 진행 중이던 카운트다운/라운드 전환 타이머 무효화
+  $('volleyGame').style.display = 'none';
+  $('volleySetup').style.display = 'block';
+}
+
+function vRetryRun(){
+  $('vWinBanner').classList.remove('show');
+  $('vNickname').disabled = false; $('vNickname').value = '';
+  vInitState();
+  runCountdown(V_START_STEPS, vServeBall);
+}
+
+/** 가속·마찰 기반 이동이라 순간 최고속도가 아니라 부드럽게 붙는다(관성감). 공중에서도 그대로 방향 전환이 먹힌다. */
+function vUpdatePlayer(){
+  if (vKeys.left) vPlayer.vx -= V_MOVE_ACCEL;
+  else if (vKeys.right) vPlayer.vx += V_MOVE_ACCEL;
+  else vPlayer.vx *= V_FRICTION;
+  vPlayer.vx = clamp(vPlayer.vx, -V_MOVE_MAX, V_MOVE_MAX);
+  vPlayer.x += vPlayer.vx;
+  vPlayer.x = clamp(vPlayer.x, vPlayer.r + 16, V_W / 2 - V_NET_HALF - vPlayer.r - 6);
+
+  if (vKeys.jump && vPlayer.onGround) { vPlayer.vy = V_JUMP_VY; vPlayer.onGround = false; }
+  vPlayer.y += vPlayer.vy;
+  vPlayer.vy += V_GRAVITY;
+  if (vPlayer.y >= V_GROUND) { vPlayer.y = V_GROUND; vPlayer.vy = 0; vPlayer.onGround = true; }
+}
+
+/** 공의 굤적을 앞으로 시뮬레이션해서 낙하 지점을 미리 계산 — 반응이 아니라 예측으로 움직여 훨씬 까다롭다. */
+function vPredictLandingX(){
+  let y = vBall.y, vy = vBall.vy, x = vBall.x, vx = vBall.vx;
+  const targetY = V_GROUND - 50;
+  for (let i = 0; i < 260; i++) {
+    vy += V_GRAVITY; y += vy; x += vx;
+    if (y >= targetY || x < V_NET_HALF * 3) break;
+  }
+  return x;
+}
+
+function vUpdateAi(){
+  let targetX = vAi.x;
+  if (vBall.vy > -1.5) {
+    targetX = clamp(vPredictLandingX(), V_W / 2 + 10, V_W - 20) + (Math.random() * 2 - 1) * V_AI_ERR;
+  } else if (vBall.x > V_W / 2) {
+    targetX = vBall.x;
+  }
+  if (targetX < vAi.x - 4) vAi.vx -= V_MOVE_ACCEL * 1.15;
+  else if (targetX > vAi.x + 4) vAi.vx += V_MOVE_ACCEL * 1.15;
+  else vAi.vx *= V_FRICTION;
+  vAi.vx = clamp(vAi.vx, -V_AI_SPEED, V_AI_SPEED);
+  vAi.x += vAi.vx;
+  vAi.x = clamp(vAi.x, V_W / 2 + V_NET_HALF + vAi.r + 6, V_W - vAi.r - 16);
+
+  const dist = Math.abs(vBall.x - vAi.x);
+  if (vAi.onGround && vBall.x > V_W / 2 && vBall.y > V_GROUND - 190 && dist < V_AI_JUMP_MARGIN) {
+    vAi.vy = V_JUMP_VY; vAi.onGround = false;
+  }
+  vAi.y += vAi.vy;
+  vAi.vy += V_GRAVITY;
+  if (vAi.y >= V_GROUND) { vAi.y = V_GROUND; vAi.vy = 0; vAi.onGround = true; }
+}
+
+/**
+ * 충돌한 각도로 반사시키는 것에 더해, 맞는 "순간의 상하 움직임"까지 반영한다.
+ * 캐릭터가 위로 솔구치는 중에 맞으면(vy가 크게 음수) 더 높이 띄우는 토스,
+ * 아래로 떨어지는 중에 맞으면(vy가 양수) 앞으로 빠르고 낮게 꿂히는 스매시 느낌을 준다.
+ */
+function vHitCheck(ch, dirSign, who){
+  const now = performance.now();
+  if (now < vHitCooldownUntil) return;
+  const dx = vBall.x - ch.x, dy = vBall.y - (ch.y - ch.r * 1.1);
+  const dist = Math.hypot(dx, dy);
+  const minDist = ch.r + vBall.r + 5;
+  if (dist < minDist) {
+    const angle = Math.atan2(dy, dx);
+    let power = 8.4;
+    let extraUp = 0, extraForward = 0;
+    if (ch.vy < -2) { extraUp = 2.2; }              // 점프 상승 중 타격 = 토스(더 높이)
+    else if (ch.vy > 2) { extraForward = 2.4; power += 1.4; } // 하강 중 타격 = 스매시(더 세고 낮게)
+
+    vBall.vx = Math.cos(angle) * power * 0.95 + dirSign * (1.1 + extraForward) + (ch.vx || 0) * 0.55;
+    vBall.vy = -Math.abs(Math.sin(angle)) * power - 3.6 - extraUp;
+    const overlap = minDist - dist;
+    vBall.x += Math.cos(angle) * overlap;
+    vBall.y += Math.sin(angle) * overlap;
+    vHitCooldownUntil = now + 140;
+    vRally++;
+    if (who === 'p') vPlayerHitUntil = now + 180; else vAiHitUntil = now + 180;
+  }
+}
+
+function vUpdateBall(){
+  vBall.x += vBall.vx; vBall.y += vBall.vy; vBall.vy += V_GRAVITY;
+  if (vBall.x - vBall.r < 0) { vBall.x = vBall.r; vBall.vx *= -0.7; }
+  if (vBall.x + vBall.r > V_W) { vBall.x = V_W - vBall.r; vBall.vx *= -0.7; }
+  if (vBall.y - vBall.r < 0) { vBall.y = vBall.r; vBall.vy *= -0.6; }
+
+  const netX = V_W / 2, netTop = V_GROUND - V_NET_H;
+  if (Math.abs(vBall.x - netX) < V_NET_HALF + vBall.r && vBall.y + vBall.r > netTop) {
+    vBall.x = vBall.x < netX ? netX - V_NET_HALF - vBall.r : netX + V_NET_HALF + vBall.r;
+    vBall.vx *= -0.6;
+  }
+
+  vHitCheck(vPlayer, 1, 'p');
+  vHitCheck(vAi, -1, 'a');
+
+  if (vBall.y + vBall.r >= V_GROUND) {
+    const landedSide = vBall.x < V_W / 2 ? 'p' : 'a'; // 이 쪽 캐릭터가 실점 → 휘청이는 모션 대상
+    vFallenSide = landedSide;
+    vFallenAt = performance.now();
+    vPointScored(landedSide === 'p' ? 'a' : 'p');
+  }
+}
+
+/** 한 라운드(공이 바닥에 닿는 순간)가 끝났을 때: 득점 표시 → 총 라운드를 다 채웠으면 대결 종료, 아니면 3-2-1 후 다음 라운드. */
+function vPointScored(who){
+  if (vState !== 'playing') return;
+  vState = 'point';
+  const runId = vRunId;
+  vScore[who]++;
+  vRoundsPlayed++;
+  updateVScore(); updateVRoundText();
+  vPointFlashText = (who === 'p' ? '🐤 목이 득점!' : '🐧 블루목이 득점!');
+  vPointFlashUntil = performance.now() + 650;
+
+  setTimeout(() => {
+    if (runId !== vRunId) return;
+    if (vRoundsPlayed >= vTotalRounds) {
+      vEndRun();
+    } else {
+      vServeSide = who;
+      runCountdown(V_ROUND_STEPS, vServeBall);
+    }
+  }, 650);
+}
+
+/** 총 라운드를 다 마쳤을 때 — 승패와 무관하게 종료하고 최종 스코어를 랭킹에 등록할 수 있게 한다. */
+function vEndRun(){
+  vState = 'over';
+  const verdict = vScore.p > vScore.a ? '🎉 승리!' : vScore.p < vScore.a ? '😢 패배...' : '🤝 무승부';
+  $('vResultBanner').textContent = `${verdict} 최종 결과 ${vScore.p}:${vScore.a} (총 ${vTotalRounds}판)`;
+  $('vResultBanner').classList.add('show');
+  $('vWinText').textContent = `이번 대결 최종 스코어: ${vScore.p}:${vScore.a}`;
+  $('vWinBanner').classList.add('show');
+}
+
+function updateVScore(){ $('vScoreText').textContent = `🐤 목이 ${vScore.p} : ${vScore.a} 블루목이 🐧`; }
+function updateVRoundText(){ $('vRoundText').textContent = `라운드 ${vRoundsPlayed}/${vTotalRounds}` + (vRally > 0 ? ` · 럴리 ${vRally}` : ''); }
+
+/**
+ * 오리지널 병아리형 캐릭터 "목이" — 몸통과 머리를 하나의 계란형으로 붙여서 그리는 단순한 실루엓으로
+ * 재설계했다(별개 부위를 이어붙이던 이전 방식보다 훨씬 단순하고 귀여운 느낌). 점프 시 살짝 늘어나고
+ * (jumping), 공에 맞은 직후엔 큰 섬광이 번짝이며(hit), 실점한 순간에는 잠깜 좌우로 휘청인다(fallenT).
+ */
+function drawMongi(ctx, x, y, r, color, jumping, vx, hit, fallenT){
+  ctx.save();
+  ctx.translate(x, y);
+
+  const jumpHeight = Math.max(0, V_GROUND - y);
+  const shadowScale = clamp(1 - jumpHeight / 140, 0.4, 1);
+  ctx.fillStyle = 'rgba(20,30,20,.22)';
+  ctx.beginPath(); ctx.ellipse(0, 5, r * 0.85 * shadowScale, r * 0.2 * shadowScale, 0, 0, Math.PI * 2); ctx.fill();
+
+  let lean = clamp((vx || 0) * 0.03, -0.16, 0.16);
+  if (fallenT != null) lean += Math.sin(fallenT * 26) * (1 - fallenT) * 0.45; // 휘청임: 시간에 따라 감쇠하는 좌우 흔들림
+  ctx.rotate(lean);
+
+  const OUTLINE = '#1a2035';
+  ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+  ctx.strokeStyle = OUTLINE; ctx.lineWidth = Math.max(1.6, r * 0.09);
+
+  const squishY = jumping ? 1.08 : 1;
+  const centerY = -r * 1.15;
+  const legY = -r * 0.08;
+
+  // 발
+  ctx.fillStyle = '#FFC94D';
+  ctx.beginPath(); ctx.ellipse(-r * 0.34, legY, r * 0.22, r * 0.15, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+  ctx.beginPath(); ctx.ellipse(r * 0.34, legY, r * 0.22, r * 0.15, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+
+  // 날개(팔)
+  ctx.fillStyle = color;
+  ctx.beginPath(); ctx.ellipse(-r * 0.92, centerY + r * 0.28, r * 0.26, r * 0.48, 0.4 - lean, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+  ctx.beginPath(); ctx.ellipse(r * 0.92, centerY + r * 0.28, r * 0.26, r * 0.48, -0.4 - lean, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+
+  // 몸통(머리와 하나로 붙인 계란형)
+  ctx.fillStyle = color;
+  ctx.beginPath(); ctx.ellipse(0, centerY, r * 0.9 * squishY, r * 1.08 / squishY, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+
+  // 배(흰색)
+  ctx.fillStyle = '#fff';
+  ctx.beginPath(); ctx.ellipse(0, centerY + r * 0.38, r * 0.55, r * 0.62, 0, 0, Math.PI * 2); ctx.fill();
+
+  // 귀(머리) 장식 동그라미
+  ctx.fillStyle = '#fff';
+  ctx.beginPath(); ctx.ellipse(-r * 0.56, centerY - r * 0.96, r * 0.2, r * 0.2, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+  ctx.beginPath(); ctx.ellipse(r * 0.56, centerY - r * 0.96, r * 0.2, r * 0.2, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+
+  // 볼터치
+  ctx.fillStyle = 'rgba(255,140,160,.6)';
+  ctx.beginPath(); ctx.ellipse(-r * 0.56, centerY - r * 0.02, r * 0.15, r * 0.11, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(r * 0.56, centerY - r * 0.02, r * 0.15, r * 0.11, 0, 0, Math.PI * 2); ctx.fill();
+
+  // 눈 (크고 동그란)
+  ctx.fillStyle = OUTLINE;
+  ctx.beginPath(); ctx.ellipse(-r * 0.3, centerY - r * 0.16, r * 0.13, r * 0.16, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(r * 0.3, centerY - r * 0.16, r * 0.13, r * 0.16, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#fff';
+  ctx.beginPath(); ctx.ellipse(-r * 0.25, centerY - r * 0.23, r * 0.042, r * 0.055, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(r * 0.35, centerY - r * 0.23, r * 0.042, r * 0.055, 0, 0, Math.PI * 2); ctx.fill();
+
+  // 부리(작은 삼각)
+  ctx.fillStyle = '#FF9F43';
+  ctx.beginPath();
+  ctx.moveTo(-r * 0.09, centerY + r * 0.06); ctx.lineTo(r * 0.09, centerY + r * 0.06); ctx.lineTo(0, centerY + r * 0.18);
+  ctx.closePath(); ctx.fill(); ctx.stroke();
+
+  // 피격 섬광
+  if (hit) {
+    ctx.fillStyle = 'rgba(255,255,255,.55)';
+    ctx.beginPath(); ctx.ellipse(0, centerY, r * 1.2, r * 1.35, 0, 0, Math.PI * 2); ctx.fill();
+  }
+
+  ctx.restore();
+}
+
+/** 배구공 — 흰 바탕 + 앨버/블루 곱선 패널(사이트 컴러) + 진한 외곽선으로 실제 배구공처럼 크고 또렯하게. */
+function drawVolleyBall(ctx, x, y, r){
+  ctx.save(); ctx.translate(x, y);
+  ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.fill();
+  ctx.lineCap = 'round';
+  ctx.strokeStyle = '#F2A93B'; ctx.lineWidth = r * 0.3;
+  ctx.beginPath(); ctx.arc(0, 0, r * 0.62, 0.1 * Math.PI, 0.9 * Math.PI); ctx.stroke();
+  ctx.strokeStyle = '#5AA2FF';
+  ctx.beginPath(); ctx.arc(0, 0, r * 0.62, 1.1 * Math.PI, 1.9 * Math.PI); ctx.stroke();
+  ctx.strokeStyle = '#1a2035'; ctx.lineWidth = Math.max(1.4, r * 0.08);
+  ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.stroke();
+  ctx.restore();
+}
+
+function vDrawCloud(ctx, x, y, scale){
+  ctx.fillStyle = 'rgba(255,255,255,.9)';
+  [[0, 0, 18], [16, -6, 14], [-16, -4, 13], [30, 2, 11], [-28, 3, 10]].forEach(([dx, dy, r]) => {
+    ctx.beginPath(); ctx.arc(x + dx * scale, y + dy * scale, r * scale, 0, Math.PI * 2); ctx.fill();
+  });
+}
+
+/** 2.5D 느낌: 하늘+수평선+원근감 있는 사다리꾴 코트를 배경으로 깔고, 그 위에 실제 플레이 라인(V_GROUND)을 그린다. */
+function vRender(){
+  const ctx = vCtx;
+  ctx.clearRect(0, 0, V_W, V_H);
+
+  const sky = ctx.createLinearGradient(0, 0, 0, V_GROUND);
+  sky.addColorStop(0, '#7cc8ef'); sky.addColorStop(0.55, '#bfe3f7'); sky.addColorStop(1, '#fdf3d9');
+  ctx.fillStyle = sky; ctx.fillRect(0, 0, V_W, V_GROUND);
+
+  ctx.fillStyle = 'rgba(255,237,168,.9)';
+  ctx.beginPath(); ctx.arc(V_W - 66, 44, 22, 0, Math.PI * 2); ctx.fill();
+  vDrawCloud(ctx, 100, 40, 0.9);
+  vDrawCloud(ctx, 430, 62, 0.7);
+
+  const horizonY = V_GROUND - 118;
+  ctx.fillStyle = '#bfe6e4';
+  ctx.fillRect(0, horizonY, V_W, V_GROUND - horizonY - 56);
+
+  // 원근 코트(모래)
+  const backY = horizonY + 56, frontHalf = V_W * 0.6, backHalf = V_W * 0.28;
+  ctx.fillStyle = '#e9c98a';
+  ctx.beginPath();
+  ctx.moveTo(V_W / 2 - frontHalf, V_GROUND);
+  ctx.lineTo(V_W / 2 - backHalf, backY);
+  ctx.lineTo(V_W / 2 + backHalf, backY);
+  ctx.lineTo(V_W / 2 + frontHalf, V_GROUND);
+  ctx.closePath(); ctx.fill();
+  ctx.strokeStyle = 'rgba(255,255,255,.85)'; ctx.lineWidth = 2; ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(V_W / 2, backY); ctx.lineTo(V_W / 2, V_GROUND); ctx.stroke();
+
+  // 실제 플레이 바닥 강조선
+  ctx.strokeStyle = 'rgba(242,169,59,.55)'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(0, V_GROUND); ctx.lineTo(V_W, V_GROUND); ctx.stroke();
+
+  // 네트 (기둥 + 그물 + 상단 밴드)
+  const netX = V_W / 2, netTopY = V_GROUND - V_NET_H;
+  ctx.strokeStyle = '#DEE5F2'; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.moveTo(netX - V_NET_HALF - 3, V_GROUND); ctx.lineTo(netX - V_NET_HALF - 3, netTopY - 4); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(netX + V_NET_HALF + 3, V_GROUND); ctx.lineTo(netX + V_NET_HALF + 3, netTopY - 4); ctx.stroke();
+  ctx.fillStyle = 'rgba(19,26,42,.16)';
+  ctx.fillRect(netX - V_NET_HALF, netTopY, V_NET_HALF * 2, V_NET_H);
+  ctx.strokeStyle = 'rgba(19,26,42,.4)'; ctx.lineWidth = 1;
+  for (let ny = netTopY + 8; ny < V_GROUND; ny += 9) { ctx.beginPath(); ctx.moveTo(netX - V_NET_HALF, ny); ctx.lineTo(netX + V_NET_HALF, ny); ctx.stroke(); }
+  for (let nx = -V_NET_HALF; nx <= V_NET_HALF; nx += 6) { ctx.beginPath(); ctx.moveTo(netX + nx, netTopY); ctx.lineTo(netX + nx, V_GROUND); ctx.stroke(); }
+  ctx.fillStyle = '#F2A93B';
+  ctx.fillRect(netX - V_NET_HALF - 3, netTopY - 5, V_NET_HALF * 2 + 6, 6);
+
+  const now = performance.now();
+  const fallenT = t => t == null ? null : clamp((now - t) / 500, 0, 1); // 실점 후 0.5초에 걸쳐 서서히 잔잔들는 진행률
+  drawMongi(ctx, vPlayer.x, vPlayer.y, vPlayer.r, '#F2A93B', !vPlayer.onGround, vPlayer.vx,
+    now < vPlayerHitUntil, vFallenSide === 'p' && (now - vFallenAt) < 500 ? fallenT(vFallenAt) : null);
+  drawMongi(ctx, vAi.x, vAi.y, vAi.r, '#5AA2FF', !vAi.onGround, vAi.vx,
+    now < vAiHitUntil, vFallenSide === 'a' && (now - vFallenAt) < 500 ? fallenT(vFallenAt) : null);
+  drawVolleyBall(ctx, vBall.x, vBall.y, vBall.r);
+
+  if (vCountdownDisplay) {
+    ctx.fillStyle = 'rgba(19,26,42,.4)';
+    ctx.fillRect(0, 0, V_W, V_H);
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 62px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(vCountdownDisplay, V_W / 2, V_H / 2 - 8);
+    ctx.textBaseline = 'alphabetic';
+  } else if (performance.now() < vPointFlashUntil) {
+    ctx.fillStyle = 'rgba(19,26,42,.88)';
+    ctx.font = 'bold 24px sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText(vPointFlashText, V_W / 2, 70);
+  }
+}
+
+function vLoop(){
+  if (vState === 'playing') { vUpdatePlayer(); vUpdateAi(); vUpdateBall(); }
+  vRender();
+  updateVRoundText();
+  vRAF = requestAnimationFrame(vLoop);
+}
+
+async function saveVolleyScore(){
+  const nickname = $('vNickname').value.trim();
+  await fetch(VOLLEY_API + '/score', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ nickname, wins: vScore.p, losses: vScore.a })
+  });
+  $('vNickname').disabled = true;
+  loadVolleyRanking();
+}
+
+async function loadVolleyRanking(){
+  const list = await fetch(VOLLEY_API + '/ranking').then(r => r.json());
+  $('vRanking').innerHTML = !list.length ? '<div class="empty-msg">아직 등록된 기록이 없습니다.</div>' :
+    list.map((r, i) => `<div class="rank-row"><span><span class="no">${i + 1}</span> ${esc(r.nickname)}</span><span>${esc(r.detail || (r.metric + '승'))}</span></div>`).join('');
+}
+
+/* ===== 초기화: URL에 따라 기본 탭 결정 ===== */
+if (location.pathname.includes('baseball')) {
+  switchMode('baseball');
+} else if (location.pathname.includes('janggi')) {
+  switchMode('janggi');
+} else if (location.pathname.includes('volleyball')) {
+  switchMode('volley');
+} else {
+  switchMode('omok');
+}
+</script>
+</body>
+</html>
