@@ -12,7 +12,8 @@ Spring Boot 애플리케이션 하나에 기능별 패키지를 추가하는 구
 | 🟢 LIVE | **AI 주식** | 토스증권 Open API(OAuth2 Client Credentials, 전역 요청 스로틀링, TTL 캐시), 업비트 공개 API, Gemini API 시황 요약, 프론트엔드 FLIP 애니메이션 기반 실시간 테이블 갱신 |
 | 🟢 LIVE | **지도 API** | 카카오 Local API(키워드·반경 검색), 네이버 지도 SDK, 국토교통부 실거래가 공공데이터 API 연동 |
 | 🟢 LIVE | **MMS** | 비동기 큐 + 멀티쓰레드 워커 풀(5개), 재시도 로직, 실시간 처리량 집계 |
-| 🟢 LIVE | **웹 게임** | 오목(미니맥스 탐색), 숫자야구, 장기(알파베타 가지치기 완전탐색 AI, 궁성 대각선 이동 규칙 구현) |
+| 🟢 LIVE | **웹 게임** | 오목(미니맥스 탐색), 숫자야구, 장기(알파베타 가지치기 완전탐색 AI, 궁성 대각선 이동 규칙 구현), 발리볼(Canvas 기반 실시간 물리 시뮬레이션) |
+| 🟢 LIVE | **카드게임** | 프리셀 — 서플무브(뭉치 이동) 용량 계산, 안전 자동정리, 배치 기반 난이도 |
 | ⚪ 예정 | 체스 | 규칙 엔진 + AI 탐색 |
 | ⚪ 예정 | 가격 비교 | 상품 링크 기반 가격 비교 |
 
@@ -59,7 +60,7 @@ Spring Boot 애플리케이션 하나에 기능별 패키지를 추가하는 구
     엘리먼트를 재사용, FLIP 기법으로 순위 변동을 애니메이션 처리
 ```
 
-### 웹 게임 — 오목·숫자야구·장기
+### 웹 게임 — 오목·숫자야구·장기·발리볼
 
 ```
 [오목] 미니맥스 탐색 기반 AI, 난이도별 탐색 깊이 조절
@@ -68,6 +69,20 @@ Spring Boot 애플리케이션 하나에 기능별 패키지를 추가하는 구
     - 마·상 포진 4종 선택 가능
     - 장군 판정을 사람 수 처리와 AI 응수 처리로 분리한 API 설계
 [숫자야구] 스트라이크/볼 판정 로직 + 최소 시도 기록 랭킹
+[발리볼] 중력·충돌·반사·캐릭터 이동을 포함한 물리 시뮬레이션을 Canvas +
+    requestAnimationFrame으로 프론트엔드에서 전부 처리, 서버는 대결 결과만 저장.
+    AI는 공의 궤적을 프레임 단위로 시뮬레이션해 낙하 지점을 예측
+```
+
+### 카드게임 — 프리셀
+
+```
+[프리셀 규칙 엔진] 뭉치(연속 하강·교대색) 이동 유효성 검증, 서플무브 용량 계산
+    ((빈 오픈칸 수+1) × 2^빈 컬럼 수), 완성 칸 안전 자동정리, 막힘 상태 판정 —
+    전부 프론트엔드에서 계산하고 서버는 결과만 저장
+[FreecellController] 난이도별 랭킹 분리 저장(gameType 접미사 방식), metric=이동 횟수 오름차순
+[카드 이미지] 자유 라이선스(Unlicense) SVG 카드 렌더링 라이브러리를 자체 저장해 사용
+[난이도] 오픈칸 수·자동정리·실행취소 같은 조작 제약이 아니라 초기 카드 배치 자체로 구분
 ```
 
 ### 지도 API — 맛집 지도 + 부동산 시세
@@ -115,13 +130,18 @@ com.jihun.portfolio
 │   ├── RealEstateController.java   # 부동산 실거래 조회(국토부)
 │   ├── KakaoGeocodeService.java    # 좌표 지오코딩
 │   └── RealEstateRegions.java
-└── game/            # 웹 게임
+└── game/            # 웹 게임 + 카드게임 (공통 GameScore 랭킹 엔티티 공유)
+    ├── domain/GameScore.java       # 게임 공용 랭킹 엔티티(gameType으로 구분)
+    ├── repository/GameScoreRepository.java
     ├── omok/        # 오목 규칙·AI
     ├── baseball/    # 숫자야구
-    └── janggi/      # 장기 규칙·AI(JanggiRules/JanggiAiService/JanggiService/JanggiController)
+    ├── janggi/      # 장기 규칙·AI(JanggiRules/JanggiAiService/JanggiService/JanggiController)
+    ├── volleyball/  # 발리볼 랭킹 API(물리는 프론트엔드에서 전부 처리)
+    └── freecell/    # 프리셀 랭킹 API(카드 로직은 프론트엔드에서 전부 처리)
 ```
 
 새 기능은 하위 패키지 + `/api/<기능>/*` REST API + 정적 페이지(공통 `nav.js` 메뉴 등록) 방식으로 확장한다.
+정적 페이지: `game.html`(오목·숫자야구·장기·발리볼 탭), `cardgame.html`(프리셀, 향후 카드게임 추가 예정).
 
 ## 실행
 
