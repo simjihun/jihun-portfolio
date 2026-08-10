@@ -44,32 +44,24 @@
 .fc-board.win{animation:fcWinGlow 1.1s ease-in-out infinite}
 @keyframes fcWinGlow{0%,100%{box-shadow:0 0 0 rgba(242,169,59,0)}50%{box-shadow:0 0 32px 6px rgba(242,169,59,.55)}}
 .fc-zones{display:flex;gap:16px;margin-bottom:22px;flex-wrap:wrap}
-.fc-free-row,.fc-found-row{display:flex;gap:8px}
-.fc-slot{width:64px;height:90px;border:2px dashed rgba(255,255,255,.25);border-radius:8px;display:flex;align-items:center;justify-content:center;position:relative}
+.fc-free-row,.fc-found-row{display:flex;gap:10px}
+.fc-slot{width:76px;height:106px;border:2px dashed rgba(255,255,255,.25);border-radius:9px;display:flex;align-items:center;justify-content:center;position:relative}
 .fc-found-row .fc-slot{border-color:rgba(255,255,255,.15)}
-.fc-suit-ghost{font-size:26px;color:rgba(255,255,255,.18)}
-.fc-tableau{display:flex;gap:14px}
-.fc-col{width:64px;min-height:360px;position:relative}
-.fc-card{width:64px;height:90px;border-radius:8px;background:#fdfaf3;border:1px solid rgba(0,0,0,.25);box-shadow:0 2px 4px rgba(0,0,0,.3);position:absolute;left:0;box-sizing:border-box;cursor:pointer;user-select:none;transition:box-shadow .12s,transform .12s;overflow:hidden}
-.fc-card.black{color:#1a1a1a}
-.fc-card.red{color:#c0392b}
-.fc-card.selected{box-shadow:0 0 0 3px var(--amber),0 4px 10px rgba(0,0,0,.4);transform:translateY(-6px)}
+.fc-suit-ghost{font-size:30px;color:rgba(255,255,255,.18)}
+.fc-tableau{display:flex;gap:16px}
+.fc-col{width:76px;min-height:380px;position:relative}
+.fc-card{width:76px;height:106px;border-radius:9px;position:absolute;left:0;box-sizing:border-box;cursor:pointer;user-select:none;transition:box-shadow .12s,transform .12s;filter:drop-shadow(0 2px 4px rgba(0,0,0,.35))}
+.fc-card.selected{transform:translateY(-8px)}
+.fc-card.selected playing-card{outline:3px solid var(--amber);border-radius:9px}
 .fc-slot .fc-card{position:static}
-.fc-corner{position:absolute;font-size:9.5px;line-height:1.05;font-weight:800;display:flex;flex-direction:column;align-items:center;z-index:2}
-.fc-corner.tl{top:3px;left:4px}
-.fc-corner.br{bottom:3px;right:4px;transform:rotate(180deg)}
-.fc-pips{position:absolute;inset:0}
-.fc-pip{position:absolute;transform:translate(-50%,-50%);font-size:13px;line-height:1}
-.fc-face{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}
-.fc-face-letter{font-size:22px;font-weight:800}
-.fc-face-suit{font-size:15px}
+.fc-card playing-card,.fc-card playing-card img{display:block;width:100%;height:100%;object-fit:contain}
 @keyframes fcDealIn{0%{opacity:0;transform:translate(6px,-180px) scale(.7) rotate(-8deg)}100%{opacity:1;transform:translate(0,0) scale(1) rotate(0)}}
 .fc-card.deal{animation:fcDealIn .45s cubic-bezier(.18,.82,.3,1) both}
-@keyframes fcPop{0%{transform:scale(1.28);box-shadow:0 0 0 3px var(--amber),0 6px 14px rgba(0,0,0,.4)}100%{transform:scale(1)}}
+@keyframes fcPop{0%{transform:scale(1.28)}100%{transform:scale(1)}}
 .fc-card.pop{animation:fcPop .3s ease}
 .fc-flash{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:rgba(192,57,43,.92);color:#fff;padding:8px 16px;border-radius:20px;font-size:13px;font-weight:600;display:none;z-index:50}
 .fc-flash.show{display:block}
-@media (max-width:640px){ .fc-slot,.fc-card,.fc-col{width:50px} .fc-card{height:70px} .fc-slot{height:70px} .fc-corner{font-size:8px} .fc-pip{font-size:10px} .fc-face-letter{font-size:17px} .fc-face-suit{font-size:12px} }
+@media (max-width:640px){ .fc-slot,.fc-card,.fc-col{width:56px} .fc-card{height:78px} .fc-slot{height:78px} .fc-suit-ghost{font-size:22px} }
 </style>
 </head>
 <body>
@@ -156,6 +148,7 @@
 <div class="fc-flash" id="fcFlash"></div>
 
 <script src="/js/nav.js"></script>
+<script src="/js/cardmeister.js"></script>
 <script>
 const $ = id => document.getElementById(id);
 const esc = s => (s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
@@ -164,33 +157,18 @@ function switchCardMode(next){ cardMode = next; }
 
 /* ===================================================
    프리셀 — 카드 로직은 전부 프론트엔드에서 계산(서버는 결과 기록만 저장).
-   난이도는 오픈칸 개수뿐 아니라 자동정리 여부·실행취소 횟수로도 구분한다.
+   카드 이미지는 자유 라이선스(Unlicense) SVG 카드 라이브러리(cardmeister.js, /js/cardmeister.js에 저장됨)로
+   렌더링한다 — <playing-card cid="AS"> 형태로 랭크+무늬 코드만 넘기면 진짜 카드 모양(핍 배치·코트카드 그림)의
+   SVG 이미지를 직접 생성해준다. 난이도는 오픈칸 개수뿐 아니라 자동정리 여부·실행취소 횟수로도 구분한다.
    =================================================== */
 const FREECELL_API = '/api/game/freecell';
-const FC_SUITS = [
-  { sym: '♠', color: 'black' },
-  { sym: '♥', color: 'red' },
-  { sym: '♦', color: 'red' },
-  { sym: '♣', color: 'black' }
-];
+const FC_SUIT_COLOR = ['black', 'red', 'red', 'black']; // 0=spade 1=heart 2=diamond 3=club
+const FC_SUIT_LETTER = ['S', 'H', 'D', 'C'];
 const FC_RANK_LABELS = ['A','2','3','4','5','6','7','8','9','10','J','Q','K'];
 const FC_DIFF_META = {
   EASY:   { label: '초급', free: 4, autoSafe: true,  undoLimit: Infinity },
   MEDIUM: { label: '중급', free: 4, autoSafe: false, undoLimit: Infinity },
   HARD:   { label: '고급', free: 3, autoSafe: false, undoLimit: 3 }
-};
-// 표준 카드처럼 랭크 숫자만큼 문양을 배치하기 위한 좌표(위%, 왼쪽%) 테이블
-const FC_PIP_LAYOUTS = {
-  1: [[50,50]],
-  2: [[20,50],[80,50]],
-  3: [[20,50],[50,50],[80,50]],
-  4: [[22,25],[22,75],[78,25],[78,75]],
-  5: [[22,25],[22,75],[50,50],[78,25],[78,75]],
-  6: [[20,25],[20,75],[50,25],[50,75],[80,25],[80,75]],
-  7: [[15,25],[15,75],[36,50],[50,25],[50,75],[85,25],[85,75]],
-  8: [[13,25],[13,75],[35,50],[50,25],[50,75],[65,50],[87,25],[87,75]],
-  9: [[12,25],[12,75],[33,25],[33,75],[50,50],[67,25],[67,75],[88,25],[88,75]],
-  10:[[10,25],[10,75],[28,50],[33,25],[33,75],[62,25],[62,75],[67,50],[88,25],[88,75]]
 };
 
 let fcDifficulty = 'EASY';
@@ -208,7 +186,8 @@ function fcPickDiff(v){
   document.querySelectorAll('#fcDiffRow .choice').forEach(b => b.classList.toggle('on', b.dataset.v === v));
 }
 
-function fcColor(card){ return FC_SUITS[card.s].color; }
+function fcColor(card){ return FC_SUIT_COLOR[card.s]; }
+function fcCid(card){ return FC_RANK_LABELS[card.r - 1] + FC_SUIT_LETTER[card.s]; }
 
 function fcBuildDeck(){
   const deck = [];
@@ -355,8 +334,6 @@ function fcAutoSafe(){
 
 function fcTopOf(arr){ return arr[arr.length - 1]; }
 
-/** 자유칸·컬럼 최상단 카드들만 확인해도 충분하다 — 빈 오픈칸/빈 컬럼이 있으면 항상 수가 있고,
- *  없다면 뭉치 이동 용량이 1이라 최상단 카드가 유일하게 옮길 수 있는 대상이기 때문. */
 function fcHasAnyMove(){
   if (fcFree.some(c => !c)) return true;
   if (fcTableau.some(c => c.length === 0)) return true;
@@ -551,23 +528,6 @@ function fcCheckWin(){
   return true;
 }
 
-function fcCardFaceHtml(card){
-  const suit = FC_SUITS[card.s];
-  if (card.r <= 10) {
-    const pips = FC_PIP_LAYOUTS[card.r].map(([top, left]) => `<span class="fc-pip" style="top:${top}%;left:${left}%">${suit.sym}</span>`).join('');
-    return `<div class="fc-pips">${pips}</div>`;
-  }
-  const letter = card.r === 11 ? 'J' : card.r === 12 ? 'Q' : 'K';
-  return `<div class="fc-face"><span class="fc-face-letter">${letter}</span><span class="fc-face-suit">${suit.sym}</span></div>`;
-}
-
-function fcCornersHtml(card){
-  const suit = FC_SUITS[card.s];
-  const label = FC_RANK_LABELS[card.r - 1];
-  return `<div class="fc-corner tl"><span>${label}</span><span>${suit.sym}</span></div>
-    <div class="fc-corner br"><span>${label}</span><span>${suit.sym}</span></div>`;
-}
-
 function fcRender(dealAnim){
   const dealOrder = {}; // 딜 애니메이션용: 카드가 원래 몇 번째로 뿌려졌는지(딜 순서=인덱스*8+컬럼)
   if (dealAnim) {
@@ -578,35 +538,34 @@ function fcRender(dealAnim){
     const sel = (fcSelected && fcSelected.type === 'free' && fcSelected.idx === i) ? 'selected' : '';
     const pop = (fcLastMoved && fcLastMoved.kind === 'free' && fcLastMoved.idx === i) ? 'pop' : '';
     if (!card) return `<div class="fc-slot" onclick="fcClickFree(${i})"></div>`;
-    const suit = FC_SUITS[card.s];
     return `<div class="fc-slot" onclick="fcClickFree(${i})">
-      <div class="fc-card ${suit.color} ${sel} ${pop}" ondblclick="event.stopPropagation();fcDblClickFree(${i})">
-        ${fcCornersHtml(card)}${fcCardFaceHtml(card)}
+      <div class="fc-card ${sel} ${pop}" ondblclick="event.stopPropagation();fcDblClickFree(${i})">
+        <playing-card cid="${fcCid(card)}"></playing-card>
       </div>
     </div>`;
   }).join('');
 
-  $('fcFoundRow').innerHTML = FC_SUITS.map((suit, i) => {
+  $('fcFoundRow').innerHTML = FC_SUIT_LETTER.map((letter, i) => {
     const r = fcFound[i];
     const pop = (fcLastMoved && fcLastMoved.kind === 'found' && fcLastMoved.idx === i) ? 'pop' : '';
+    const suitGhost = ['♠', '♥', '♦', '♣'][i];
     const inner = r > 0
-      ? `<div class="fc-card ${suit.color} ${pop}">${fcCornersHtml({ r, s: i })}${fcCardFaceHtml({ r, s: i })}</div>`
-      : `<span class="fc-suit-ghost">${suit.sym}</span>`;
+      ? `<div class="fc-card ${pop}"><playing-card cid="${FC_RANK_LABELS[r - 1]}${letter}"></playing-card></div>`
+      : `<span class="fc-suit-ghost">${suitGhost}</span>`;
     return `<div class="fc-slot" onclick="fcClickFoundation(${i})">${inner}</div>`;
   }).join('');
 
   $('fcTableau').innerHTML = fcTableau.map((col, ci) => {
-    const offset = 24;
-    const height = Math.max(360, col.length * offset + 90);
+    const offset = 28;
+    const height = Math.max(380, col.length * offset + 106);
     const cards = col.map((card, i) => {
       const sel = (fcSelected && fcSelected.type === 'tableau' && fcSelected.col === ci && i >= fcSelected.idx) ? 'selected' : '';
       const pop = (fcLastMoved && fcLastMoved.kind === 'col' && fcLastMoved.idx === ci && i === col.length - 1) ? 'pop' : '';
       const deal = dealAnim ? 'deal' : '';
       const delay = dealAnim ? `animation-delay:${dealOrder[ci + ',' + i] * 16}ms;` : '';
-      const suit = FC_SUITS[card.s];
-      return `<div class="fc-card ${suit.color} ${sel} ${pop} ${deal}" style="top:${i * offset}px;${delay}"
+      return `<div class="fc-card ${sel} ${pop} ${deal}" style="top:${i * offset}px;${delay}"
         onclick="event.stopPropagation();fcClickCard(${ci},${i})" ondblclick="event.stopPropagation();fcDblClickCard(${ci},${i})">
-        ${fcCornersHtml(card)}${fcCardFaceHtml(card)}
+        <playing-card cid="${fcCid(card)}"></playing-card>
       </div>`;
     }).join('');
     return `<div class="fc-col" style="min-height:${height}px" onclick="fcClickColumnBg(${ci})">${cards}</div>`;
