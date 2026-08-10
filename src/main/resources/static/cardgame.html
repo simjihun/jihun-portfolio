@@ -393,7 +393,8 @@ function fcAttemptMoveToTableau(destCol){
     const top = fcTopOf(destArr);
     const validAttach = !top || (seq[0].r === top.r - 1 && fcColor(seq[0]) !== fcColor(top));
     if (!validAttach) { fcFlash('그 카드 위엔 놓을 수 없어요'); return false; }
-    if (seq.length > fcMaxMovable(destCol)) { fcFlash('오픈칸·빈 컬럼이 부족해요'); return false; }
+    const cap = fcMaxMovable(destCol);
+    if (seq.length > cap) { fcFlash(`오픈칸·빈 컬럼이 부족해요 (지금은 최대 ${cap}장까지)`); return false; }
     fcPushHistory();
     fcTableau[fcSelected.col].splice(fcSelected.idx, seq.length);
     fcTableau[destCol].push(...seq);
