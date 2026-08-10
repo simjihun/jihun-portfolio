@@ -74,14 +74,15 @@ main{max-width:1080px}
 .mock-search div{flex:1;height:30px;background:var(--panel-2);border:1px solid var(--line);border-radius:7px}
 .mock-search span{width:56px;height:30px;background:var(--amber);border-radius:7px;flex:none}
 
-/* 체스판 목업: 셀 중앙에 유니코드 체스 기물을 배치 (정렬 문제 없이 항상 정확한 위치) */
-.mock-chess{display:grid;grid-template-columns:repeat(8,1fr);border-radius:8px;overflow:hidden;border:1px solid var(--line)}
-.mock-cell{aspect-ratio:1;display:flex;align-items:center;justify-content:center}
-.mock-cell.light{background:#2a3550}
-.mock-cell.dark{background:#1a2033}
-.mock-piece{font-size:24px;line-height:1;user-select:none}
-.mock-piece.w{color:#f2f2f2;text-shadow:0 1px 2px rgba(0,0,0,.5)}
-.mock-piece.b{color:var(--amber);text-shadow:0 1px 2px rgba(0,0,0,.4)}
+/* 웹게임 목업: 발리볼 코트 위 캐릭터를 CSS로 단순화해서 표현 */
+.mock-court{position:relative;height:150px;background:linear-gradient(#1b2740,#0f1522);border-radius:8px;overflow:hidden}
+.mock-ground{position:absolute;left:0;right:0;bottom:0;height:20px;background:#233252}
+.mock-net{position:absolute;left:50%;bottom:20px;width:6px;height:64px;background:var(--dim);transform:translateX(-50%)}
+.mock-mongi{position:absolute;bottom:20px;width:34px;height:30px;border-radius:60% 60% 55% 55%}
+.mock-mongi::before,.mock-mongi::after{content:'';position:absolute;top:-9px;width:11px;height:13px;border-radius:50%;background:inherit}
+.mock-mongi::before{left:1px}
+.mock-mongi::after{right:1px}
+.mock-ball{position:absolute;width:12px;height:12px;border-radius:50%;background:#fff;box-shadow:0 2px 4px rgba(0,0,0,.4)}
 
 /* 주식 지표 목업 */
 .mock-ticker{display:flex;flex-direction:column;gap:7px;margin-bottom:12px}
@@ -260,15 +261,16 @@ main{max-width:1080px}
   <section class="feature">
     <div class="feature-text">
       <span class="tag">● LIVE</span>
-      <h2>웹 게임 — 오목 · 숫자야구 · 장기 AI</h2>
+      <h2>웹 게임 — 오목 · 숫자야구 · 장기 · 발리볼</h2>
       <div class="skills">
-        <span>Java</span><span>알파베타 미니맥스</span><span>SVG</span><span>순수 알고리즘(외부 AI API 미사용)</span>
+        <span>Java</span><span>알파베타 미니맥스</span><span>SVG</span><span>Canvas·requestAnimationFrame</span><span>실시간 물리 시뮬레이션</span>
       </div>
       <ul>
         <li>오목: 초급·중급·고급 난이도, 흑/백 선택, 턴 제한시간</li>
         <li>장기: 마·상 포진 4종 선택, 알파베타 완전탐색 AI, 궁성 대각선 규칙까지 구현</li>
+        <li>발리볼: 오리지널 캐릭터로 AI와 실시간 대결(Canvas 물리 연산 전부 클라이언트 처리), 최장 랠리 랭킹</li>
         <li>숫자야구: 스트라이크/볼 추리 + 최소 시도 랭킹</li>
-        <li>모든 게임 AI는 서버가 직접 계산 — 외부 API 비용 없음, 체스는 준비 중</li>
+        <li>턴제 게임 AI는 서버 알고리즘, 발리볼은 프레임 단위 클라이언트 물리 — 외부 API 비용 없음. 체스는 준비 중</li>
       </ul>
       <a class="feature-link" href="/game">웹 게임 하러가기 →</a>
     </div>
@@ -276,7 +278,13 @@ main{max-width:1080px}
       <div class="mockup">
         <div class="mockup-bar"><span></span><span></span><span></span></div>
         <div class="mockup-body">
-          <div class="mock-chess" id="mockChess"></div>
+          <div class="mock-court">
+            <div class="mock-ground"></div>
+            <div class="mock-net"></div>
+            <div class="mock-mongi" style="left:22%;background:var(--amber)"></div>
+            <div class="mock-mongi" style="right:22%;background:var(--blue)"></div>
+            <div class="mock-ball" style="top:30%;left:47%"></div>
+          </div>
         </div>
       </div>
     </div>
@@ -295,34 +303,5 @@ main{max-width:1080px}
 </main>
 
 <script src="/js/nav.js"></script>
-<script>
-// 체스판 목업: 8x4 체스보드에 유니코드 체스 기물을 배치 (장식용, 실제 게임과 연동되지 않음)
-(function(){
-  const board = document.getElementById('mockChess');
-  if (!board) return;
-  const cols = 8, rows = 4;
-  // key: "row,col" -> { g: 유니코드 기물, t: 진영(w/b, 색상 구분용) }
-  const pieces = {
-    '0,1': { g: '♜', t: 'b' }, '0,4': { g: '♞', t: 'b' }, '0,6': { g: '♝', t: 'b' },
-    '1,2': { g: '♟', t: 'b' }, '1,5': { g: '♟', t: 'b' },
-    '2,2': { g: '♙', t: 'w' }, '2,5': { g: '♙', t: 'w' },
-    '3,1': { g: '♖', t: 'w' }, '3,4': { g: '♘', t: 'w' }, '3,6': { g: '♗', t: 'w' }
-  };
-  for (let r = 0; r < rows; r++) {
-    for (let c = 0; c < cols; c++) {
-      const cell = document.createElement('div');
-      cell.className = 'mock-cell ' + ((r + c) % 2 === 0 ? 'light' : 'dark');
-      const p = pieces[r + ',' + c];
-      if (p) {
-        const piece = document.createElement('span');
-        piece.className = 'mock-piece ' + p.t;
-        piece.textContent = p.g;
-        cell.appendChild(piece);
-      }
-      board.appendChild(cell);
-    }
-  }
-})();
-</script>
 </body>
 </html>
