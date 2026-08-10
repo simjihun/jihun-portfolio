@@ -82,7 +82,7 @@
 .rank-row .no{color:var(--amber);font-family:var(--mono);width:24px}
 @media (max-width:800px){ .two-col{grid-template-columns:1fr} }
 
-.volley-canvas{width:100%;max-width:640px;background:linear-gradient(#1b2740,#0f1522);border:2px solid var(--line);border-radius:10px;touch-action:none;display:block}
+.volley-canvas{width:100%;max-width:640px;background:#c9ecff;border:2px solid var(--line);border-radius:10px;touch-action:none;display:block}
 .volley-hint{display:flex;gap:16px;color:var(--dim);font-size:12px;font-family:var(--mono)}
 .volley-touch{display:none;gap:10px;margin-top:6px}
 .volley-touch button{width:56px;height:44px;border-radius:10px;border:1px solid var(--line);background:var(--panel-2);color:var(--ink);font-size:18px}
@@ -239,28 +239,23 @@
   <!-- ===== 발리볼 ===== -->
   <section id="panelVolley" style="display:none">
     <p class="game-desc">
-      귀여운 오리지널 캐릭터 <b>몽이</b>로 AI와 실시간 배구 대결을 합니다. ←→(또는 A/D)로 이동, 스페이스바(또는 ↑)로 점프해서
-      공을 상대 코트로 넘기세요. 공이 자기 쪽 바닥에 닿으면 상대가 득점하며, 먼저 <b>5점</b>을 내면 승리입니다.
-      중력·충돌·반사 같은 물리 연산은 서버 왕복 없이 <b>브라우저에서 매 프레임(Canvas + requestAnimationFrame)</b> 직접
-      계산해 지연 없이 반응합니다. 랭킹은 승패와 무관하게 한 랠리에서 가장 오래 주고받은 <b>최장 랠리 히트 수</b>로 매깁니다.
+      오리지널 캐릭터 <b>몽이</b>로 AI와 실시간 비치발리볼 대결을 합니다. ←→(또는 A/D)로 이동, 스페이스바(또는 ↑)로 점프해서
+      공을 상대 코트로 넘기세요. 공이 자기 쪽 바닥에 닿으면 상대가 득점하며, 먼저 <b>5점</b>을 내면 그 판은 승리입니다.
+      이기면 곧바로 다음 상대와 이어서 붙어 <b>연승 기록</b>에 도전할 수 있고, 지는 순간까지의 연승 수가 최종 기록으로 랭킹에 남습니다.
+      난이도 선택 없이 AI가 공의 낙하 지점을 미리 예측해 움직이는 상당히 까다로운 상대로 고정되어 있습니다.
+      중력·충돌·반사 같은 물리 연산은 서버 왕복 없이 <b>브라우저에서 매 프레임(Canvas + requestAnimationFrame)</b> 직접 계산합니다.
     </p>
 
     <div class="panel" id="volleySetup">
-      <h2>대결 설정</h2>
-      <label>난이도 (AI 반응속도·정확도)</label>
-      <div class="choice-row" id="vDiffRow">
-        <button class="choice" data-v="EASY" onclick="vPick('EASY')">초급</button>
-        <button class="choice on" data-v="MEDIUM" onclick="vPick('MEDIUM')">중급</button>
-        <button class="choice" data-v="HARD" onclick="vPick('HARD')">고급</button>
-      </div>
-      <button class="btn btn-amber" style="margin-top:18px" onclick="startVolley()">대결 시작</button>
+      <h2>대결 시작</h2>
+      <button class="btn btn-amber" onclick="startVolley()">대결 시작</button>
     </div>
 
     <div class="two-col" id="volleyGame" style="display:none">
       <div class="panel board-wrap">
         <div class="turn-banner">
           <span id="vScoreText">🟠 몽이 0 : 0 블루몽이 🔵</span>
-          <span class="timer" id="vRallyText">최장 랠리 0</span>
+          <span class="timer" id="vStreakText">연승 0</span>
         </div>
         <canvas class="volley-canvas" id="volleyCanvas" width="640" height="360"></canvas>
         <div class="volley-hint"><span>← → 이동</span><span>스페이스 / ↑ 점프</span></div>
@@ -270,17 +265,19 @@
           <button id="vBtnRight">▶</button>
         </div>
         <div class="result-banner" id="vResultBanner"></div>
+        <button class="btn btn-amber" id="vContinueBtn" style="display:none" onclick="vNextMatch()">다음 상대와 계속하기 →</button>
         <div class="win-banner" id="vWinBanner">
           <b id="vWinText"></b>
           <div class="nick-row">
             <input id="vNickname" placeholder="랭킹에 등록할 닉네임 (선택)" maxlength="12">
             <button class="btn btn-amber" onclick="saveVolleyScore()">등록</button>
           </div>
+          <button class="btn btn-ghost" style="margin-top:10px" onclick="vRetryRun()">🔁 처음부터 다시 도전</button>
         </div>
         <button class="btn btn-ghost" onclick="vBackToSetup()">설정으로 돌아가기</button>
       </div>
       <div class="panel">
-        <h2>랭킹 · 최장 랠리</h2>
+        <h2>랭킹 · 최고 연승</h2>
         <div id="vRanking"><div class="empty-msg">아직 등록된 기록이 없습니다.</div></div>
       </div>
     </div>
@@ -308,7 +305,7 @@ function switchMode(next){
   history.replaceState(null, '', path);
   if (mode === 'baseball' && !baseballGameId) newBaseball();
   if (leavingVolley && vRAF) { cancelAnimationFrame(vRAF); vRAF = null; }
-  if (mode === 'volley' && !vRAF && $('volleyGame').style.display !== 'none') vLoop(); // 대국 중 탭을 나갔다 돌아오면 루프 재개
+  if (mode === 'volley' && !vRAF && $('volleyGame').style.display !== 'none') vLoop(); // 대결 중 탭을 나갔다 돌아오면 루프 재개
 }
 
 /* ===================================================
@@ -736,26 +733,20 @@ function renderJanggiBoardOnly(){
 }
 
 /* ===================================================
-   발리볼 (몽이 발리볼) — 실시간 물리 시뮬레이션, 서버 왕복 없이 전부 클라이언트에서 계산
+   발리볼 (몽이 발리볼) — 실시간 물리 시뮬레이션, 서버 왕복 없이 전부 클라이언트에서 계산.
+   난이도 선택 없이 AI는 항상 공의 낙하 지점을 예측해서 움직이는 고정 강난이도.
+   랭킹 지표는 랠리 길이가 아니라 "패배 없이 이어간 연승 수".
    =================================================== */
 const VOLLEY_API = '/api/game/volleyball';
-const V_W = 640, V_H = 360, V_GROUND = V_H - 24, V_GRAVITY = 0.5;
-const V_NET_HALF = 6, V_NET_H = 96;
-const V_DIFF_CFG = {
-  EASY:   { speed: 2.6, jumpMargin: 32, err: 30, reaction: 0.5 },
-  MEDIUM: { speed: 3.6, jumpMargin: 44, err: 15, reaction: 0.78 },
-  HARD:   { speed: 4.7, jumpMargin: 56, err: 5,  reaction: 1.0 }
-};
-let vDiff = 'MEDIUM';
+const V_W = 640, V_H = 360, V_GROUND = V_H - 30, V_GRAVITY = 0.48;
+const V_NET_HALF = 6, V_NET_H = 116;
+const V_AI_SPEED = 6.4, V_AI_JUMP_MARGIN = 66, V_AI_ERR = 6;
+const V_MOVE_ACCEL = 1.2, V_MOVE_MAX = 7.8, V_FRICTION = 0.82;
 let vCtx = null, vRAF = null, vKeyListenersAdded = false;
 let vKeys = { left: false, right: false, jump: false };
-let vPlayer, vAi, vBall, vScore, vRally, vLongestRally, vState, vServeSide;
+let vPlayer, vAi, vBall, vScore, vStreak, vRally, vState, vServeSide;
 let vHitCooldownUntil = 0, vPointFlashUntil = 0, vPointFlashText = '';
 
-function vPick(v){
-  vDiff = v;
-  document.querySelectorAll('#vDiffRow .choice').forEach(b => b.classList.toggle('on', b.dataset.v === v));
-}
 function clamp(v, min, max){ return Math.max(min, Math.min(max, v)); }
 
 function vAddKeyListeners(){
@@ -782,19 +773,28 @@ function vAddKeyListeners(){
 
 function vServeBall(){
   const sx = vServeSide === 'p' ? vPlayer.x : vAi.x;
-  vBall = { x: sx, y: 70, vx: 0, vy: 0, r: 13 };
+  vBall = { x: sx, y: 60, vx: 0, vy: 0, r: 13 };
   vRally = 0;
   vState = 'playing';
 }
 
-function vInitState(){
-  vPlayer = { x: 150, y: V_GROUND, vy: 0, r: 30, onGround: true };
-  vAi = { x: V_W - 150, y: V_GROUND, vy: 0, r: 30, onGround: true };
+/** 한 판(첫 5점) 시작 시 점수판만 초기화 — 연승 카운트는 유지한 채로 다음 상대와 이어간다. */
+function vNextMatch(){
+  $('vResultBanner').classList.remove('show');
+  $('vContinueBtn').style.display = 'none';
   vScore = { p: 0, a: 0 };
-  vLongestRally = 0;
+  updateVScore();
   vServeSide = 'p';
   vServeBall();
-  updateVScore();
+}
+
+/** 처음부터 다시 도전 — 연승 카운트를 0으로 리셋. */
+function vInitState(){
+  vPlayer = { x: 150, y: V_GROUND, vy: 0, vx: 0, r: 27, onGround: true };
+  vAi = { x: V_W - 150, y: V_GROUND, vy: 0, vx: 0, r: 27, onGround: true };
+  vStreak = 0;
+  updateVStreak();
+  vNextMatch();
 }
 
 async function startVolley(){
@@ -802,6 +802,7 @@ async function startVolley(){
   $('volleyGame').style.display = 'grid';
   $('vResultBanner').classList.remove('show');
   $('vWinBanner').classList.remove('show');
+  $('vContinueBtn').style.display = 'none';
   $('vNickname').disabled = false; $('vNickname').value = '';
   loadVolleyRanking();
   if (!vCtx) vCtx = $('volleyCanvas').getContext('2d');
@@ -817,31 +818,55 @@ function vBackToSetup(){
   $('volleySetup').style.display = 'block';
 }
 
+function vRetryRun(){
+  $('vWinBanner').classList.remove('show');
+  $('vNickname').disabled = false; $('vNickname').value = '';
+  vInitState();
+}
+
+/** 가속·마찰 기반 이동이라 순간 최고속도가 아니라 부드럽게 붙는다(관성감). */
 function vUpdatePlayer(){
-  const speed = 4.5;
-  if (vKeys.left) vPlayer.x -= speed;
-  if (vKeys.right) vPlayer.x += speed;
-  vPlayer.x = clamp(vPlayer.x, vPlayer.r + 12, V_W / 2 - V_NET_HALF - vPlayer.r - 4);
-  if (vKeys.jump && vPlayer.onGround) { vPlayer.vy = -11.5; vPlayer.onGround = false; }
+  if (vKeys.left) vPlayer.vx -= V_MOVE_ACCEL;
+  else if (vKeys.right) vPlayer.vx += V_MOVE_ACCEL;
+  else vPlayer.vx *= V_FRICTION;
+  vPlayer.vx = clamp(vPlayer.vx, -V_MOVE_MAX, V_MOVE_MAX);
+  vPlayer.x += vPlayer.vx;
+  vPlayer.x = clamp(vPlayer.x, vPlayer.r + 16, V_W / 2 - V_NET_HALF - vPlayer.r - 6);
+
+  if (vKeys.jump && vPlayer.onGround) { vPlayer.vy = -13.2; vPlayer.onGround = false; }
   vPlayer.y += vPlayer.vy;
   vPlayer.vy += V_GRAVITY;
   if (vPlayer.y >= V_GROUND) { vPlayer.y = V_GROUND; vPlayer.vy = 0; vPlayer.onGround = true; }
 }
 
+/** 공의 궤적을 앞으로 시뮬레이션해서 낙하 지점을 미리 계산 — 반응이 아니라 예측으로 움직여 훨씬 까다롭다. */
+function vPredictLandingX(){
+  let y = vBall.y, vy = vBall.vy, x = vBall.x, vx = vBall.vx;
+  const targetY = V_GROUND - 55;
+  for (let i = 0; i < 140; i++) {
+    vy += V_GRAVITY; y += vy; x += vx;
+    if (y >= targetY || x < V_NET_HALF * 3) break;
+  }
+  return x;
+}
+
 function vUpdateAi(){
-  const cfg = V_DIFF_CFG[vDiff];
   let targetX = vAi.x;
-  if (vBall.x > V_W / 2 - 40) {
-    targetX = vBall.x + (Math.random() * 2 - 1) * cfg.err;
+  if (vBall.vy > -1.5) {
+    targetX = clamp(vPredictLandingX(), V_W / 2 + 10, V_W - 20) + (Math.random() * 2 - 1) * V_AI_ERR;
+  } else if (vBall.x > V_W / 2) {
+    targetX = vBall.x;
   }
-  if (Math.random() < cfg.reaction) {
-    if (targetX < vAi.x - 4) vAi.x -= cfg.speed;
-    else if (targetX > vAi.x + 4) vAi.x += cfg.speed;
-  }
-  vAi.x = clamp(vAi.x, V_W / 2 + V_NET_HALF + vAi.r + 4, V_W - vAi.r - 12);
+  if (targetX < vAi.x - 4) vAi.vx -= V_MOVE_ACCEL * 1.25;
+  else if (targetX > vAi.x + 4) vAi.vx += V_MOVE_ACCEL * 1.25;
+  else vAi.vx *= V_FRICTION;
+  vAi.vx = clamp(vAi.vx, -V_AI_SPEED, V_AI_SPEED);
+  vAi.x += vAi.vx;
+  vAi.x = clamp(vAi.x, V_W / 2 + V_NET_HALF + vAi.r + 6, V_W - vAi.r - 16);
+
   const dist = Math.abs(vBall.x - vAi.x);
-  if (vAi.onGround && vBall.x > V_W / 2 && vBall.y > V_GROUND - 150 && dist < cfg.jumpMargin) {
-    vAi.vy = -11.5; vAi.onGround = false;
+  if (vAi.onGround && vBall.x > V_W / 2 && vBall.y > V_GROUND - 180 && dist < V_AI_JUMP_MARGIN) {
+    vAi.vy = -13.2; vAi.onGround = false;
   }
   vAi.y += vAi.vy;
   vAi.vy += V_GRAVITY;
@@ -851,20 +876,19 @@ function vUpdateAi(){
 function vHitCheck(ch, dirSign){
   const now = performance.now();
   if (now < vHitCooldownUntil) return;
-  const dx = vBall.x - ch.x, dy = vBall.y - (ch.y - ch.r * 0.55);
+  const dx = vBall.x - ch.x, dy = vBall.y - (ch.y - ch.r * 1.1);
   const dist = Math.hypot(dx, dy);
-  const minDist = ch.r + vBall.r - 2;
+  const minDist = ch.r + vBall.r + 6;
   if (dist < minDist) {
     const angle = Math.atan2(dy, dx);
-    const power = 10;
-    vBall.vx = Math.cos(angle) * power * 0.9 + dirSign * 1.4;
-    vBall.vy = -Math.abs(Math.sin(angle)) * power - 4.5;
+    const power = 12.5;
+    vBall.vx = Math.cos(angle) * power * 0.95 + dirSign * 1.8 + (ch.vx || 0) * 0.6;
+    vBall.vy = -Math.abs(Math.sin(angle)) * power - 5.5;
     const overlap = minDist - dist;
     vBall.x += Math.cos(angle) * overlap;
     vBall.y += Math.sin(angle) * overlap;
-    vHitCooldownUntil = now + 130;
+    vHitCooldownUntil = now + 140;
     vRally++;
-    vLongestRally = Math.max(vLongestRally, vRally);
   }
 }
 
@@ -897,94 +921,186 @@ function vPointScored(who){
   vPointFlashUntil = performance.now() + 700;
 
   if (vScore[who] >= 5) {
-    vState = 'over';
-    setTimeout(() => vEndGame(who), 500);
+    vState = 'matchover';
+    setTimeout(() => vEndMatch(who), 500);
     return;
   }
   vServeSide = who;
   setTimeout(() => { if (vState === 'point') vServeBall(); }, 700);
 }
 
-function vEndGame(winner){
-  const label = winner === 'p' ? '🎉 승리! 몽이가 이겼습니다' : '😢 패배... 블루몽이에게 졌습니다';
-  $('vResultBanner').textContent = `${label} (최종 ${vScore.p} : ${vScore.a})`;
-  $('vResultBanner').classList.add('show');
-  $('vWinText').textContent = `이번 대결 최장 랠리 ${vLongestRally}회를 기록했습니다!`;
-  $('vWinBanner').classList.add('show');
+/** 한 판이 끝났을 때: 이겼으면 연승을 올리고 계속하기 버튼을, 졌으면 최종 연승을 랭킹에 등록할 수 있게 한다. */
+function vEndMatch(winner){
+  if (winner === 'p') {
+    vStreak++;
+    updateVStreak();
+    $('vResultBanner').textContent = `🎉 이번 판 승리! (${vScore.p}:${vScore.a}) — 현재 ${vStreak}연승 중`;
+    $('vResultBanner').classList.add('show');
+    $('vContinueBtn').style.display = 'inline-block';
+  } else {
+    $('vResultBanner').textContent = `😢 패배... (${vScore.p}:${vScore.a}) — 최종 ${vStreak}연승으로 마감`;
+    $('vResultBanner').classList.add('show');
+    $('vContinueBtn').style.display = 'none';
+    $('vWinText').textContent = `이번 도전 최종 기록: ${vStreak}연승`;
+    $('vWinBanner').classList.add('show');
+  }
 }
 
 function updateVScore(){ $('vScoreText').textContent = `🟠 몽이 ${vScore.p} : ${vScore.a} 블루몽이 🔵`; }
-function updateVRallyText(){ $('vRallyText').textContent = vRally > 0 ? `현재 랠리 ${vRally} · 최장 ${vLongestRally}` : `최장 랠리 ${vLongestRally}`; }
+function updateVStreak(){ $('vStreakText').textContent = `연승 ${vStreak}` + (vRally > 0 ? ` · 랠리 ${vRally}` : ''); }
 
-/** 오리지널 캐릭터 "몽이" — 동글동글한 몸통 + 짧은 둥근 귀 + 큰 눈. 점프 중엔 살짝 늘어나는 형태로 그린다. */
-function drawMongi(ctx, x, y, r, color, jumping){
+function shadeColor(hex, percent){
+  const num = parseInt(hex.slice(1), 16);
+  const r = clamp((num >> 16) + percent, 0, 255);
+  const g = clamp(((num >> 8) & 0xff) + percent, 0, 255);
+  const b = clamp((num & 0xff) + percent, 0, 255);
+  return `rgb(${r},${g},${b})`;
+}
+
+/**
+ * 오리지널 캐릭터 "몽이" — 머리(귀·눈·볼터치) + 몸통 + 팔다리를 갖춘 전신 캐릭터로 그린다.
+ * ch.y는 발이 닿는 기준선(서 있을 때 V_GROUND)이고, 그 위로 몸통→머리를 쌓아 올려 그린다.
+ * 이동 방향(vx)에 따라 살짝 기울고, 점프 높이에 따라 그림자가 작아진다.
+ */
+function drawMongi(ctx, x, y, r, color, jumping, vx){
   ctx.save();
   ctx.translate(x, y);
-  ctx.fillStyle = 'rgba(0,0,0,.25)';
-  ctx.beginPath(); ctx.ellipse(0, 4, r * 0.7, r * 0.16, 0, 0, Math.PI * 2); ctx.fill();
 
-  const squishY = jumping ? 0.95 : 0.85;
+  const jumpHeight = Math.max(0, V_GROUND - y);
+  const shadowScale = clamp(1 - jumpHeight / 150, 0.4, 1);
+  ctx.fillStyle = 'rgba(20,30,20,.25)';
+  ctx.beginPath(); ctx.ellipse(0, 6, r * 0.85 * shadowScale, r * 0.2 * shadowScale, 0, 0, Math.PI * 2); ctx.fill();
+
+  const lean = clamp((vx || 0) * 0.035, -0.22, 0.22);
+  ctx.rotate(lean);
+
+  const bodyH = r * 1.55, headR = r * 0.6;
+  const bodyBottomY = -8;
+  const bodyTopY = bodyBottomY - bodyH;
+  const darker = shadeColor(color, -25);
+
+  // 다리
+  ctx.fillStyle = darker;
+  ctx.beginPath(); ctx.ellipse(-r * 0.34, bodyBottomY + 2, r * 0.26, r * 0.3, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(r * 0.34, bodyBottomY + 2, r * 0.26, r * 0.3, 0, 0, Math.PI * 2); ctx.fill();
+
+  // 팔 (진행 방향으로 살짝 뒤로 흔들림)
   ctx.fillStyle = color;
-  ctx.beginPath(); ctx.ellipse(0, -r * squishY * 0.65, r * 0.95, r * squishY, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(-r * 1.02, bodyTopY + bodyH * 0.48, r * 0.24, r * 0.46, 0.3 - lean, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(r * 1.02, bodyTopY + bodyH * 0.48, r * 0.24, r * 0.46, -0.3 - lean, 0, Math.PI * 2); ctx.fill();
 
-  ctx.beginPath(); ctx.ellipse(-r * 0.55, -r * 1.35, r * 0.28, r * 0.34, -0.3, 0, Math.PI * 2); ctx.fill();
-  ctx.beginPath(); ctx.ellipse(r * 0.55, -r * 1.35, r * 0.28, r * 0.34, 0.3, 0, Math.PI * 2); ctx.fill();
+  // 몸통
+  ctx.fillStyle = color;
+  ctx.beginPath(); ctx.ellipse(0, bodyTopY + bodyH * 0.5, r * 0.8, bodyH * 0.52, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = 'rgba(255,255,255,.16)';
+  ctx.beginPath(); ctx.ellipse(0, bodyTopY + bodyH * 0.55, r * 0.42, bodyH * 0.3, 0, 0, Math.PI * 2); ctx.fill();
 
+  // 머리
+  const headY = bodyTopY - headR * 0.5;
+  ctx.fillStyle = color;
+  ctx.beginPath(); ctx.ellipse(0, headY, headR, headR * 0.92, 0, 0, Math.PI * 2); ctx.fill();
+
+  // 귀
+  ctx.beginPath(); ctx.ellipse(-headR * 0.62, headY - headR * 0.95, headR * 0.3, headR * 0.36, -0.3, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(headR * 0.62, headY - headR * 0.95, headR * 0.3, headR * 0.36, 0.3, 0, Math.PI * 2); ctx.fill();
+
+  // 볼터치
   ctx.fillStyle = 'rgba(255,255,255,.3)';
-  ctx.beginPath(); ctx.ellipse(-r * 0.25, -r * 0.55, r * 0.14, r * 0.14, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(-headR * 0.3, headY - headR * 0.02, headR * 0.16, headR * 0.16, 0, 0, Math.PI * 2); ctx.fill();
 
+  // 눈
   ctx.fillStyle = '#131A2A';
-  ctx.beginPath(); ctx.ellipse(-r * 0.32, -r * 0.65, r * 0.13, r * 0.17, 0, 0, Math.PI * 2); ctx.fill();
-  ctx.beginPath(); ctx.ellipse(r * 0.32, -r * 0.65, r * 0.13, r * 0.17, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(-headR * 0.34, headY - headR * 0.15, headR * 0.15, headR * 0.19, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(headR * 0.34, headY - headR * 0.15, headR * 0.15, headR * 0.19, 0, 0, Math.PI * 2); ctx.fill();
   ctx.fillStyle = '#fff';
-  ctx.beginPath(); ctx.ellipse(-r * 0.28, -r * 0.70, r * 0.045, r * 0.06, 0, 0, Math.PI * 2); ctx.fill();
-  ctx.beginPath(); ctx.ellipse(r * 0.36, -r * 0.70, r * 0.045, r * 0.06, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(-headR * 0.30, headY - headR * 0.22, headR * 0.05, headR * 0.07, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(headR * 0.40, headY - headR * 0.22, headR * 0.05, headR * 0.07, 0, 0, Math.PI * 2); ctx.fill();
 
+  // 입
   ctx.strokeStyle = '#131A2A'; ctx.lineWidth = 1.6;
-  ctx.beginPath(); ctx.arc(0, -r * 0.42, r * 0.14, 0.15 * Math.PI, 0.85 * Math.PI); ctx.stroke();
+  ctx.beginPath(); ctx.arc(0, headY + headR * 0.28, headR * 0.16, 0.15 * Math.PI, 0.85 * Math.PI); ctx.stroke();
+
   ctx.restore();
 }
 
 function drawVolleyBall(ctx, x, y, r){
   ctx.save(); ctx.translate(x, y);
   ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.fill();
-  ctx.strokeStyle = '#c9c9c9'; ctx.lineWidth = 1.2;
+  ctx.strokeStyle = '#c9c9c9'; ctx.lineWidth = 1.4;
   ctx.beginPath(); ctx.arc(0, 0, r, 0.2 * Math.PI, 0.8 * Math.PI); ctx.stroke();
   ctx.beginPath(); ctx.arc(0, 0, r, 1.2 * Math.PI, 1.8 * Math.PI); ctx.stroke();
   ctx.restore();
 }
 
+function vDrawCloud(ctx, x, y, scale){
+  ctx.fillStyle = 'rgba(255,255,255,.9)';
+  [[0, 0, 18], [16, -6, 14], [-16, -4, 13], [30, 2, 11], [-28, 3, 10]].forEach(([dx, dy, r]) => {
+    ctx.beginPath(); ctx.arc(x + dx * scale, y + dy * scale, r * scale, 0, Math.PI * 2); ctx.fill();
+  });
+}
+
+/** 2.5D 느낌: 하늘+수평선+원근감 있는 사다리꼴 코트를 배경으로 깔고, 그 위에 실제 플레이 라인(V_GROUND)을 그린다. */
 function vRender(){
   const ctx = vCtx;
   ctx.clearRect(0, 0, V_W, V_H);
 
-  ctx.fillStyle = '#233252';
-  ctx.fillRect(0, V_GROUND, V_W, V_H - V_GROUND);
-  ctx.strokeStyle = 'rgba(242,169,59,.35)'; ctx.lineWidth = 2;
+  const sky = ctx.createLinearGradient(0, 0, 0, V_GROUND);
+  sky.addColorStop(0, '#7cc8ef'); sky.addColorStop(0.55, '#bfe3f7'); sky.addColorStop(1, '#fdf3d9');
+  ctx.fillStyle = sky; ctx.fillRect(0, 0, V_W, V_GROUND);
+
+  ctx.fillStyle = 'rgba(255,237,168,.9)';
+  ctx.beginPath(); ctx.arc(V_W - 66, 46, 24, 0, Math.PI * 2); ctx.fill();
+  vDrawCloud(ctx, 100, 42, 1);
+  vDrawCloud(ctx, 430, 66, 0.75);
+
+  const horizonY = V_GROUND - 132;
+  ctx.fillStyle = '#bfe6e4';
+  ctx.fillRect(0, horizonY, V_W, V_GROUND - horizonY - 62);
+
+  // 원근 코트(모래)
+  const backY = horizonY + 62, frontHalf = V_W * 0.6, backHalf = V_W * 0.27;
+  ctx.fillStyle = '#e9c98a';
+  ctx.beginPath();
+  ctx.moveTo(V_W / 2 - frontHalf, V_GROUND);
+  ctx.lineTo(V_W / 2 - backHalf, backY);
+  ctx.lineTo(V_W / 2 + backHalf, backY);
+  ctx.lineTo(V_W / 2 + frontHalf, V_GROUND);
+  ctx.closePath(); ctx.fill();
+  ctx.strokeStyle = 'rgba(255,255,255,.85)'; ctx.lineWidth = 2; ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(V_W / 2, backY); ctx.lineTo(V_W / 2, V_GROUND); ctx.stroke();
+
+  // 실제 플레이 바닥 강조선
+  ctx.strokeStyle = 'rgba(242,169,59,.55)'; ctx.lineWidth = 2;
   ctx.beginPath(); ctx.moveTo(0, V_GROUND); ctx.lineTo(V_W, V_GROUND); ctx.stroke();
 
-  ctx.fillStyle = '#4E5B75';
-  ctx.fillRect(V_W / 2 - V_NET_HALF, V_GROUND - V_NET_H, V_NET_HALF * 2, V_NET_H);
-  ctx.strokeStyle = 'rgba(222,229,242,.6)'; ctx.lineWidth = 1;
-  for (let ny = V_GROUND - V_NET_H + 6; ny < V_GROUND; ny += 10) {
-    ctx.beginPath(); ctx.moveTo(V_W / 2 - V_NET_HALF, ny); ctx.lineTo(V_W / 2 + V_NET_HALF, ny); ctx.stroke();
-  }
+  // 네트 (기둥 + 그물 + 상단 밴드)
+  const netX = V_W / 2, netTopY = V_GROUND - V_NET_H;
+  ctx.strokeStyle = '#DEE5F2'; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.moveTo(netX - V_NET_HALF - 3, V_GROUND); ctx.lineTo(netX - V_NET_HALF - 3, netTopY - 4); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(netX + V_NET_HALF + 3, V_GROUND); ctx.lineTo(netX + V_NET_HALF + 3, netTopY - 4); ctx.stroke();
+  ctx.fillStyle = 'rgba(19,26,42,.16)';
+  ctx.fillRect(netX - V_NET_HALF, netTopY, V_NET_HALF * 2, V_NET_H);
+  ctx.strokeStyle = 'rgba(19,26,42,.4)'; ctx.lineWidth = 1;
+  for (let ny = netTopY + 8; ny < V_GROUND; ny += 9) { ctx.beginPath(); ctx.moveTo(netX - V_NET_HALF, ny); ctx.lineTo(netX + V_NET_HALF, ny); ctx.stroke(); }
+  for (let nx = -V_NET_HALF; nx <= V_NET_HALF; nx += 6) { ctx.beginPath(); ctx.moveTo(netX + nx, netTopY); ctx.lineTo(netX + nx, V_GROUND); ctx.stroke(); }
+  ctx.fillStyle = '#F2A93B';
+  ctx.fillRect(netX - V_NET_HALF - 3, netTopY - 5, V_NET_HALF * 2 + 6, 6);
 
-  drawMongi(ctx, vPlayer.x, vPlayer.y, vPlayer.r, '#F2A93B', !vPlayer.onGround);
-  drawMongi(ctx, vAi.x, vAi.y, vAi.r, '#5AA2FF', !vAi.onGround);
+  drawMongi(ctx, vPlayer.x, vPlayer.y, vPlayer.r, '#F2A93B', !vPlayer.onGround, vPlayer.vx);
+  drawMongi(ctx, vAi.x, vAi.y, vAi.r, '#5AA2FF', !vAi.onGround, vAi.vx);
   drawVolleyBall(ctx, vBall.x, vBall.y, vBall.r);
 
   if (performance.now() < vPointFlashUntil) {
-    ctx.fillStyle = 'rgba(242,169,59,.95)';
+    ctx.fillStyle = 'rgba(19,26,42,.88)';
     ctx.font = 'bold 24px sans-serif'; ctx.textAlign = 'center';
-    ctx.fillText(vPointFlashText, V_W / 2, 50);
+    ctx.fillText(vPointFlashText, V_W / 2, 92);
   }
 }
 
 function vLoop(){
   if (vState === 'playing') { vUpdatePlayer(); vUpdateAi(); vUpdateBall(); }
   vRender();
-  updateVRallyText();
+  updateVStreak();
   vRAF = requestAnimationFrame(vLoop);
 }
 
@@ -992,7 +1108,7 @@ async function saveVolleyScore(){
   const nickname = $('vNickname').value.trim();
   await fetch(VOLLEY_API + '/score', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ nickname, longestRally: vLongestRally })
+    body: JSON.stringify({ nickname, streak: vStreak })
   });
   $('vNickname').disabled = true;
   loadVolleyRanking();
@@ -1001,7 +1117,7 @@ async function saveVolleyScore(){
 async function loadVolleyRanking(){
   const list = await fetch(VOLLEY_API + '/ranking').then(r => r.json());
   $('vRanking').innerHTML = !list.length ? '<div class="empty-msg">아직 등록된 기록이 없습니다.</div>' :
-    list.map((r, i) => `<div class="rank-row"><span><span class="no">${i + 1}</span> ${esc(r.nickname)}</span><span>${r.metric}랠리</span></div>`).join('');
+    list.map((r, i) => `<div class="rank-row"><span><span class="no">${i + 1}</span> ${esc(r.nickname)}</span><span>${r.metric}연승</span></div>`).join('');
 }
 
 /* ===== 초기화: URL에 따라 기본 탭 결정 ===== */
