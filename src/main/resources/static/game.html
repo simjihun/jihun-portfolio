@@ -239,7 +239,7 @@
   <!-- ===== 발리볼 ===== -->
   <section id="panelVolley" style="display:none">
     <p class="game-desc">
-      오리지널 곰돌이 캐릭터 <b>몽이</b>로 AI와 실시간 비치발리볼 대결을 합니다. ←→(또는 A/D)로 이동, 스페이스바(또는 ↑)로 점프해서
+      오리지널 강아지 캐릭터 <b>몽이</b>로 AI와 실시간 비치발리볼 대결을 합니다. ←→(또는 A/D)로 이동, 스페이스바(또는 ↑)로 점프해서
       공을 상대 코트로 넘기세요. 대결 전 <b>총 라운드 수(10/20/30판)</b>를 정해두고, 그 라운드를 모두 마치면 승패와 무관하게
       대결이 끝나며 최종 스코어(예: 7:13)가 랭킹에 남습니다. 대결 시작 전 5→1 카운트다운, 매 라운드 사이에도 3→1 카운트다운이 있어
       갑자기 실점하는 일이 없습니다. 난이도 선택 없이 AI는 항상 공의 낙하 지점을 미리 예측해서 움직이는 상당히 까다로운 상대입니다.
@@ -260,7 +260,7 @@
     <div class="two-col" id="volleyGame" style="display:none">
       <div class="panel board-wrap">
         <div class="turn-banner">
-          <span id="vScoreText">🟠 몽이 0 : 0 블루몽이 🔵</span>
+          <span id="vScoreText">🐶 몽이 0 : 0 블루몽이 🐶</span>
           <span class="timer" id="vRoundText">라운드 0/20</span>
         </div>
         <canvas class="volley-canvas" id="volleyCanvas" width="640" height="360"></canvas>
@@ -743,8 +743,8 @@ function renderJanggiBoardOnly(){
    정해진 총 라운드(10/20/30판)를 모두 마치면 승패와 무관하게 끝나고, 최종 스코어를 랭킹에 남긴다.
    =================================================== */
 const VOLLEY_API = '/api/game/volleyball';
-const V_W = 640, V_H = 360, V_GROUND = V_H - 30, V_GRAVITY = 0.48;
-const V_NET_HALF = 6, V_NET_H = 88;                 // 캐릭터를 줄인 만큼 네트도 낮춤 (위쪽 여백 확보)
+const V_W = 640, V_H = 360, V_GROUND = V_H - 30, V_GRAVITY = 0.34; // 낙하 속도를 낮춰(체공시간↑) 반응할 여유를 준다
+const V_NET_HALF = 6, V_NET_H = 88;
 const V_AI_SPEED = 6.0, V_AI_JUMP_MARGIN = 60, V_AI_ERR = 6;
 const V_MOVE_ACCEL = 1.2, V_MOVE_MAX = 7.8, V_FRICTION = 0.82;
 const V_START_STEPS = [
@@ -789,7 +789,7 @@ function vAddKeyListeners(){
 
 function vServeBall(){
   const sx = vServeSide === 'p' ? vPlayer.x : vAi.x;
-  vBall = { x: sx, y: 55, vx: 0, vy: 0, r: 12 };
+  vBall = { x: sx, y: 55, vx: 0, vy: 0, r: 16 };
   vRally = 0;
   vState = 'playing';
 }
@@ -817,7 +817,7 @@ function vInitState(){
   vAi = { x: V_W - 150, y: V_GROUND, vy: 0, vx: 0, r: 22, onGround: true };
   vScore = { p: 0, a: 0 };
   vRoundsPlayed = 0;
-  vBall = { x: V_W / 2, y: 55, vx: 0, vy: 0, r: 12 }; // 카운트다운 중에도 렌더링할 임시 공 위치
+  vBall = { x: V_W / 2, y: 55, vx: 0, vy: 0, r: 16 }; // 카운트다운 중에도 렌더링할 임시 공 위치
   vServeSide = 'p';
   vState = 'countdown';
   updateVScore(); updateVRoundText();
@@ -861,7 +861,7 @@ function vUpdatePlayer(){
   vPlayer.x += vPlayer.vx;
   vPlayer.x = clamp(vPlayer.x, vPlayer.r + 16, V_W / 2 - V_NET_HALF - vPlayer.r - 6);
 
-  if (vKeys.jump && vPlayer.onGround) { vPlayer.vy = -12.6; vPlayer.onGround = false; }
+  if (vKeys.jump && vPlayer.onGround) { vPlayer.vy = -10.8; vPlayer.onGround = false; }
   vPlayer.y += vPlayer.vy;
   vPlayer.vy += V_GRAVITY;
   if (vPlayer.y >= V_GROUND) { vPlayer.y = V_GROUND; vPlayer.vy = 0; vPlayer.onGround = true; }
@@ -871,7 +871,7 @@ function vUpdatePlayer(){
 function vPredictLandingX(){
   let y = vBall.y, vy = vBall.vy, x = vBall.x, vx = vBall.vx;
   const targetY = V_GROUND - 50;
-  for (let i = 0; i < 140; i++) {
+  for (let i = 0; i < 200; i++) {
     vy += V_GRAVITY; y += vy; x += vx;
     if (y >= targetY || x < V_NET_HALF * 3) break;
   }
@@ -894,7 +894,7 @@ function vUpdateAi(){
 
   const dist = Math.abs(vBall.x - vAi.x);
   if (vAi.onGround && vBall.x > V_W / 2 && vBall.y > V_GROUND - 160 && dist < V_AI_JUMP_MARGIN) {
-    vAi.vy = -12.6; vAi.onGround = false;
+    vAi.vy = -10.8; vAi.onGround = false;
   }
   vAi.y += vAi.vy;
   vAi.vy += V_GRAVITY;
@@ -909,9 +909,9 @@ function vHitCheck(ch, dirSign){
   const minDist = ch.r + vBall.r + 5;
   if (dist < minDist) {
     const angle = Math.atan2(dy, dx);
-    const power = 10.2; // 공 속도를 살짝 낮춤(이전보다 여유있게 반응 가능)
-    vBall.vx = Math.cos(angle) * power * 0.95 + dirSign * 1.3 + (ch.vx || 0) * 0.5;
-    vBall.vy = -Math.abs(Math.sin(angle)) * power - 4.6;
+    const power = 9.4; // 공 속도를 한 번 더 낮춤
+    vBall.vx = Math.cos(angle) * power * 0.95 + dirSign * 1.2 + (ch.vx || 0) * 0.5;
+    vBall.vy = -Math.abs(Math.sin(angle)) * power - 4.0;
     const overlap = minDist - dist;
     vBall.x += Math.cos(angle) * overlap;
     vBall.y += Math.sin(angle) * overlap;
@@ -948,7 +948,7 @@ function vPointScored(who){
   vScore[who]++;
   vRoundsPlayed++;
   updateVScore(); updateVRoundText();
-  vPointFlashText = (who === 'p' ? '🟠 몽이 득점!' : '🔵 블루몽이 득점!');
+  vPointFlashText = (who === 'p' ? '🐶 몽이 득점!' : '🐕 블루몽이 득점!');
   vPointFlashUntil = performance.now() + 600;
 
   setTimeout(() => {
@@ -972,21 +972,12 @@ function vEndRun(){
   $('vWinBanner').classList.add('show');
 }
 
-function updateVScore(){ $('vScoreText').textContent = `🟠 몽이 ${vScore.p} : ${vScore.a} 블루몽이 🔵`; }
+function updateVScore(){ $('vScoreText').textContent = `🐶 몽이 ${vScore.p} : ${vScore.a} 블루몽이 🐕`; }
 function updateVRoundText(){ $('vRoundText').textContent = `라운드 ${vRoundsPlayed}/${vTotalRounds}` + (vRally > 0 ? ` · 랠리 ${vRally}` : ''); }
 
-function shadeColor(hex, percent){
-  const num = parseInt(hex.slice(1), 16);
-  const r = clamp((num >> 16) + percent, 0, 255);
-  const g = clamp(((num >> 8) & 0xff) + percent, 0, 255);
-  const b = clamp((num & 0xff) + percent, 0, 255);
-  return `rgb(${r},${g},${b})`;
-}
-
 /**
- * 오리지널 곰돌이 캐릭터 "몽이" — 별개의 도형을 이어붙인 느낌이 나지 않도록, 몸통·머리·귀·팔다리를
- * 전부 같은 그라디언트로 채우고 넉넉하게 겹쳐 그려서(스트로크 없이) 이음매가 안 보이는 매끈한
- * 실루엣을 만든다. 배·주둥이는 반투명 흰색을 겹쳐 입체감만 살짝 준다.
+ * 오리지널 강아지 캐릭터 "몽이" — 참고 이미지(플랫 벡터 스티커 스타일)처럼 진한 아웃라인 +
+ * 플랫 컬러 + 세모 귀로 그린다. 그라디언트 블롭 대신 "테두리선이 있는 캐릭터 스티커" 느낌을 낸다.
  */
 function drawMongi(ctx, x, y, r, color, jumping, vx){
   ctx.save();
@@ -994,73 +985,97 @@ function drawMongi(ctx, x, y, r, color, jumping, vx){
 
   const jumpHeight = Math.max(0, V_GROUND - y);
   const shadowScale = clamp(1 - jumpHeight / 130, 0.4, 1);
-  ctx.fillStyle = 'rgba(20,30,20,.25)';
+  ctx.fillStyle = 'rgba(20,30,20,.22)';
   ctx.beginPath(); ctx.ellipse(0, 5, r * 0.85 * shadowScale, r * 0.2 * shadowScale, 0, 0, Math.PI * 2); ctx.fill();
 
-  const lean = clamp((vx || 0) * 0.03, -0.18, 0.18);
+  const lean = clamp((vx || 0) * 0.03, -0.16, 0.16);
   ctx.rotate(lean);
 
-  const grad = ctx.createRadialGradient(-r * 0.3, -r * 1.7, r * 0.2, 0, -r * 1.1, r * 2.3);
-  grad.addColorStop(0, shadeColor(color, 40));
-  grad.addColorStop(1, color);
+  const OUTLINE = '#1a2035';
+  ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+  ctx.strokeStyle = OUTLINE; ctx.lineWidth = Math.max(1.6, r * 0.09);
 
-  const bodyCenterY = -r * 0.78, headCenterY = -r * 1.9, legY = -r * 0.12;
+  const bodyCenterY = -r * 0.78, headCenterY = -r * 1.88, legY = -r * 0.1;
 
-  // 팔다리를 몸통보다 먼저 그려서, 몸통 그라디언트에 넉넉히 덮여 이음매 없이 붙어 보이게 한다.
-  ctx.fillStyle = grad;
-  ctx.beginPath(); ctx.ellipse(-r * 0.46, legY, r * 0.4, r * 0.46, 0, 0, Math.PI * 2); ctx.fill();
-  ctx.beginPath(); ctx.ellipse(r * 0.46, legY, r * 0.4, r * 0.46, 0, 0, Math.PI * 2); ctx.fill();
-  ctx.beginPath(); ctx.ellipse(-r * 1.05, bodyCenterY + r * 0.28, r * 0.34, r * 0.58, 0.3 - lean, 0, Math.PI * 2); ctx.fill();
-  ctx.beginPath(); ctx.ellipse(r * 1.05, bodyCenterY + r * 0.28, r * 0.34, r * 0.58, -0.3 - lean, 0, Math.PI * 2); ctx.fill();
+  // 꼬리 (말린 형태)
+  ctx.fillStyle = color;
+  ctx.beginPath(); ctx.ellipse(r * 1.05, bodyCenterY - r * 0.05, r * 0.34, r * 0.46, -0.5, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = '#fff';
+  ctx.beginPath(); ctx.ellipse(r * 1.22, bodyCenterY - r * 0.32, r * 0.16, r * 0.18, -0.5, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+
+  // 다리(흰색)
+  ctx.fillStyle = '#fff';
+  ctx.beginPath(); ctx.ellipse(-r * 0.32, legY, r * 0.24, r * 0.28, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+  ctx.beginPath(); ctx.ellipse(r * 0.32, legY, r * 0.24, r * 0.28, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
 
   // 몸통
-  ctx.beginPath(); ctx.ellipse(0, bodyCenterY, r * 1.0, r * 1.0, 0, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = 'rgba(255,255,255,.28)';
-  ctx.beginPath(); ctx.ellipse(0, bodyCenterY + r * 0.14, r * 0.52, r * 0.6, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = color;
+  ctx.beginPath(); ctx.ellipse(0, bodyCenterY, r * 0.92, r * 0.92, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = '#fff';
+  ctx.beginPath(); ctx.ellipse(0, bodyCenterY + r * 0.16, r * 0.48, r * 0.58, 0, 0, Math.PI * 2); ctx.fill();
 
-  // 귀 (머리보다 먼저 그려 자연스럽게 붙게)
-  ctx.fillStyle = grad;
-  ctx.beginPath(); ctx.ellipse(-r * 0.58, headCenterY - r * 0.62, r * 0.33, r * 0.35, 0, 0, Math.PI * 2); ctx.fill();
-  ctx.beginPath(); ctx.ellipse(r * 0.58, headCenterY - r * 0.62, r * 0.33, r * 0.35, 0, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = 'rgba(255,255,255,.32)';
-  ctx.beginPath(); ctx.ellipse(-r * 0.58, headCenterY - r * 0.58, r * 0.16, r * 0.18, 0, 0, Math.PI * 2); ctx.fill();
-  ctx.beginPath(); ctx.ellipse(r * 0.58, headCenterY - r * 0.58, r * 0.16, r * 0.18, 0, 0, Math.PI * 2); ctx.fill();
+  // 귀 (세모, 뾰족)
+  const ear = sign => {
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.moveTo(sign * r * 0.28, headCenterY - r * 0.58);
+    ctx.quadraticCurveTo(sign * r * 0.98, headCenterY - r * 1.5, sign * r * 0.5, headCenterY - r * 1.66);
+    ctx.quadraticCurveTo(sign * r * 0.32, headCenterY - r * 0.98, sign * r * 0.08, headCenterY - r * 0.72);
+    ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#fff';
+    ctx.beginPath();
+    ctx.moveTo(sign * r * 0.3, headCenterY - r * 0.66);
+    ctx.quadraticCurveTo(sign * r * 0.72, headCenterY - r * 1.32, sign * r * 0.46, headCenterY - r * 1.46);
+    ctx.quadraticCurveTo(sign * r * 0.36, headCenterY - r * 0.98, sign * r * 0.2, headCenterY - r * 0.82);
+    ctx.closePath(); ctx.fill();
+  };
+  ear(-1); ear(1);
 
   // 머리
-  ctx.fillStyle = grad;
-  ctx.beginPath(); ctx.ellipse(0, headCenterY, r * 0.92, r * 0.85, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = color;
+  ctx.beginPath(); ctx.ellipse(0, headCenterY, r * 0.84, r * 0.78, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
 
-  // 주둥이
-  ctx.fillStyle = 'rgba(255,255,255,.4)';
-  ctx.beginPath(); ctx.ellipse(0, headCenterY + r * 0.26, r * 0.46, r * 0.36, 0, 0, Math.PI * 2); ctx.fill();
+  // 주둥이(흰색)
+  ctx.fillStyle = '#fff';
+  ctx.beginPath(); ctx.ellipse(0, headCenterY + r * 0.26, r * 0.48, r * 0.38, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+
+  // 볼터치
+  ctx.fillStyle = 'rgba(255,140,160,.55)';
+  ctx.beginPath(); ctx.ellipse(-r * 0.48, headCenterY + r * 0.1, r * 0.14, r * 0.1, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(r * 0.48, headCenterY + r * 0.1, r * 0.14, r * 0.1, 0, 0, Math.PI * 2); ctx.fill();
 
   // 눈
-  ctx.fillStyle = '#131A2A';
-  ctx.beginPath(); ctx.ellipse(-r * 0.32, headCenterY - r * 0.02, r * 0.1, r * 0.13, 0, 0, Math.PI * 2); ctx.fill();
-  ctx.beginPath(); ctx.ellipse(r * 0.32, headCenterY - r * 0.02, r * 0.1, r * 0.13, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = OUTLINE;
+  ctx.beginPath(); ctx.ellipse(-r * 0.28, headCenterY - r * 0.03, r * 0.1, r * 0.13, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(r * 0.28, headCenterY - r * 0.03, r * 0.1, r * 0.13, 0, 0, Math.PI * 2); ctx.fill();
   ctx.fillStyle = '#fff';
-  ctx.beginPath(); ctx.ellipse(-r * 0.28, headCenterY - r * 0.08, r * 0.032, r * 0.045, 0, 0, Math.PI * 2); ctx.fill();
-  ctx.beginPath(); ctx.ellipse(r * 0.36, headCenterY - r * 0.08, r * 0.032, r * 0.045, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(-r * 0.24, headCenterY - r * 0.09, r * 0.032, r * 0.045, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(r * 0.32, headCenterY - r * 0.09, r * 0.032, r * 0.045, 0, 0, Math.PI * 2); ctx.fill();
 
   // 코
-  ctx.fillStyle = '#131A2A';
-  ctx.beginPath(); ctx.ellipse(0, headCenterY + r * 0.2, r * 0.08, r * 0.055, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = OUTLINE;
+  ctx.beginPath(); ctx.ellipse(0, headCenterY + r * 0.16, r * 0.075, r * 0.05, 0, 0, Math.PI * 2); ctx.fill();
 
   // 입
-  ctx.strokeStyle = '#131A2A'; ctx.lineWidth = 1.3; ctx.lineCap = 'round';
-  ctx.beginPath(); ctx.moveTo(0, headCenterY + r * 0.25); ctx.lineTo(0, headCenterY + r * 0.32); ctx.stroke();
-  ctx.beginPath(); ctx.arc(-r * 0.07, headCenterY + r * 0.32, r * 0.07, 0.1 * Math.PI, 1 * Math.PI); ctx.stroke();
-  ctx.beginPath(); ctx.arc(r * 0.07, headCenterY + r * 0.32, r * 0.07, 0 * Math.PI, 0.9 * Math.PI); ctx.stroke();
+  ctx.strokeStyle = OUTLINE; ctx.lineWidth = Math.max(1.2, r * 0.055);
+  ctx.beginPath(); ctx.moveTo(0, headCenterY + r * 0.21); ctx.lineTo(0, headCenterY + r * 0.27); ctx.stroke();
+  ctx.beginPath(); ctx.arc(-r * 0.06, headCenterY + r * 0.27, r * 0.06, 0.1 * Math.PI, Math.PI); ctx.stroke();
+  ctx.beginPath(); ctx.arc(r * 0.06, headCenterY + r * 0.27, r * 0.06, 0, 0.9 * Math.PI); ctx.stroke();
 
   ctx.restore();
 }
 
+/** 배구공 — 흰 바탕 + 앰버/블루 곡선 패널(사이트 컬러) + 진한 외곽선으로 실제 배구공처럼 크고 또렷하게. */
 function drawVolleyBall(ctx, x, y, r){
   ctx.save(); ctx.translate(x, y);
   ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.fill();
-  ctx.strokeStyle = '#c9c9c9'; ctx.lineWidth = 1.3;
-  ctx.beginPath(); ctx.arc(0, 0, r, 0.2 * Math.PI, 0.8 * Math.PI); ctx.stroke();
-  ctx.beginPath(); ctx.arc(0, 0, r, 1.2 * Math.PI, 1.8 * Math.PI); ctx.stroke();
+  ctx.lineCap = 'round';
+  ctx.strokeStyle = '#F2A93B'; ctx.lineWidth = r * 0.32;
+  ctx.beginPath(); ctx.arc(0, 0, r * 0.62, 0.1 * Math.PI, 0.9 * Math.PI); ctx.stroke();
+  ctx.strokeStyle = '#5AA2FF';
+  ctx.beginPath(); ctx.arc(0, 0, r * 0.62, 1.1 * Math.PI, 1.9 * Math.PI); ctx.stroke();
+  ctx.strokeStyle = '#1a2035'; ctx.lineWidth = Math.max(1.4, r * 0.09);
+  ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.stroke();
   ctx.restore();
 }
 
