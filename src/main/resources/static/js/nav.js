@@ -6,7 +6,8 @@
     { type: 'link', href: '/stock', label: 'AI 주식' },
     { type: 'link', href: '/map', label: '지도 API' },
     { type: 'link', href: '/mms', label: 'MMS' },
-    { type: 'link', href: '/game', label: '웹 게임' }
+    { type: 'link', href: '/game', label: '웹 게임' },
+    { type: 'link', href: '/cardgame', label: '카드게임' }
   ];
 
   const path = location.pathname;
