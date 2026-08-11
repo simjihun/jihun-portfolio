@@ -61,10 +61,14 @@
 @keyframes jcheckPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.12)}}
 .two-col{display:grid;grid-template-columns:1fr 320px;gap:16px;align-items:start}
 @media (max-width:800px){ .two-col{grid-template-columns:1fr} }
-.rank-row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--line);font-size:13px}
+.rank-row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--line);font-size:13px;gap:8px}
 .rank-row:last-child{border-bottom:0}
-.rank-row .no{color:var(--amber);font-family:var(--mono);width:24px}
-.rank-row .mid{color:var(--dim);font-size:12px}
+.rank-row .no{color:var(--amber);font-family:var(--mono);width:24px;flex:none}
+.rank-row .mid{color:var(--dim);font-size:12px;flex:none}
+.win-banner{display:none;background:rgba(62,207,142,.1);border:1px solid var(--green);border-radius:10px;padding:14px 16px;margin-top:14px;width:100%;box-sizing:border-box}
+.win-banner.show{display:block}
+.win-banner b{color:var(--green)}
+.nick-row{display:flex;gap:8px;margin-top:10px}
 </style>
 </head>
 <body>
@@ -104,7 +108,7 @@
       </div>
       <div class="panel">
         <h2>랭킹 · 최소 착수</h2>
-        <div id="omokRanking"><div class="empty-msg">랭킹은 곧 추가됩니다.</div></div>
+        <div id="omokRanking"><div class="empty-msg">아직 등록된 기록이 없습니다.</div></div>
       </div>
     </div>
     <div class="panel board-wrap" id="omokGame" style="display:none">
@@ -115,6 +119,13 @@
         <span class="timer" id="timerText"></span>
       </div>
       <div class="board" id="board"></div>
+      <div class="win-banner" id="omokWinBanner">
+        <b id="omokWinText"></b>
+        <div class="nick-row">
+          <input id="omokNickname" placeholder="랭킹에 등록할 닉네임 (선택)" maxlength="12">
+          <button class="btn btn-amber" onclick="saveOmokScore()">등록</button>
+        </div>
+      </div>
       <button class="btn btn-ghost" onclick="backToSetup()">설정으로 돌아가기</button>
     </div>
   </section>
@@ -186,10 +197,13 @@ function switchMode(next){
 }
 const OMOK_API = '/api/game/omok';
 const SIZE = 15;
+const OMOK_DIFF_LABELS = { EASY: '초급', MEDIUM: '중급', HARD: '고급' };
 let omokGameId = null;
 let setup = { color: 'B', diff: 'MEDIUM', time: '' };
 let timerHandle = null;
 let humanColorGlobal = 'B', timeLimitGlobal = null, turnStartedGlobal = 0;
+let omokStartAt = 0;
+let omokScoreSaved = false;
 function pick(rowId, key, value){
   document.querySelectorAll('#' + rowId + ' .choice').forEach(b => b.classList.toggle('on', b.dataset.v === value));
   setup[key] = value;
@@ -212,15 +226,20 @@ function backToSetup(){
   omokGameId = null;
   $('omokGame').style.display = 'none';
   $('omokSetupWrap').style.display = 'grid';
+  loadOmokRanking();
 }
 async function startOmok(){
   buildBoard();
   const body = { humanColor: setup.color, difficulty: setup.diff, timeLimitSeconds: setup.time ? parseInt(setup.time, 10) : null };
   const data = await fetch(OMOK_API + '/new', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).then(r => r.json());
   omokGameId = data.id;
+  omokStartAt = Date.now();
+  omokScoreSaved = false;
   $('omokSetupWrap').style.display = 'none';
   $('omokGame').style.display = 'flex';
   $('resultBanner').classList.remove('show');
+  $('omokWinBanner').classList.remove('show');
+  $('omokNickname').disabled = false; $('omokNickname').value = '';
   renderOmok(data);
 }
 async function omokMove(x, y){
@@ -259,13 +278,43 @@ function renderOmok(data){
     } else { $('timerText').textContent = ''; }
   } else {
     const label = data.status === 'BLACK_WIN' ? '⚫ 흑돌 승리!' : data.status === 'WHITE_WIN' ? '⚪ 백돌 승리!' : '무승부';
-    const who = data.status === (humanColorGlobal === 'B' ? 'BLACK_WIN' : 'WHITE_WIN') ? ' (나의 승리)' : data.status === 'DRAW' ? '' : ' (AI 승리)';
+    const humanWon = data.status === (humanColorGlobal === 'B' ? 'BLACK_WIN' : 'WHITE_WIN');
+    const who = humanWon ? ' (나의 승리)' : data.status === 'DRAW' ? '' : ' (AI 승리)';
     $('turnText').textContent = '대국 종료';
     $('timerText').textContent = '';
     $('resultBanner').textContent = label + who;
     $('resultBanner').classList.add('show');
+    if (humanWon && !omokScoreSaved) {
+      const secs = Math.floor((Date.now() - omokStartAt) / 1000);
+      const m = String(Math.floor(secs / 60)).padStart(2, '0');
+      const s = String(secs % 60).padStart(2, '0');
+      window.omokLastResult = { moves: data.moveCount, seconds: secs };
+      $('omokWinText').textContent = `🎉 승리! ${OMOK_DIFF_LABELS[data.difficulty] || data.difficulty} · ${data.moveCount}수 · 시간 ${m}:${s}`;
+      $('omokWinBanner').classList.add('show');
+    }
   }
 }
+async function saveOmokScore(){
+  if (!omokGameId || !window.omokLastResult || omokScoreSaved) return;
+  const nickname = $('omokNickname').value.trim();
+  await fetch(`${OMOK_API}/${omokGameId}/score`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ nickname, seconds: window.omokLastResult.seconds })
+  });
+  omokScoreSaved = true;
+  $('omokNickname').disabled = true;
+  loadOmokRanking();
+}
+/** 오목 랭킹은 난이도별로 나누지 않고 하나의 표에 난이도를 컬럼으로 함께 보여준다 —
+ *  세 난이도 랭킹을 각각 받아온 뒤 착수 수 기준으로 합쳐서 상위 10개만 보여준다. */
+async function loadOmokRanking(){
+  const diffs = ['EASY', 'MEDIUM', 'HARD'];
+  const lists = await Promise.all(diffs.map(d => fetch(`${OMOK_API}/ranking?difficulty=${d}`).then(r => r.json()).then(list => list.map(r => ({ ...r, diff: d })))));
+  const merged = lists.flat().sort((a, b) => a.metric - b.metric).slice(0, 10);
+  $('omokRanking').innerHTML = !merged.length ? '<div class="empty-msg">아직 등록된 기록이 없습니다.</div>' :
+    merged.map((r, i) => `<div class="rank-row"><span><span class="no">${i + 1}</span> ${esc(r.nickname)}</span><span class="mid">${OMOK_DIFF_LABELS[r.diff]}</span><span>${r.metric}수 · ${esc(r.detail || '')}</span></div>`).join('');
+}
+loadOmokRanking();
 const JANGGI_API = '/api/game/janggi';
 const JCOLS = 9, JROWS = 10;
 const JANGGI_AI_DELAY_MS = 1000;
