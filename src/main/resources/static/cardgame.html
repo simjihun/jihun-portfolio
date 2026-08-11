@@ -261,7 +261,7 @@ function switchCardMode(next){
   $('tabKlondike').classList.toggle('on', next === 'klondike');
   $('panelFreecell').style.display = next === 'freecell' ? 'block' : 'none';
   $('panelKlondike').style.display = next === 'klondike' ? 'block' : 'none';
-  history.replaceState(null, '', next === 'klondike' ? '/cardgame/klondike' : '/cardgame/freecell');
+  history.replaceState(null, '', next === 'klondike' ? '/game/card/klondike' : '/game/card/freecell');
 }
 
 const FC_SUIT_COLOR = ['black', 'red', 'red', 'black']; // 0=spade 1=heart 2=diamond 3=club (프리셀·클론다이크 공용)
