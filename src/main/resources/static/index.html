@@ -261,16 +261,14 @@ main{max-width:1080px}
   <section class="feature">
     <div class="feature-text">
       <span class="tag">● LIVE</span>
-      <h2>웹 게임 — 오목 · 숫자야구 · 장기 · 발리볼</h2>
+      <h2>웹 게임 — 숫자야구 · 발리볼</h2>
       <div class="skills">
-        <span>Java</span><span>알파베타 미니맥스</span><span>SVG</span><span>Canvas·requestAnimationFrame</span><span>실시간 물리 시뮬레이션</span>
+        <span>Java</span><span>Canvas·requestAnimationFrame</span><span>실시간 물리 시뮬레이션</span>
       </div>
       <ul>
-        <li>오목: 초급·중급·고급 난이도, 흑/백 선택, 턴 제한시간</li>
-        <li>장기: 마·상 포진 4종 선택, 알파베타 완전탐색 AI, 궁성 대각선 규칙까지 구현</li>
-        <li>발리볼: 오리지널 캐릭터로 AI와 실시간 대결(Canvas 물리 연산 전부 클라이언트 처리), 최장 랠리 랭킹</li>
-        <li>숫자야구: 스트라이크/볼 추리 + 최소 시도 랭킹</li>
-        <li>턴제 게임 AI는 서버 알고리즘, 발리볼은 프레임 단위 클라이언트 물리 — 외부 API 비용 없음. 체스는 준비 중</li>
+        <li>발리볼: 오리지널 캐릭터로 AI와 실시간 대결(Canvas 물리 연산 전부 클라이언트 처리), 라운드제 랭킹</li>
+        <li>숫자야구: 스트라이크/볼 추리 + 최소 시도·클리어시간 랭킹</li>
+        <li>발리볼 물리는 프레임 단위로 프론트엔드에서 전부 계산 — 서버는 결과만 저장</li>
       </ul>
       <a class="feature-link" href="/game">웹 게임 하러가기 →</a>
     </div>
@@ -290,12 +288,72 @@ main{max-width:1080px}
     </div>
   </section>
 
+  <!-- ===== 보드게임 ===== -->
+  <section class="feature rev">
+    <div class="feature-text">
+      <span class="tag">● LIVE</span>
+      <h2>보드게임 — 오목 · 장기</h2>
+      <div class="skills">
+        <span>Java</span><span>알파베타 미니맥스</span><span>SVG</span>
+      </div>
+      <ul>
+        <li>오목: 초급·중급·고급 난이도, 흑/백 선택, 턴 제한시간, 난이도별 랭킹</li>
+        <li>장기: 마·상 포진 4종 선택, 알파베타 완전탐색 AI, 궁성 대각선 규칙까지 구현</li>
+        <li>AI는 전부 서버에서 직접 계산하는 알고리즘으로 동작 — 외부 API 비용 없음. 체스는 준비 중</li>
+      </ul>
+      <a class="feature-link" href="/game/board">보드게임 하러가기 →</a>
+    </div>
+    <div class="feature-visual">
+      <div class="mockup">
+        <div class="mockup-bar"><span></span><span></span><span></span></div>
+        <div class="mockup-body">
+          <div class="mock-tabs"><span class="on">오목</span><span>장기</span><span>체스 · 준비중</span></div>
+          <div class="mock-map" style="height:120px">
+            <div class="mock-pin" style="top:30%;left:24%;width:14px;height:14px;border-radius:50%;transform:none;background:#1a1a1a"></div>
+            <div class="mock-pin" style="top:52%;left:48%;width:14px;height:14px;border-radius:50%;transform:none;background:#f2f2f2"></div>
+            <div class="mock-pin" style="top:40%;left:66%;width:14px;height:14px;border-radius:50%;transform:none;background:#1a1a1a"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== 카드게임 ===== -->
+  <section class="feature">
+    <div class="feature-text">
+      <span class="tag">● LIVE</span>
+      <h2>카드게임 — 프리셀 · 클론다이크</h2>
+      <div class="skills">
+        <span>Java</span><span>Web Components</span><span>SVG 카드 렌더링</span>
+      </div>
+      <ul>
+        <li>프리셀: 서플무브(뭉치 이동) 용량 계산, 완성 칸 안전 자동정리, 배치 기반 난이도</li>
+        <li>클론다이크: 카드 뽑기 방식·힌트·자동정리 여부로 난이도 구분, 완성 칸↔줄 스택 왕복 지원</li>
+        <li>카드 이미지는 자체 저장한 SVG 라이브러리로 렌더링, 카드 로직은 전부 프론트엔드에서 계산</li>
+      </ul>
+      <a class="feature-link" href="/cardgame">카드게임 하러가기 →</a>
+    </div>
+    <div class="feature-visual">
+      <div class="mockup">
+        <div class="mockup-bar"><span></span><span></span><span></span></div>
+        <div class="mockup-body">
+          <div class="mock-map" style="height:130px;background:#0b3d29">
+            <div style="position:absolute;top:14px;left:14px;width:34px;height:48px;background:#fdfaf3;border-radius:5px;box-shadow:0 2px 4px rgba(0,0,0,.4)"></div>
+            <div style="position:absolute;top:14px;left:54px;width:34px;height:48px;background:#fdfaf3;border-radius:5px;box-shadow:0 2px 4px rgba(0,0,0,.4)"></div>
+            <div style="position:absolute;top:14px;right:14px;width:34px;height:48px;border:2px dashed rgba(255,255,255,.3);border-radius:5px"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
   <!-- ===== Backlog ===== -->
   <section class="tail">
     <h2>개발예정</h2>
     <div class="chips">
       <span>🏠 부동산 시세 지도 고도화</span>
       <span>♞ 체스 AI 대국</span>
+      <span>🕷️ 스파이더 솔리테어</span>
       <span>🛒 가격 비교</span>
       <span>💡 + 계속 추가 예정</span>
     </div>
