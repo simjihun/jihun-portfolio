@@ -65,6 +65,11 @@
 .fc-card.pop{animation:fcPop .3s ease}
 @keyframes fcFlip{0%{transform:rotateY(90deg)}100%{transform:rotateY(0)}}
 .fc-card.flip{animation:fcFlip .25s ease}
+@keyframes fcHint{0%,100%{box-shadow:0 0 0 3px var(--green)}50%{box-shadow:0 0 0 3px rgba(62,207,142,.1)}}
+.fc-card.hint playing-card,.fc-card.hint img{border-radius:9px}
+.fc-card.hint{animation:fcHint .55s ease-in-out 3;border-radius:9px}
+.fc-slot.hint-dest{box-shadow:0 0 0 3px var(--green) inset;border-radius:9px}
+.fc-col.hint-dest{outline:2px dashed var(--green);outline-offset:3px;border-radius:9px}
 .fc-flash{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:rgba(192,57,43,.92);color:#fff;padding:8px 16px;border-radius:20px;font-size:13px;font-weight:600;display:none;z-index:50}
 .fc-flash.show{display:block}
 
@@ -173,18 +178,18 @@
       7개 컬럼에 카드를 계단식으로 펼쳐놓고 시작하는 고전 솔리테어입니다. 각 컬럼의 맨 위 카드만 앞면이고
       나머지는 뒷면인 채로 시작하며, 카드를 옮겨 뒷면 카드가 드러나면 자동으로 뒤집힙니다. 색이 번갈아
       바뀌며 1씩 내려가는 뭉치는 통째로 옮길 수 있고, 빈 컬럼에는 <b>K(킹)만</b> 놓을 수 있습니다. 카드
-      더미를 클릭하면 정해진 장수만큼 패가 넘어가고, 더 넘길 카드가 없으면 다시 섞습니다. 완성 칸의 카드는
-      다시 줄로 되돌릴 수도 있습니다(한 번에 1장). 각 무늬를 A부터 K까지 순서대로 완성 칸에 쌓으면
-      승리입니다. 카드를 더블클릭하면 완성 칸으로 자동으로 옮겨집니다.
+      더미를 클릭하면 정해진 장수만큼 패가 넘어가고, <b>다 넘기면 다시 섞어서 몇 번이든 계속 볼 수
+      있습니다</b>. 완성 칸의 카드는 다시 줄로 되돌릴 수도 있습니다(한 번에 1장). 각 무늬를 A부터 K까지
+      순서대로 완성 칸에 쌓으면 승리입니다. 카드를 더블클릭하면 완성 칸으로 자동으로 옮겨집니다.
     </p>
 
     <div class="panel" id="kdSetup">
       <h2>새 게임</h2>
       <label>난이도</label>
       <div class="choice-row" id="kdDiffRow">
-        <button class="choice on" data-v="EASY" onclick="kdPickDiff('EASY')">초급<small>한 장씩 넘기기 · 다시 섞기 무제한</small></button>
-        <button class="choice" data-v="MEDIUM" onclick="kdPickDiff('MEDIUM')">중급<small>세 장씩 넘기기 · 다시 섞기 무제한</small></button>
-        <button class="choice" data-v="HARD" onclick="kdPickDiff('HARD')">고급<small>세 장씩 넘기기 · 다시 섞기 1회만</small></button>
+        <button class="choice on" data-v="EASY" onclick="kdPickDiff('EASY')">초급<small>한 장씩 넘기기 · 완성 칸 자동 정리 · 힌트 3회</small></button>
+        <button class="choice" data-v="MEDIUM" onclick="kdPickDiff('MEDIUM')">중급<small>한 장씩 넘기기 · 힌트 없음</small></button>
+        <button class="choice" data-v="HARD" onclick="kdPickDiff('HARD')">고급<small>세 장씩 넘기기 · 힌트 없음</small></button>
       </div>
       <button class="btn btn-amber" style="margin-top:18px" onclick="kdNewGame()">게임 시작</button>
     </div>
@@ -198,6 +203,7 @@
             <span>시간 <b id="kdTimeText">00:00</b></span>
           </div>
           <div class="fc-btns">
+            <button id="kdHintBtn" onclick="kdUseHint()">💡 힌트</button>
             <button id="kdUndoBtn" onclick="kdUndo()">↩️ 실행취소</button>
             <button onclick="kdNewGame()">🔁 새 게임</button>
             <button onclick="kdBackToSetup()">설정으로</button>
@@ -269,6 +275,15 @@ function fcFlash(msg){
   $('fcFlash').classList.add('show');
   clearTimeout(fcFlashTimer);
   fcFlashTimer = setTimeout(() => $('fcFlash').classList.remove('show'), 1200);
+}
+
+/** 두 게임이 공용으로 쓰는 "완성 칸에 안전하게 놓을 수 있는가" 판정. card.s/card.r + found 맵을 인자로 받는다. */
+function isSafeForFoundation(card, found){
+  if (card.r !== found[card.s] + 1) return false;
+  if (card.r <= 2) return true;
+  const oppSuits = (card.s === 0 || card.s === 3) ? [1, 2] : [0, 3];
+  const minOpp = Math.min(found[oppSuits[0]], found[oppSuits[1]]);
+  return minOpp >= card.r - 1;
 }
 
 /* ===================================================
@@ -416,26 +431,18 @@ function fcMaxMovable(destCol){
   return (emptyFree + 1) * Math.pow(2, Math.max(0, emptyCols));
 }
 
-function fcIsSafe(card){
-  if (card.r !== fcFound[card.s] + 1) return false;
-  if (card.r <= 2) return true;
-  const oppSuits = (card.s === 0 || card.s === 3) ? [1, 2] : [0, 3];
-  const minOpp = Math.min(fcFound[oppSuits[0]], fcFound[oppSuits[1]]);
-  return minOpp >= card.r - 1;
-}
-
 function fcAutoSafe(){
   let changed = true;
   while (changed) {
     changed = false;
     for (let i = 0; i < fcFree.length; i++) {
       const c = fcFree[i];
-      if (c && fcIsSafe(c)) { fcFound[c.s] = c.r; fcFree[i] = null; fcLastMoved = { kind: 'found', idx: c.s }; changed = true; }
+      if (c && isSafeForFoundation(c, fcFound)) { fcFound[c.s] = c.r; fcFree[i] = null; fcLastMoved = { kind: 'found', idx: c.s }; changed = true; }
     }
     for (let col = 0; col < fcTableau.length; col++) {
       const arr = fcTableau[col];
       const top = arr[arr.length - 1];
-      if (top && fcIsSafe(top)) { fcFound[top.s] = top.r; arr.pop(); fcLastMoved = { kind: 'found', idx: top.s }; changed = true; }
+      if (top && isSafeForFoundation(top, fcFound)) { fcFound[top.s] = top.r; arr.pop(); fcLastMoved = { kind: 'found', idx: top.s }; changed = true; }
     }
   }
 }
@@ -700,27 +707,29 @@ async function loadFcRanking(){
 
 /* ===================================================
    클론다이크 — 프리셀과 같은 구조(카드 로직 전부 프론트엔드, 서버는 결과만 저장).
-   프리셀과 달리 뭉치 이동에 용량 제한이 없다(오픈칸이 없는 대신, 옮기려는 뭉치 자체가
-   이미 앞면으로 노출된 유효한 연속열이어야만 선택할 수 있기 때문). 대신 카드 더미(스톡)에서
-   앞면으로 넘기는 방식이 핵심 규칙이라, 난이도는 "한 번에 넘기는 장수"와 "다시 섞기 가능 횟수"로 구분한다.
-   완성 칸의 카드도 다시 줄 스택으로 되돌릴 수 있다(나무위키 클론다이크 문서 기준, 한 번에 1장만).
+   다시 섞기는 난이도와 무관하게 항상 무제한이다. 난이도는 "한 번에 넘기는 장수", "완성 칸 자동 정리
+   여부", "힌트 사용 가능 횟수" 세 가지로만 구분한다 — 초급만 자동 정리+힌트 3회를 주고, 나머지는 순수
+   실력으로 풀도록 한다.
    =================================================== */
 const KLONDIKE_API = '/api/game/klondike';
 const KD_DIFF_META = {
-  EASY:   { label: '초급', draw: 1, redeals: Infinity },
-  MEDIUM: { label: '중급', draw: 3, redeals: Infinity },
-  HARD:   { label: '고급', draw: 3, redeals: 1 }
+  EASY:   { label: '초급', draw: 1, autoComplete: true,  hints: 3 },
+  MEDIUM: { label: '중급', draw: 1, autoComplete: false, hints: 0 },
+  HARD:   { label: '고급', draw: 3, autoComplete: false, hints: 0 }
 };
 
 let kdDifficulty = 'EASY';
 let kdTableau = [], kdStock = [], kdWaste = [], kdFound = {};
-let kdMoves = 0, kdStartAt = 0, kdTimerHandle = null, kdRedealsUsed = 0;
+let kdMoves = 0, kdStartAt = 0, kdTimerHandle = null;
 let kdSelected = null; // { type:'tableau', col, idx } | { type:'waste' } | { type:'found', idx }
 let kdHistory = [];
 let kdInitialDeal = null;
 let kdLastMoved = null;
 let kdOver = false;
-let kdFlippedCol = null; // 방금 뒤집힌 카드 애니메이션용
+let kdFlippedCol = null;    // 방금 뒤집힌 카드 애니메이션용
+let kdHintsUsed = 0;
+let kdHintTarget = null;    // { source:{...}, dest:{...} } 또는 null
+let kdHintTimer = null;
 
 function kdPickDiff(v){
   kdDifficulty = v;
@@ -772,11 +781,13 @@ function kdStartFromDeal(deal){
   kdWaste = [];
   kdFound = { 0: 0, 1: 0, 2: 0, 3: 0 };
   kdMoves = 0;
-  kdRedealsUsed = 0;
   kdSelected = null;
   kdHistory = [];
   kdLastMoved = null;
   kdOver = false;
+  kdHintsUsed = 0;
+  kdHintTarget = null;
+  clearTimeout(kdHintTimer);
 
   $('kdSetup').style.display = 'none';
   $('kdGame').style.display = 'grid';
@@ -786,6 +797,7 @@ function kdStartFromDeal(deal){
   $('kdNickname').disabled = false; $('kdNickname').value = '';
   $('kdDiffLabel').textContent = meta.label;
   $('kdRankDiffLabel').textContent = meta.label;
+  kdUpdateHintBtn();
   loadKdRanking();
 
   kdResetTimer();
@@ -805,8 +817,16 @@ function kdUpdateTime(){
   $('kdTimeText').textContent = `${m}:${s}`;
 }
 
+function kdUpdateHintBtn(){
+  const meta = KD_DIFF_META[kdDifficulty];
+  const btn = $('kdHintBtn');
+  if (meta.hints <= 0) { btn.textContent = '💡 힌트 없음'; btn.disabled = true; return; }
+  btn.textContent = `💡 힌트 (${Math.max(0, meta.hints - kdHintsUsed)}회 남음)`;
+  btn.disabled = kdHintsUsed >= meta.hints;
+}
+
 function kdPushHistory(){
-  kdHistory.push(JSON.parse(JSON.stringify({ tableau: kdTableau, stock: kdStock, waste: kdWaste, found: kdFound, moves: kdMoves, redealsUsed: kdRedealsUsed })));
+  kdHistory.push(JSON.parse(JSON.stringify({ tableau: kdTableau, stock: kdStock, waste: kdWaste, found: kdFound, moves: kdMoves })));
   if (kdHistory.length > 200) kdHistory.shift();
 }
 
@@ -814,7 +834,7 @@ function kdUndo(){
   if (!kdHistory.length) { fcFlash('되돌릴 수 없습니다'); return; }
   const prev = kdHistory.pop();
   kdTableau = prev.tableau; kdStock = prev.stock; kdWaste = prev.waste; kdFound = prev.found;
-  kdMoves = prev.moves; kdRedealsUsed = prev.redealsUsed;
+  kdMoves = prev.moves;
   kdSelected = null;
   kdOver = false;
   $('kdGameOverBanner').classList.remove('show');
@@ -841,9 +861,30 @@ function kdFlipExposedTop(col){
   }
 }
 
+/** 초급 한정: 완성 칸에 안전하게 놓을 수 있는 카드(웨이스트 맨 위 + 각 컬럼 맨 위)를 자동 정리한다. */
+function kdAutoSafe(){
+  let changed = true;
+  while (changed) {
+    changed = false;
+    if (kdWaste.length) {
+      const w = kdTopOf(kdWaste);
+      if (isSafeForFoundation(w, kdFound)) { kdFound[w.s] = w.r; kdWaste.pop(); kdLastMoved = { kind: 'found', idx: w.s }; changed = true; continue; }
+    }
+    for (let col = 0; col < 7; col++) {
+      const arr = kdTableau[col];
+      const top = arr[arr.length - 1];
+      if (top && top.faceUp && isSafeForFoundation(top, kdFound)) {
+        kdFound[top.s] = top.r; arr.pop(); kdFlipExposedTop(col);
+        kdLastMoved = { kind: 'found', idx: top.s }; changed = true;
+      }
+    }
+  }
+}
+
 function kdAfterMove(){
   kdMoves++;
   kdSelected = null;
+  if (KD_DIFF_META[kdDifficulty].autoComplete) kdAutoSafe();
   kdRender();
   if (kdCheckWin()) return;
   if (!kdHasAnyMove()) kdTriggerGameOver();
@@ -865,11 +906,9 @@ function kdClickStock(){
     kdAfterMove();
     return;
   }
-  // 스톡이 비었을 때 클릭 = 다시 섞기
+  // 스톡이 비었을 때 클릭 = 다시 섞기(모든 난이도 무제한)
   if (kdWaste.length === 0) return;
-  if (kdRedealsUsed >= meta.redeals) { fcFlash('더 이상 다시 섞을 수 없어요'); return; }
   kdPushHistory();
-  kdRedealsUsed++;
   while (kdWaste.length) { const c = kdWaste.pop(); c.faceUp = false; kdStock.push(c); }
   kdSelected = null;
   kdRender();
@@ -1007,27 +1046,16 @@ function kdDblClickWaste(){
   kdAfterMove();
 }
 
-/** 스톡/웨이스트에 아직 낼 카드가 있으면 항상 수가 있는 것으로 본다. 그 외엔 웨이스트 맨 위 카드와
- *  각 컬럼에서 노출된 유효한 연속열의 모든 시작 카드를 완성 칸·다른 컬럼에 붙일 수 있는지 확인한다. */
+/** 스톡/웨이스트에 아직 낼 카드가 있으면 항상 수가 있는 것으로 본다(다시 섞기가 무제한이라 스톡이
+ *  0장이어도 웨이스트에 카드가 있으면 항상 수가 있다). 그 외엔 웨이스트 맨 위 카드와 각 컬럼에서
+ *  노출된 유효한 연속열의 모든 시작 카드를 완성 칸·다른 컬럼에 붙일 수 있는지 확인한다. */
 function kdHasAnyMove(){
-  const meta = KD_DIFF_META[kdDifficulty];
-  if (kdStock.length > 0) return true;
-  if (kdWaste.length > 0 && kdRedealsUsed < meta.redeals) return true;
-  if (kdWaste.length) {
-    const w = kdTopOf(kdWaste);
-    if (w.r === kdFound[w.s] + 1) return true;
-    for (let ci = 0; ci < 7; ci++) {
-      const top = kdTopOf(kdTableau[ci]);
-      if (!top && w.r === 13) return true;
-      if (top && w.r === top.r - 1 && kdColor(w) !== kdColor(top)) return true;
-    }
-  }
+  if (kdStock.length > 0 || kdWaste.length > 0) return true;
   for (let col = 0; col < 7; col++) {
     const arr = kdTableau[col];
     if (!arr.length) continue;
     const top = kdTopOf(arr);
     if (top.r === kdFound[top.s] + 1) return true;
-    // 노출된 연속열의 모든 시작점을 확인
     let start = arr.length - 1;
     while (start > 0 && arr[start - 1].faceUp && kdColor(arr[start - 1]) !== kdColor(arr[start]) && arr[start - 1].r === arr[start].r + 1) start--;
     for (let i = start; i < arr.length; i++) {
@@ -1035,12 +1063,58 @@ function kdHasAnyMove(){
       for (let cj = 0; cj < 7; cj++) {
         if (cj === col) continue;
         const destTop = kdTopOf(kdTableau[cj]);
-        if (!destTop && head.r === 13 && i !== 0) return true; // 이미 그 컬럼 전체가 아니라면 빈 컬럼으로 옮기는 의미가 있음
+        if (!destTop && head.r === 13 && i !== 0) return true;
         if (destTop && head.r === destTop.r - 1 && kdColor(head) !== kdColor(destTop)) return true;
       }
     }
   }
   return false;
+}
+
+/** kdHasAnyMove와 같은 순서로 훑되, 실제로 옮길 대상(source)과 목적지(dest)를 함께 돌려준다(힌트용).
+ *  스톡/웨이스트만 남았고 줄 스택·완성 칸으로 옮길 수 있는 게 없으면 "카드를 더 넘겨보라"는 힌트를 준다. */
+function kdFindHint(){
+  if (kdWaste.length) {
+    const w = kdTopOf(kdWaste);
+    if (w.r === kdFound[w.s] + 1) return { source: { type: 'waste' }, dest: { type: 'found', idx: w.s } };
+    for (let ci = 0; ci < 7; ci++) {
+      const top = kdTopOf(kdTableau[ci]);
+      if (!top && w.r === 13) return { source: { type: 'waste' }, dest: { type: 'col', idx: ci } };
+      if (top && w.r === top.r - 1 && kdColor(w) !== kdColor(top)) return { source: { type: 'waste' }, dest: { type: 'col', idx: ci } };
+    }
+  }
+  for (let col = 0; col < 7; col++) {
+    const arr = kdTableau[col];
+    if (!arr.length) continue;
+    const top = kdTopOf(arr);
+    if (top.r === kdFound[top.s] + 1) return { source: { type: 'tableau', col, idx: arr.length - 1 }, dest: { type: 'found', idx: top.s } };
+    let start = arr.length - 1;
+    while (start > 0 && arr[start - 1].faceUp && kdColor(arr[start - 1]) !== kdColor(arr[start]) && arr[start - 1].r === arr[start].r + 1) start--;
+    for (let i = start; i < arr.length; i++) {
+      const head = arr[i];
+      for (let cj = 0; cj < 7; cj++) {
+        if (cj === col) continue;
+        const destTop = kdTopOf(kdTableau[cj]);
+        if (!destTop && head.r === 13 && i !== 0) return { source: { type: 'tableau', col, idx: i }, dest: { type: 'col', idx: cj } };
+        if (destTop && head.r === destTop.r - 1 && kdColor(head) !== kdColor(destTop)) return { source: { type: 'tableau', col, idx: i }, dest: { type: 'col', idx: cj } };
+      }
+    }
+  }
+  if (kdStock.length > 0 || kdWaste.length > 0) return { source: { type: 'stock' }, dest: null };
+  return null;
+}
+
+function kdUseHint(){
+  const meta = KD_DIFF_META[kdDifficulty];
+  if (meta.hints <= 0 || kdHintsUsed >= meta.hints) return;
+  const hint = kdFindHint();
+  if (!hint) { fcFlash('제안할 수 있는 수가 없어요'); return; }
+  kdHintsUsed++;
+  kdUpdateHintBtn();
+  kdHintTarget = hint;
+  kdRender();
+  clearTimeout(kdHintTimer);
+  kdHintTimer = setTimeout(() => { kdHintTarget = null; kdRender(); }, 1800);
 }
 
 function kdCheckWin(){
@@ -1061,16 +1135,20 @@ function kdCheckWin(){
 function kdCardBackHtml(){ return `<img src="${CARD_BACK_IMG}" alt="카드 뒷면" draggable="false">`; }
 
 function kdRender(dealAnim){
+  const h = kdHintTarget;
+
   // 스톡
+  const stockHint = h && h.source.type === 'stock' ? 'hint' : '';
   $('kdStockSlot').innerHTML = kdStock.length
-    ? `<div class="fc-card facedown">${kdCardBackHtml()}</div>`
-    : (kdWaste.length ? '<span class="fc-suit-ghost">♻️</span>' : '');
+    ? `<div class="fc-card facedown ${stockHint}">${kdCardBackHtml()}</div>`
+    : (kdWaste.length ? `<span class="fc-suit-ghost ${stockHint}">♻️</span>` : '');
 
   // 웨이스트(맨 위 카드만 표시)
   if (kdWaste.length) {
     const card = kdTopOf(kdWaste);
     const sel = (kdSelected && kdSelected.type === 'waste') ? 'selected' : '';
-    $('kdWasteSlot').innerHTML = `<div class="fc-card ${sel}" ondblclick="event.stopPropagation();kdDblClickWaste()">
+    const hint = h && h.source.type === 'waste' ? 'hint' : '';
+    $('kdWasteSlot').innerHTML = `<div class="fc-card ${sel} ${hint}" ondblclick="event.stopPropagation();kdDblClickWaste()">
       <playing-card cid="${kdCid(card)}"></playing-card>
     </div>`;
   } else {
@@ -1081,16 +1159,18 @@ function kdRender(dealAnim){
     const r = kdFound[i];
     const pop = (kdLastMoved && kdLastMoved.kind === 'found' && kdLastMoved.idx === i) ? 'pop' : '';
     const sel = (kdSelected && kdSelected.type === 'found' && kdSelected.idx === i) ? 'selected' : '';
+    const destHint = h && h.dest && h.dest.type === 'found' && h.dest.idx === i ? 'hint-dest' : '';
     const suitGhost = ['♠', '♥', '♦', '♣'][i];
     const inner = r > 0
       ? `<div class="fc-card ${pop} ${sel}"><playing-card cid="${FC_RANK_LABELS[r - 1]}${letter}"></playing-card></div>`
       : `<span class="fc-suit-ghost">${suitGhost}</span>`;
-    return `<div class="fc-slot${r > 0 ? ' hasCard' : ''}" onclick="kdClickFoundation(${i})">${inner}</div>`;
+    return `<div class="fc-slot ${r > 0 ? 'hasCard' : ''} ${destHint}" onclick="kdClickFoundation(${i})">${inner}</div>`;
   }).join('');
 
   $('kdTableau').innerHTML = kdTableau.map((col, ci) => {
     const offset = 28;
     const height = Math.max(380, col.length * offset + 106);
+    const destHint = h && h.dest && h.dest.type === 'col' && h.dest.idx === ci ? 'hint-dest' : '';
     const cards = col.map((card, i) => {
       if (!card.faceUp) {
         return `<div class="fc-card facedown" style="top:${i * offset}px">${kdCardBackHtml()}</div>`;
@@ -1098,12 +1178,13 @@ function kdRender(dealAnim){
       const sel = (kdSelected && kdSelected.type === 'tableau' && kdSelected.col === ci && i >= kdSelected.idx) ? 'selected' : '';
       const pop = (kdLastMoved && kdLastMoved.kind === 'col' && kdLastMoved.idx === ci && i === col.length - 1) ? 'pop' : '';
       const flip = (kdFlippedCol === ci && i === col.length - 1) ? 'flip' : '';
-      return `<div class="fc-card ${sel} ${pop} ${flip}" style="top:${i * offset}px"
+      const hint = h && h.source.type === 'tableau' && h.source.col === ci && i >= h.source.idx ? 'hint' : '';
+      return `<div class="fc-card ${sel} ${pop} ${flip} ${hint}" style="top:${i * offset}px"
         onclick="event.stopPropagation();kdClickCard(${ci},${i})" ondblclick="event.stopPropagation();kdDblClickCard(${ci},${i})">
         <playing-card cid="${kdCid(card)}"></playing-card>
       </div>`;
     }).join('');
-    return `<div class="fc-col" style="min-height:${height}px" onclick="kdClickColumnBg(${ci})">${cards}</div>`;
+    return `<div class="fc-col ${destHint}" style="min-height:${height}px" onclick="kdClickColumnBg(${ci})">${cards}</div>`;
   }).join('');
 
   kdLastMoved = null;
