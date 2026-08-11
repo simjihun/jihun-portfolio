@@ -28,9 +28,10 @@ public class WebConfig implements WebMvcConfigurer {
         registry.addViewController("/game/baseball").setViewName("forward:/game.html");
         registry.addViewController("/game/janggi").setViewName("forward:/game.html");
         registry.addViewController("/game/volleyball").setViewName("forward:/game.html");
-        // 카드게임 — 프리셀을 시작으로 향후 클론다이크·스파이더 등을 같은 탭 구조로 추가할 예정
+        // 카드게임 — 프리셀을 시작으로 클론다이크, 향후 스파이더 등을 같은 탭 구조로 추가
         registry.addViewController("/cardgame").setViewName("forward:/cardgame.html");
         registry.addViewController("/cardgame/freecell").setViewName("forward:/cardgame.html");
+        registry.addViewController("/cardgame/klondike").setViewName("forward:/cardgame.html");
         // 주식 AI 대시보드
         registry.addViewController("/stock").setViewName("forward:/stock.html");
     }
