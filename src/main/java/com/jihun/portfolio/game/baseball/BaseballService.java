@@ -19,6 +19,8 @@ import java.util.concurrent.ConcurrentHashMap;
 @Service
 public class BaseballService {
 
+    private static final int MAX_REASONABLE_SECONDS = 24 * 60 * 60;
+
     private final Map<String, BaseballGame> games = new ConcurrentHashMap<>();
     private final GameScoreRepository scoreRepository;
     private final SecureRandom random = new SecureRandom();
@@ -72,10 +74,13 @@ public class BaseballService {
         return s.chars().distinct().count() != s.length();
     }
 
-    public GameScore saveScore(String nickname, int attempts) {
+    /** seconds는 정답을 맞히기까지 걸린 시간(프론트엔드가 시작 시각 기준으로 측정해 전달). */
+    public GameScore saveScore(String nickname, int attempts, int seconds) {
         String nick = (nickname == null || nickname.isBlank()) ? "익명" : nickname.strip();
         if (nick.length() > 12) nick = nick.substring(0, 12);
-        return scoreRepository.save(new GameScore("BASEBALL", nick, attempts));
+        int safeSeconds = Math.max(0, Math.min(seconds, MAX_REASONABLE_SECONDS));
+        String detail = String.format("%d:%02d", safeSeconds / 60, safeSeconds % 60);
+        return scoreRepository.save(new GameScore("BASEBALL", nick, attempts, detail));
     }
 
     public List<GameScore> ranking() {
