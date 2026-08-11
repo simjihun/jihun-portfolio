@@ -1071,36 +1071,57 @@ function kdHasAnyMove(){
   return false;
 }
 
-/** kdHasAnyMove와 같은 순서로 훑되, 실제로 옮길 대상(source)과 목적지(dest)를 함께 돌려준다(힌트용).
- *  스톡/웨이스트만 남았고 줄 스택·완성 칸으로 옮길 수 있는 게 없으면 "카드를 더 넘겨보라"는 힌트를 준다. */
-function kdFindHint(){
+/** kdHasAnyMove와 같은 순서로 가능한 수를 "전부" 모으되, 각 수에 점수를 매긴다.
+ *  100=완성 칸으로(항상 진짜 진행), 60=옮기면 뒷면 카드가 새로 드러남, 40=컬럼을 통째로 비움(빈 칸 확보),
+ *  20=웨이스트에서 줄 스택으로(카드를 순환에서 빼냄), 1=그 외(뒷면도 안 드러나고 빈 칸도 안 생기는
+ *  겉보기만 다른 뭉치 이동 — 힌트 횟수만 날리는 수라서 최후의 수단으로만 쓴다). */
+function kdCollectCandidates(){
+  const candidates = [];
   if (kdWaste.length) {
     const w = kdTopOf(kdWaste);
-    if (w.r === kdFound[w.s] + 1) return { source: { type: 'waste' }, dest: { type: 'found', idx: w.s } };
+    if (w.r === kdFound[w.s] + 1) candidates.push({ source: { type: 'waste' }, dest: { type: 'found', idx: w.s }, score: 100 });
     for (let ci = 0; ci < 7; ci++) {
       const top = kdTopOf(kdTableau[ci]);
-      if (!top && w.r === 13) return { source: { type: 'waste' }, dest: { type: 'col', idx: ci } };
-      if (top && w.r === top.r - 1 && kdColor(w) !== kdColor(top)) return { source: { type: 'waste' }, dest: { type: 'col', idx: ci } };
+      if (!top && w.r === 13) candidates.push({ source: { type: 'waste' }, dest: { type: 'col', idx: ci }, score: 20 });
+      else if (top && w.r === top.r - 1 && kdColor(w) !== kdColor(top)) candidates.push({ source: { type: 'waste' }, dest: { type: 'col', idx: ci }, score: 20 });
     }
   }
   for (let col = 0; col < 7; col++) {
     const arr = kdTableau[col];
     if (!arr.length) continue;
     const top = kdTopOf(arr);
-    if (top.r === kdFound[top.s] + 1) return { source: { type: 'tableau', col, idx: arr.length - 1 }, dest: { type: 'found', idx: top.s } };
+    if (top.r === kdFound[top.s] + 1) candidates.push({ source: { type: 'tableau', col, idx: arr.length - 1 }, dest: { type: 'found', idx: top.s }, score: 100 });
     let start = arr.length - 1;
     while (start > 0 && arr[start - 1].faceUp && kdColor(arr[start - 1]) !== kdColor(arr[start]) && arr[start - 1].r === arr[start].r + 1) start--;
     for (let i = start; i < arr.length; i++) {
       const head = arr[i];
+      const revealsFlip = i > 0 && !arr[i - 1].faceUp;
+      const emptiesColumn = i === 0;
       for (let cj = 0; cj < 7; cj++) {
         if (cj === col) continue;
         const destTop = kdTopOf(kdTableau[cj]);
-        if (!destTop && head.r === 13 && i !== 0) return { source: { type: 'tableau', col, idx: i }, dest: { type: 'col', idx: cj } };
-        if (destTop && head.r === destTop.r - 1 && kdColor(head) !== kdColor(destTop)) return { source: { type: 'tableau', col, idx: i }, dest: { type: 'col', idx: cj } };
+        let ok = false;
+        if (!destTop && head.r === 13) ok = true;
+        else if (destTop && head.r === destTop.r - 1 && kdColor(head) !== kdColor(destTop)) ok = true;
+        if (ok) {
+          const score = revealsFlip ? 60 : (emptiesColumn ? 40 : 1);
+          candidates.push({ source: { type: 'tableau', col, idx: i }, dest: { type: 'col', idx: cj }, score });
+        }
       }
     }
   }
+  return candidates;
+}
+
+/** 진짜 도움되는 수(점수 20 이상)가 있으면 그중 최고점을 추천한다. 그런 수가 없으면 카드를 더
+ *  넘겨보라고 안내한다(스톡을 넘기는 게 아무 의미 없는 뭉치 이동보다 낫기 때문). 넘길 카드도 없을 때만
+ *  마지막 수단으로 저점수 이동을 알려준다 — 이때는 이미 사실상 막힌 국면이라는 뜻이다. */
+function kdFindHint(){
+  const candidates = kdCollectCandidates();
+  const good = candidates.filter(c => c.score >= 20).sort((a, b) => b.score - a.score);
+  if (good.length) return good[0];
   if (kdStock.length > 0 || kdWaste.length > 0) return { source: { type: 'stock' }, dest: null };
+  if (candidates.length) return candidates.sort((a, b) => b.score - a.score)[0];
   return null;
 }
 
