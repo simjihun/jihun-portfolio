@@ -22,13 +22,13 @@ public class WebConfig implements WebMvcConfigurer {
         registry.addViewController("/map").setViewName("forward:/map.html");
         registry.addViewController("/map/food").setViewName("forward:/map.html");
         registry.addViewController("/map/estate").setViewName("forward:/map.html");
-        // 게임 — 하나의 통합 페이지에서 탭으로 개별 게임을 전환해 보여준다
+        // 웹 게임(상위 분류) — 웹게임(숫자야구·발리볼) / 보드게임(오목·장기) / 카드게임(프리셀·클론다이크) 3갈래
         registry.addViewController("/game").setViewName("forward:/game.html");
-        registry.addViewController("/game/omok").setViewName("forward:/game.html");
         registry.addViewController("/game/baseball").setViewName("forward:/game.html");
-        registry.addViewController("/game/janggi").setViewName("forward:/game.html");
         registry.addViewController("/game/volleyball").setViewName("forward:/game.html");
-        // 카드게임 — 프리셀을 시작으로 클론다이크, 향후 스파이더 등을 같은 탭 구조로 추가
+        registry.addViewController("/game/board").setViewName("forward:/board.html");
+        registry.addViewController("/game/board/omok").setViewName("forward:/board.html");
+        registry.addViewController("/game/board/janggi").setViewName("forward:/board.html");
         registry.addViewController("/cardgame").setViewName("forward:/cardgame.html");
         registry.addViewController("/cardgame/freecell").setViewName("forward:/cardgame.html");
         registry.addViewController("/cardgame/klondike").setViewName("forward:/cardgame.html");
