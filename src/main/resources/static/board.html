@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>보드게임 · hunit 포트폴리오</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/base.css">
+<style>
+.mode-tabs{display:flex;gap:6px;background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:4px;width:fit-content;margin-bottom:14px;flex-wrap:wrap}
+.mode-tab{padding:8px 18px;border-radius:7px;border:0;background:transparent;color:var(--mut);font-size:13.5px;font-weight:600;cursor:pointer}
+.mode-tab.on{background:var(--amber);color:#131A2A}
+.mode-tab.disabled{opacity:.4;cursor:default}
+.game-desc{color:var(--mut);font-size:13.5px;line-height:1.8;margin-bottom:18px;max-width:640px}
+.game-desc b{color:var(--ink)}
+.choice-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:4px}
+.choice{padding:9px 16px;border-radius:8px;border:1px solid var(--line);background:var(--panel-2);color:var(--mut);font-size:13.5px;font-weight:600;cursor:pointer}
+.choice:hover{color:var(--ink);border-color:var(--mut)}
+.choice.on{background:rgba(242,169,59,.12);border-color:var(--amber);color:var(--amber)}
+.board-wrap{display:flex;flex-direction:column;align-items:center;gap:14px}
+.turn-banner{display:flex;align-items:center;gap:10px;font-size:14px;color:var(--mut)}
+.turn-dot{width:14px;height:14px;border-radius:50%;border:2px solid var(--line)}
+.turn-dot.B{background:#1a1a1a}
+.turn-dot.W{background:#f2f2f2}
+.turn-dot.H{background:#c0392b}
+.turn-dot.O{background:#2874a6}
+.timer{font-family:var(--mono);font-weight:700;color:var(--amber)}
+.timer.warn{color:var(--red)}
+.board{display:grid;grid-template-columns:repeat(15,minmax(20px,28px));grid-template-rows:repeat(15,minmax(20px,28px));background:#C99B5F;border:2px solid #8a6a3f;border-radius:6px;padding:8px}
+.cell{position:relative;display:flex;align-items:center;justify-content:center;cursor:pointer}
+.cell::before,.cell::after{content:'';position:absolute;background:#5b4326}
+.cell::before{left:0;right:0;top:50%;height:1px}
+.cell::after{top:0;bottom:0;left:50%;width:1px}
+.stone{width:78%;height:78%;border-radius:50%;box-shadow:0 2px 3px rgba(0,0,0,.4);z-index:2}
+.stone.B{background:radial-gradient(circle at 35% 30%,#555,#000)}
+.stone.W{background:radial-gradient(circle at 35% 30%,#fff,#ccc)}
+.result-banner{font-size:18px;font-weight:700;padding:10px 20px;border-radius:10px;background:var(--panel-2);border:1px solid var(--line);display:none}
+.result-banner.show{display:block}
+@media (max-width:600px){ .board{grid-template-columns:repeat(15,minmax(16px,22px));grid-template-rows:repeat(15,minmax(16px,22px))} }
+.jboard{position:relative;display:grid;grid-template-columns:repeat(9,minmax(28px,40px));grid-template-rows:repeat(10,minmax(28px,40px));background:#D9C08A;border:2px solid #8a6a3f;border-radius:6px;padding:8px;transition:box-shadow .15s}
+.jboard.check-H{animation:jboardGlowH 1s ease-in-out infinite}
+.jboard.check-O{animation:jboardGlowO 1s ease-in-out infinite}
+@keyframes jboardGlowH{0%,100%{box-shadow:0 0 0 3px rgba(192,57,43,.55),0 0 18px 4px rgba(192,57,43,.35)}50%{box-shadow:0 0 0 5px rgba(192,57,43,.95),0 0 26px 8px rgba(192,57,43,.65)}}
+@keyframes jboardGlowO{0%,100%{box-shadow:0 0 0 3px rgba(40,116,166,.55),0 0 18px 4px rgba(40,116,166,.35)}50%{box-shadow:0 0 0 5px rgba(40,116,166,.95),0 0 26px 8px rgba(40,116,166,.65)}}
+.jcell{position:relative;z-index:1;display:flex;align-items:center;justify-content:center;cursor:pointer}
+.jcell.selected{background:rgba(242,169,59,.4)}
+.jcell.dest{background:rgba(62,207,142,.3)}
+.jcell.last-move{box-shadow:inset 0 0 0 3px rgba(242,169,59,.8)}
+.jcell.in-check-H{animation:jkingRingH 1s ease-in-out infinite}
+.jcell.in-check-O{animation:jkingRingO 1s ease-in-out infinite}
+@keyframes jkingRingH{0%,100%{box-shadow:inset 0 0 0 3px rgba(192,57,43,.6)}50%{box-shadow:inset 0 0 0 3px rgba(192,57,43,1)}}
+@keyframes jkingRingO{0%,100%{box-shadow:inset 0 0 0 3px rgba(40,116,166,.6)}50%{box-shadow:inset 0 0 0 3px rgba(40,116,166,1)}}
+.jboard-lines{position:absolute;top:8px;left:8px;right:8px;bottom:8px;pointer-events:none;z-index:0}
+.jpiece{width:82%;height:82%;object-fit:contain;z-index:2;filter:drop-shadow(0 2px 2px rgba(0,0,0,.35))}
+@media (max-width:600px){ .jboard{grid-template-columns:repeat(9,minmax(24px,30px));grid-template-rows:repeat(10,minmax(24px,30px))} }
+.jcheck-banner{display:none;font-weight:800;font-size:14px;padding:5px 14px;border-radius:20px;letter-spacing:.5px}
+.jcheck-banner.show{display:inline-block;animation:jcheckPulse .9s ease-in-out infinite}
+.jcheck-banner.H{background:rgba(192,57,43,.16);color:#c0392b;border:1px solid #c0392b}
+.jcheck-banner.O{background:rgba(40,116,166,.16);color:#2874a6;border:1px solid #2874a6}
+@keyframes jcheckPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.12)}}
+.two-col{display:grid;grid-template-columns:1fr 320px;gap:16px;align-items:start}
+@media (max-width:800px){ .two-col{grid-template-columns:1fr} }
+.rank-row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--line);font-size:13px}
+.rank-row:last-child{border-bottom:0}
+.rank-row .no{color:var(--amber);font-family:var(--mono);width:24px}
+.rank-row .mid{color:var(--dim);font-size:12px}
+</style>
+</head>
+<body>
+<div id="site-nav"></div>
+<main>
+  <header class="page"><h1>♟️ 보드게임</h1></header>
+  <div class="mode-tabs">
+    <button class="mode-tab on" id="tabOmok" onclick="switchMode('omok')">⚪ 오목</button>
+    <button class="mode-tab" id="tabJanggi" onclick="switchMode('janggi')">♟️ 장기</button>
+    <button class="mode-tab disabled" disabled>♞ 체스 · 준비중</button>
+  </div>
+
+  <!-- ===== 오목 ===== -->
+  <section id="panelOmok">
+    <p class="game-desc">15×15 바둑판에서 <b>AI와 1:1 대국</b>합니다. 원하는 돌 색과 난이도를 고르고 시작하세요. 가로·세로·대각선 중 어느 방향으로든 먼저 5목을 이으면 승리입니다.</p>
+    <div class="two-col" id="omokSetupWrap">
+      <div class="panel" id="omokSetup">
+        <h2>대국 설정</h2>
+        <label>내 돌 색</label>
+        <div class="choice-row" id="colorRow">
+          <button class="choice on" data-v="B" onclick="pick('colorRow','color','B')">⚫ 흑돌 (선공)</button>
+          <button class="choice" data-v="W" onclick="pick('colorRow','color','W')">⚪ 백돌 (후공)</button>
+        </div>
+        <label>난이도</label>
+        <div class="choice-row" id="diffRow">
+          <button class="choice" data-v="EASY" onclick="pick('diffRow','diff','EASY')">초급</button>
+          <button class="choice on" data-v="MEDIUM" onclick="pick('diffRow','diff','MEDIUM')">중급</button>
+          <button class="choice" data-v="HARD" onclick="pick('diffRow','diff','HARD')">고급</button>
+        </div>
+        <label>내 차례 제한시간</label>
+        <div class="choice-row" id="timeRow">
+          <button class="choice on" data-v="" onclick="pick('timeRow','time','')">없음</button>
+          <button class="choice" data-v="30" onclick="pick('timeRow','time','30')">30초</button>
+          <button class="choice" data-v="60" onclick="pick('timeRow','time','60')">60초</button>
+        </div>
+        <button class="btn btn-amber" style="margin-top:18px" onclick="startOmok()">대국 시작</button>
+      </div>
+      <div class="panel">
+        <h2>랭킹 · 최소 착수</h2>
+        <div id="omokRanking"><div class="empty-msg">랭킹은 곧 추가됩니다.</div></div>
+      </div>
+    </div>
+    <div class="panel board-wrap" id="omokGame" style="display:none">
+      <div class="result-banner" id="resultBanner"></div>
+      <div class="turn-banner">
+        <span class="turn-dot" id="turnDot"></span>
+        <span id="turnText">-</span>
+        <span class="timer" id="timerText"></span>
+      </div>
+      <div class="board" id="board"></div>
+      <button class="btn btn-ghost" onclick="backToSetup()">설정으로 돌아가기</button>
+    </div>
+  </section>
+
+  <!-- ===== 장기 ===== -->
+  <section id="panelJanggi" style="display:none">
+    <p class="game-desc">9×10 궁성이 있는 전통 장기판에서 <b>AI와 1:1 대국</b>합니다. 진영과 포진을 고르고 시작한 뒤, 기물을 클릭하면 이동 가능한 칸이 초록색으로 표시됩니다 — 그 칸을 다시 클릭하면 이동합니다. 직전 수는 주황색 테두리로, 장군 상태는 보드 테두리와 궁 칸이 함께 깜빡이며 표시됩니다. 병(졸)의 궁성 대각선 이동만 간소화를 위해 생략했습니다.</p>
+    <div class="panel" id="janggiSetup">
+      <h2>대국 설정</h2>
+      <label>내 진영</label>
+      <div class="choice-row" id="jColorRow">
+        <button class="choice on" data-v="H" onclick="jPick('jColorRow','color','H')">🔴 한 (후공)</button>
+        <button class="choice" data-v="O" onclick="jPick('jColorRow','color','O')">🔵 초 (선공)</button>
+      </div>
+      <label>내 포진 (마·상 배치)</label>
+      <div class="choice-row" id="jMyFormRow">
+        <button class="choice on" data-v="MSMS" onclick="jPick('jMyFormRow','myFormation','MSMS')">마상마상</button>
+        <button class="choice" data-v="MSSM" onclick="jPick('jMyFormRow','myFormation','MSSM')">마상상마</button>
+        <button class="choice" data-v="SMSM" onclick="jPick('jMyFormRow','myFormation','SMSM')">상마상마</button>
+        <button class="choice" data-v="SMMS" onclick="jPick('jMyFormRow','myFormation','SMMS')">상마마상</button>
+      </div>
+      <label>상대(AI) 포진</label>
+      <div class="choice-row" id="jAiFormRow">
+        <button class="choice on" data-v="MSMS" onclick="jPick('jAiFormRow','aiFormation','MSMS')">마상마상</button>
+        <button class="choice" data-v="MSSM" onclick="jPick('jAiFormRow','aiFormation','MSSM')">마상상마</button>
+        <button class="choice" data-v="SMSM" onclick="jPick('jAiFormRow','aiFormation','SMSM')">상마상마</button>
+        <button class="choice" data-v="SMMS" onclick="jPick('jAiFormRow','aiFormation','SMMS')">상마마상</button>
+      </div>
+      <label>난이도</label>
+      <div class="choice-row" id="jDiffRow">
+        <button class="choice" data-v="EASY" onclick="jPick('jDiffRow','diff','EASY')">초급</button>
+        <button class="choice on" data-v="MEDIUM" onclick="jPick('jDiffRow','diff','MEDIUM')">중급</button>
+        <button class="choice" data-v="HARD" onclick="jPick('jDiffRow','diff','HARD')">고급</button>
+      </div>
+      <label>내 차례 제한시간</label>
+      <div class="choice-row" id="jTimeRow">
+        <button class="choice on" data-v="" onclick="jPick('jTimeRow','time','')">없음</button>
+        <button class="choice" data-v="30" onclick="jPick('jTimeRow','time','30')">30초</button>
+        <button class="choice" data-v="60" onclick="jPick('jTimeRow','time','60')">60초</button>
+      </div>
+      <button class="btn btn-amber" style="margin-top:18px" onclick="startJanggi()">대국 시작</button>
+    </div>
+    <div class="panel board-wrap" id="janggiGame" style="display:none">
+      <div class="result-banner" id="jResultBanner"></div>
+      <div class="turn-banner">
+        <span class="turn-dot" id="jTurnDot"></span>
+        <span id="jTurnText">-</span>
+        <span class="timer" id="jTimerText"></span>
+        <span class="jcheck-banner" id="jCheckBanner"></span>
+      </div>
+      <div class="jboard" id="jBoard"></div>
+      <button class="btn btn-ghost" onclick="jBackToSetup()">설정으로 돌아가기</button>
+    </div>
+  </section>
+</main>
+<script src="/js/nav.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const esc = s => (s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+let mode = 'omok';
+function switchMode(next){
+  mode = next;
+  $('tabOmok').classList.toggle('on', mode === 'omok');
+  $('tabJanggi').classList.toggle('on', mode === 'janggi');
+  $('panelOmok').style.display = mode === 'omok' ? 'block' : 'none';
+  $('panelJanggi').style.display = mode === 'janggi' ? 'block' : 'none';
+  const path = mode === 'janggi' ? '/game/board/janggi' : '/game/board/omok';
+  history.replaceState(null, '', path);
+}
+const OMOK_API = '/api/game/omok';
+const SIZE = 15;
+let omokGameId = null;
+let setup = { color: 'B', diff: 'MEDIUM', time: '' };
+let timerHandle = null;
+let humanColorGlobal = 'B', timeLimitGlobal = null, turnStartedGlobal = 0;
+function pick(rowId, key, value){
+  document.querySelectorAll('#' + rowId + ' .choice').forEach(b => b.classList.toggle('on', b.dataset.v === value));
+  setup[key] = value;
+}
+function buildBoard(){
+  const board = $('board');
+  if (board.children.length) return;
+  for (let y = 0; y < SIZE; y++) {
+    for (let x = 0; x < SIZE; x++) {
+      const cell = document.createElement('div');
+      cell.className = 'cell';
+      cell.dataset.x = x; cell.dataset.y = y;
+      cell.onclick = () => omokMove(x, y);
+      board.appendChild(cell);
+    }
+  }
+}
+function backToSetup(){
+  clearInterval(timerHandle);
+  omokGameId = null;
+  $('omokGame').style.display = 'none';
+  $('omokSetupWrap').style.display = 'grid';
+}
+async function startOmok(){
+  buildBoard();
+  const body = { humanColor: setup.color, difficulty: setup.diff, timeLimitSeconds: setup.time ? parseInt(setup.time, 10) : null };
+  const data = await fetch(OMOK_API + '/new', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).then(r => r.json());
+  omokGameId = data.id;
+  $('omokSetupWrap').style.display = 'none';
+  $('omokGame').style.display = 'flex';
+  $('resultBanner').classList.remove('show');
+  renderOmok(data);
+}
+async function omokMove(x, y){
+  if (!omokGameId) return;
+  const data = await fetch(`${OMOK_API}/${omokGameId}/move`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ x, y }) }).then(r => r.json());
+  if (data.error) return;
+  renderOmok(data);
+}
+async function omokTimeoutTick(){
+  const data = await fetch(`${OMOK_API}/${omokGameId}/timeout`, { method: 'POST' }).then(r => r.json());
+  renderOmok(data);
+}
+function renderOmok(data){
+  humanColorGlobal = data.humanColor;
+  timeLimitGlobal = data.timeLimitSeconds;
+  turnStartedGlobal = data.turnStartedAt;
+  const board = data.board;
+  document.querySelectorAll('.cell').forEach(cell => {
+    const x = +cell.dataset.x, y = +cell.dataset.y;
+    const v = board[y][x];
+    cell.innerHTML = v === '.' ? '' : `<div class="stone ${v}"></div>`;
+  });
+  $('turnDot').className = 'turn-dot ' + data.currentPlayer;
+  clearInterval(timerHandle);
+  if (data.status === 'PLAYING') {
+    const isHumanTurn = data.currentPlayer === humanColorGlobal;
+    $('turnText').textContent = (isHumanTurn ? '내' : 'AI') + ' 차례입니다 (' + (data.currentPlayer === 'B' ? '흑돌' : '백돌') + ')';
+    $('resultBanner').classList.remove('show');
+    if (isHumanTurn && timeLimitGlobal) {
+      timerHandle = setInterval(() => {
+        const remain = timeLimitGlobal - Math.floor((Date.now() - turnStartedGlobal) / 1000);
+        if (remain <= 0) { $('timerText').textContent = '시간 초과'; omokTimeoutTick(); return; }
+        $('timerText').textContent = remain + '초';
+        $('timerText').classList.toggle('warn', remain <= 10);
+      }, 1000);
+    } else { $('timerText').textContent = ''; }
+  } else {
+    const label = data.status === 'BLACK_WIN' ? '⚫ 흑돌 승리!' : data.status === 'WHITE_WIN' ? '⚪ 백돌 승리!' : '무승부';
+    const who = data.status === (humanColorGlobal === 'B' ? 'BLACK_WIN' : 'WHITE_WIN') ? ' (나의 승리)' : data.status === 'DRAW' ? '' : ' (AI 승리)';
+    $('turnText').textContent = '대국 종료';
+    $('timerText').textContent = '';
+    $('resultBanner').textContent = label + who;
+    $('resultBanner').classList.add('show');
+  }
+}
+const JANGGI_API = '/api/game/janggi';
+const JCOLS = 9, JROWS = 10;
+const JANGGI_AI_DELAY_MS = 1000;
+let janggiGameId = null;
+let jSetup = { color: 'H', myFormation: 'MSMS', aiFormation: 'MSMS', diff: 'MEDIUM', time: '' };
+let jTimerHandle = null;
+let jAiMoveTimer = null;
+let jHumanColorGlobal = 'H', jTimeLimitGlobal = null, jTurnStartedGlobal = 0;
+let jSelected = null;
+let jDestinations = [];
+let jLastData = null, jLastBoard = null;
+function jPick(rowId, key, value){
+  document.querySelectorAll('#' + rowId + ' .choice').forEach(b => b.classList.toggle('on', b.dataset.v === value));
+  jSetup[key] = value;
+}
+function buildJanggiBoard(flip){
+  const board = $('jBoard');
+  board.innerHTML = '';
+  board.classList.remove('check-H', 'check-O');
+  for (let row = 0; row < JROWS; row++) {
+    for (let col = 0; col < JCOLS; col++) {
+      const x = flip ? JCOLS - 1 - col : col;
+      const y = flip ? JROWS - 1 - row : row;
+      const cell = document.createElement('div');
+      cell.className = 'jcell';
+      cell.dataset.x = x; cell.dataset.y = y;
+      cell.onclick = () => jCellClick(x, y);
+      board.appendChild(cell);
+    }
+  }
+  appendBoardLines(board);
+}
+function appendBoardLines(board){
+  const svgNS = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(svgNS, 'svg');
+  svg.setAttribute('viewBox', '0 0 9 10');
+  svg.setAttribute('preserveAspectRatio', 'none');
+  svg.classList.add('jboard-lines');
+  const line = (x1, y1, x2, y2, color, width) => {
+    const l = document.createElementNS(svgNS, 'line');
+    l.setAttribute('x1', x1); l.setAttribute('y1', y1);
+    l.setAttribute('x2', x2); l.setAttribute('y2', y2);
+    l.setAttribute('stroke', color);
+    l.setAttribute('stroke-width', width);
+    l.setAttribute('stroke-linecap', 'round');
+    svg.appendChild(l);
+  };
+  for (let row = 0; row < JROWS; row++) line(0.5, row + 0.5, 8.5, row + 0.5, '#000000', 0.05);
+  for (let col = 0; col < JCOLS; col++) line(col + 0.5, 0.5, col + 0.5, 9.5, '#000000', 0.05);
+  const palace = (topRow) => {
+    const bottomRow = topRow + 2;
+    const l = 3.5, r = 5.5, t = topRow + 0.5, b = bottomRow + 0.5;
+    line(l, t, r, t, '#000000', 0.09);
+    line(l, b, r, b, '#000000', 0.09);
+    line(l, t, l, b, '#000000', 0.09);
+    line(r, t, r, b, '#000000', 0.09);
+    line(l, t, r, b, '#000000', 0.09);
+    line(r, t, l, b, '#000000', 0.09);
+  };
+  palace(0); palace(7);
+  board.appendChild(svg);
+}
+function jBackToSetup(){
+  clearInterval(jTimerHandle);
+  clearTimeout(jAiMoveTimer);
+  janggiGameId = null;
+  jSelected = null; jDestinations = [];
+  $('janggiGame').style.display = 'none';
+  $('janggiSetup').style.display = 'block';
+}
+async function startJanggi(){
+  buildJanggiBoard(jSetup.color === 'H');
+  const body = { humanColor: jSetup.color, difficulty: jSetup.diff, timeLimitSeconds: jSetup.time ? parseInt(jSetup.time, 10) : null, humanFormation: jSetup.myFormation, aiFormation: jSetup.aiFormation };
+  const data = await fetch(JANGGI_API + '/new', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).then(r => r.json());
+  janggiGameId = data.id;
+  $('janggiSetup').style.display = 'none';
+  $('janggiGame').style.display = 'flex';
+  $('jResultBanner').classList.remove('show');
+  jSelected = null; jDestinations = [];
+  renderJanggi(data);
+}
+async function jCellClick(x, y){
+  if (!janggiGameId || !jLastBoard) return;
+  const piece = jLastBoard[y][x];
+  if (jSelected && jDestinations.some(d => d[0] === x && d[1] === y)) {
+    const fx = jSelected.x, fy = jSelected.y;
+    jSelected = null; jDestinations = [];
+    const data = await fetch(`${JANGGI_API}/${janggiGameId}/move`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ fromX: fx, fromY: fy, toX: x, toY: y }) }).then(r => r.json());
+    if (data.error) { renderJanggiBoardOnly(); return; }
+    renderJanggi(data);
+    return;
+  }
+  if (piece && piece.startsWith(jHumanColorGlobal) && jLastData && jLastData.currentPlayer === jHumanColorGlobal) {
+    jSelected = { x, y };
+    const data = await fetch(`${JANGGI_API}/${janggiGameId}/moves?x=${x}&y=${y}`).then(r => r.json());
+    jDestinations = data.destinations || [];
+    renderJanggiBoardOnly();
+    return;
+  }
+  jSelected = null; jDestinations = [];
+  renderJanggiBoardOnly();
+}
+async function jTimeoutTick(){
+  const data = await fetch(`${JANGGI_API}/${janggiGameId}/timeout`, { method: 'POST' }).then(r => r.json());
+  jSelected = null; jDestinations = [];
+  renderJanggi(data);
+}
+function scheduleAiMoveIfNeeded(){
+  clearTimeout(jAiMoveTimer);
+  if (jLastData && jLastData.status === 'PLAYING' && jLastData.currentPlayer === jLastData.aiColor) {
+    jAiMoveTimer = setTimeout(triggerAiMove, JANGGI_AI_DELAY_MS);
+  }
+}
+async function triggerAiMove(){
+  if (!janggiGameId) return;
+  const data = await fetch(`${JANGGI_API}/${janggiGameId}/ai-move`, { method: 'POST' }).then(r => r.json());
+  if (data.error) return;
+  renderJanggi(data);
+}
+function renderJanggi(data){
+  jLastData = data;
+  jLastBoard = data.board;
+  jHumanColorGlobal = data.humanColor;
+  jTimeLimitGlobal = data.timeLimitSeconds;
+  jTurnStartedGlobal = data.turnStartedAt;
+  renderJanggiBoardOnly();
+  renderCheckEffects(data.checkColor);
+  clearInterval(jTimerHandle);
+  if (data.status === 'PLAYING') {
+    const isHumanTurn = data.currentPlayer === jHumanColorGlobal;
+    $('jTurnText').textContent = (isHumanTurn ? '내' : 'AI') + ' 차례입니다 (' + (data.currentPlayer === 'H' ? '한' : '초') + ')';
+    $('jTurnDot').className = 'turn-dot ' + data.currentPlayer;
+    $('jResultBanner').classList.remove('show');
+    if (isHumanTurn && jTimeLimitGlobal) {
+      jTimerHandle = setInterval(() => {
+        const remain = jTimeLimitGlobal - Math.floor((Date.now() - jTurnStartedGlobal) / 1000);
+        if (remain <= 0) { $('jTimerText').textContent = '시간 초과'; jTimeoutTick(); return; }
+        $('jTimerText').textContent = remain + '초';
+        $('jTimerText').classList.toggle('warn', remain <= 10);
+      }, 1000);
+    } else { $('jTimerText').textContent = ''; }
+  } else {
+    const label = data.status === 'H_WIN' ? '🔴 한 승리!' : '🔵 초 승리!';
+    const who = data.status === (jHumanColorGlobal === 'H' ? 'H_WIN' : 'O_WIN') ? ' (나의 승리)' : ' (AI 승리)';
+    $('jTurnText').textContent = '대국 종료';
+    $('jTimerText').textContent = '';
+    $('jResultBanner').textContent = label + who;
+    $('jResultBanner').classList.add('show');
+  }
+  scheduleAiMoveIfNeeded();
+}
+function renderCheckEffects(checkColor){
+  const attacker = checkColor === 'H' ? 'O' : (checkColor === 'O' ? 'H' : null);
+  const banner = $('jCheckBanner');
+  const boardEl = $('jBoard');
+  boardEl.classList.remove('check-H', 'check-O');
+  document.querySelectorAll('.jcell').forEach(c => c.classList.remove('in-check-H', 'in-check-O'));
+  if (!attacker) { banner.className = 'jcheck-banner'; banner.textContent = ''; return; }
+  banner.textContent = (attacker === 'H' ? '🔴' : '🔵') + ' 장군!';
+  banner.className = 'jcheck-banner show ' + attacker;
+  boardEl.classList.add('check-' + attacker);
+  if (jLastBoard) {
+    for (let y = 0; y < JROWS; y++) {
+      for (let x = 0; x < JCOLS; x++) {
+        if (jLastBoard[y][x] === checkColor + 'K') {
+          const cell = boardEl.querySelector(`.jcell[data-x="${x}"][data-y="${y}"]`);
+          if (cell) cell.classList.add('in-check-' + attacker);
+        }
+      }
+    }
+  }
+}
+function renderJanggiBoardOnly(){
+  if (!jLastBoard) return;
+  const lm = jLastData && jLastData.lastMove;
+  document.querySelectorAll('.jcell').forEach(cell => {
+    const x = +cell.dataset.x, y = +cell.dataset.y;
+    const v = jLastBoard[y][x];
+    cell.classList.toggle('selected', !!(jSelected && jSelected.x === x && jSelected.y === y));
+    cell.classList.toggle('dest', jDestinations.some(d => d[0] === x && d[1] === y));
+    cell.classList.toggle('last-move', !!lm && ((x === lm.fromX && y === lm.fromY) || (x === lm.toX && y === lm.toY)));
+    cell.innerHTML = v ? `<img class="jpiece" src="/images/janggi/${v[0]}_${v[1]}.svg" alt="${v}">` : '';
+  });
+}
+if (location.pathname.includes('janggi')) { switchMode('janggi'); } else { switchMode('omok'); }
+</script>
+</body>
+</html>
