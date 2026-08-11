@@ -47,15 +47,18 @@
 .fc-free-row,.fc-found-row{display:flex;gap:10px}
 .fc-slot{width:76px;height:106px;border:2px dashed rgba(255,255,255,.25);border-radius:9px;display:flex;align-items:center;justify-content:center;position:relative;flex-shrink:0}
 .fc-found-row .fc-slot{border-color:rgba(255,255,255,.15)}
+.fc-found-row .fc-slot.hasCard{cursor:pointer}
 .fc-suit-ghost{font-size:30px;color:rgba(255,255,255,.18)}
 .fc-tableau{display:flex;gap:16px;justify-content:center}
 .fc-col{width:76px;min-height:380px;position:relative;flex-shrink:0}
 .fc-card{width:76px;height:106px;border-radius:9px;position:absolute;left:0;box-sizing:border-box;cursor:pointer;user-select:none;transition:box-shadow .12s,transform .12s;filter:drop-shadow(0 2px 4px rgba(0,0,0,.35))}
 .fc-card.selected{transform:translateY(-8px)}
 .fc-card.selected playing-card{outline:3px solid var(--amber);border-radius:9px}
+.fc-card.selected img{outline:3px solid var(--amber);border-radius:9px}
 .fc-card.facedown{cursor:default}
 .fc-slot .fc-card{position:static}
 .fc-card playing-card,.fc-card playing-card img{display:block;width:100%;height:100%;object-fit:contain}
+.fc-card > img{display:block;width:100%;height:100%;object-fit:contain;border-radius:9px}
 @keyframes fcDealIn{0%{opacity:0;transform:translate(6px,-180px) scale(.7) rotate(-8deg)}100%{opacity:1;transform:translate(0,0) scale(1) rotate(0)}}
 .fc-card.deal{animation:fcDealIn .45s cubic-bezier(.18,.82,.3,1) both}
 @keyframes fcPop{0%{transform:scale(1.28)}100%{transform:scale(1)}}
@@ -64,7 +67,6 @@
 .fc-card.flip{animation:fcFlip .25s ease}
 .fc-flash{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:rgba(192,57,43,.92);color:#fff;padding:8px 16px;border-radius:20px;font-size:13px;font-weight:600;display:none;z-index:50}
 .fc-flash.show{display:block}
-.kd-stock-count{font-size:11px;color:var(--dim);text-align:center;margin-top:4px}
 
 @media (max-width:700px){
   .fc-board{padding:10px}
@@ -171,8 +173,9 @@
       7개 컬럼에 카드를 계단식으로 펼쳐놓고 시작하는 고전 솔리테어입니다. 각 컬럼의 맨 위 카드만 앞면이고
       나머지는 뒷면인 채로 시작하며, 카드를 옮겨 뒷면 카드가 드러나면 자동으로 뒤집힙니다. 색이 번갈아
       바뀌며 1씩 내려가는 뭉치는 통째로 옮길 수 있고, 빈 컬럼에는 <b>K(킹)만</b> 놓을 수 있습니다. 카드
-      더미를 클릭하면 정해진 장수만큼 패가 넘어가고, 더 넘길 카드가 없으면 다시 섞습니다. 각 무늬를 A부터
-      K까지 순서대로 완성 칸에 쌓으면 승리입니다. 카드를 더블클릭하면 완성 칸으로 자동으로 옮겨집니다.
+      더미를 클릭하면 정해진 장수만큼 패가 넘어가고, 더 넘길 카드가 없으면 다시 섞습니다. 완성 칸의 카드는
+      다시 줄로 되돌릴 수도 있습니다(한 번에 1장). 각 무늬를 A부터 K까지 순서대로 완성 칸에 쌓으면
+      승리입니다. 카드를 더블클릭하면 완성 칸으로 자동으로 옮겨집니다.
     </p>
 
     <div class="panel" id="kdSetup">
@@ -258,6 +261,7 @@ function switchCardMode(next){
 const FC_SUIT_COLOR = ['black', 'red', 'red', 'black']; // 0=spade 1=heart 2=diamond 3=club (프리셀·클론다이크 공용)
 const FC_SUIT_LETTER = ['S', 'H', 'D', 'C'];
 const FC_RANK_LABELS = ['A','2','3','4','5','6','7','8','9','10','J','Q','K'];
+const CARD_BACK_IMG = '/images/cards/back.svg'; // 저장된 카드 뒷면 이미지(직접 그리지 않고 고정 파일 재사용)
 
 let fcFlashTimer = null;
 function fcFlash(msg){
@@ -699,6 +703,7 @@ async function loadFcRanking(){
    프리셀과 달리 뭉치 이동에 용량 제한이 없다(오픈칸이 없는 대신, 옮기려는 뭉치 자체가
    이미 앞면으로 노출된 유효한 연속열이어야만 선택할 수 있기 때문). 대신 카드 더미(스톡)에서
    앞면으로 넘기는 방식이 핵심 규칙이라, 난이도는 "한 번에 넘기는 장수"와 "다시 섞기 가능 횟수"로 구분한다.
+   완성 칸의 카드도 다시 줄 스택으로 되돌릴 수 있다(나무위키 클론다이크 문서 기준, 한 번에 1장만).
    =================================================== */
 const KLONDIKE_API = '/api/game/klondike';
 const KD_DIFF_META = {
@@ -710,7 +715,7 @@ const KD_DIFF_META = {
 let kdDifficulty = 'EASY';
 let kdTableau = [], kdStock = [], kdWaste = [], kdFound = {};
 let kdMoves = 0, kdStartAt = 0, kdTimerHandle = null, kdRedealsUsed = 0;
-let kdSelected = null; // { type:'tableau', col, idx } | { type:'waste' }
+let kdSelected = null; // { type:'tableau', col, idx } | { type:'waste' } | { type:'found', idx }
 let kdHistory = [];
 let kdInitialDeal = null;
 let kdLastMoved = null;
@@ -872,10 +877,6 @@ function kdClickStock(){
 
 function kdClickWaste(){
   if (!kdWaste.length) return;
-  if (kdSelected) {
-    // 웨이스트를 목적지로 쓰는 경우는 없음(선택 해제만)
-    kdSelected = null; kdRender(); return;
-  }
   if (kdSelected && kdSelected.type === 'waste') { kdSelected = null; }
   else { kdSelected = { type: 'waste' }; }
   kdRender();
@@ -911,6 +912,20 @@ function kdAttemptMoveToTableau(destCol){
     kdAfterMove();
     return true;
   }
+  if (kdSelected.type === 'found') {
+    const suitIdx = kdSelected.idx;
+    const card = { r: kdFound[suitIdx], s: suitIdx, faceUp: true };
+    const destArr = kdTableau[destCol];
+    const top = kdTopOf(destArr);
+    const validAttach = top ? (card.r === top.r - 1 && kdColor(card) !== kdColor(top)) : card.r === 13;
+    if (!validAttach) { fcFlash(top ? '그 카드 위엔 놓을 수 없어요' : '빈 컬럼엔 K만 놓을 수 있어요'); return false; }
+    kdPushHistory();
+    kdFound[suitIdx] = card.r - 1;
+    kdTableau[destCol].push(card);
+    kdLastMoved = { kind: 'col', idx: destCol };
+    kdAfterMove();
+    return true;
+  }
   return false;
 }
 
@@ -922,9 +937,11 @@ function kdAttemptMoveToFoundation(suitIdx){
     card = kdTopOf(kdTableau[kdSelected.col]);
     flipCol = kdSelected.col;
     removeFn = () => kdTableau[kdSelected.col].pop();
-  } else {
+  } else if (kdSelected.type === 'waste') {
     card = kdTopOf(kdWaste);
     removeFn = () => kdWaste.pop();
+  } else {
+    return false; // 완성 칸끼리 이동은 없음
   }
   if (card.s !== suitIdx || card.r !== kdFound[suitIdx] + 1) { fcFlash('그 완성 칸엔 놓을 수 없어요'); return false; }
   kdPushHistory();
@@ -956,8 +973,11 @@ function kdClickColumnBg(col){
   kdRender();
 }
 
+/** 완성 칸 클릭: 선택된 카드가 있으면 그 완성 칸으로 이동 시도. 없고 완성 칸에 카드가 있으면
+ *  그 카드를 선택(줄 스택으로 되돌리기 위함) — 나무위키 클론다이크 문서의 "완성 칸→줄 스택, 1장씩" 규칙. */
 function kdClickFoundation(suitIdx){
-  if (kdSelected) kdAttemptMoveToFoundation(suitIdx);
+  if (kdSelected) { kdAttemptMoveToFoundation(suitIdx); kdRender(); return; }
+  if (kdFound[suitIdx] > 0) { kdSelected = { type: 'found', idx: suitIdx }; }
   kdRender();
 }
 
@@ -1037,7 +1057,8 @@ function kdCheckWin(){
   return true;
 }
 
-function kdCardBackHtml(){ return `<playing-card cid="F0"></playing-card>`; }
+/** 카드 뒷면 — 매번 다시 그리지 않고 저장된 이미지 파일 하나를 재사용한다(카드마다 경계가 뚜렷해서 장수를 세기 쉽다). */
+function kdCardBackHtml(){ return `<img src="${CARD_BACK_IMG}" alt="카드 뒷면" draggable="false">`; }
 
 function kdRender(dealAnim){
   // 스톡
@@ -1059,11 +1080,12 @@ function kdRender(dealAnim){
   $('kdFoundRow').innerHTML = FC_SUIT_LETTER.map((letter, i) => {
     const r = kdFound[i];
     const pop = (kdLastMoved && kdLastMoved.kind === 'found' && kdLastMoved.idx === i) ? 'pop' : '';
+    const sel = (kdSelected && kdSelected.type === 'found' && kdSelected.idx === i) ? 'selected' : '';
     const suitGhost = ['♠', '♥', '♦', '♣'][i];
     const inner = r > 0
-      ? `<div class="fc-card ${pop}"><playing-card cid="${FC_RANK_LABELS[r - 1]}${letter}"></playing-card></div>`
+      ? `<div class="fc-card ${pop} ${sel}"><playing-card cid="${FC_RANK_LABELS[r - 1]}${letter}"></playing-card></div>`
       : `<span class="fc-suit-ghost">${suitGhost}</span>`;
-    return `<div class="fc-slot" onclick="kdClickFoundation(${i})">${inner}</div>`;
+    return `<div class="fc-slot${r > 0 ? ' hasCard' : ''}" onclick="kdClickFoundation(${i})">${inner}</div>`;
   }).join('');
 
   $('kdTableau').innerHTML = kdTableau.map((col, ci) => {
