@@ -35,11 +35,11 @@ public class BaseballController {
         }
     }
 
-    /** 4스트라이크(정답)로 승리한 뒤 닉네임을 받아 랭킹에 기록한다. */
+    /** 4스트라이크(정답)로 승리한 뒤 닉네임+소요시간을 받아 랭킹에 기록한다. */
     @PostMapping("/{id}/score")
     public GameScore saveScore(@PathVariable String id, @RequestBody ScoreRequest req) {
         BaseballGame g = service.get(id);
-        return service.saveScore(req.nickname(), g.getAttempts());
+        return service.saveScore(req.nickname(), g.getAttempts(), req.seconds());
     }
 
     @GetMapping("/ranking")
@@ -48,7 +48,7 @@ public class BaseballController {
     }
 
     public record GuessRequest(String guess) {}
-    public record ScoreRequest(String nickname) {}
+    public record ScoreRequest(String nickname, int seconds) {}
 
     private Map<String, Object> toResponse(BaseballGame g) {
         return Map.of(
