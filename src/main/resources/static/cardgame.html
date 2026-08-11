@@ -120,54 +120,56 @@
       시작할 수 있습니다.
     </p>
 
-    <div class="panel" id="fcSetup">
-      <h2>새 게임</h2>
-      <label>난이도</label>
-      <div class="choice-row" id="fcDiffRow">
-        <button class="choice on" data-v="EASY" onclick="fcPickDiff('EASY')">초급<small>카드를 쉽게 풀 수 있는 단순한 배치</small></button>
-        <button class="choice" data-v="MEDIUM" onclick="fcPickDiff('MEDIUM')">중급<small>무작위 배치</small></button>
-        <button class="choice" data-v="HARD" onclick="fcPickDiff('HARD')">고급<small>카드의 연계와 빈칸 활용이 필요한 배치</small></button>
-      </div>
-      <button class="btn btn-amber" style="margin-top:18px" onclick="fcNewGame()">게임 시작</button>
-    </div>
-
-    <div class="two-col" id="fcGame" style="display:none">
+    <div class="two-col" id="fcOuter">
       <div style="min-width:0">
-        <div class="fc-topbar">
-          <div class="fc-stats">
-            <span>난이도 <b id="fcDiffLabel">초급</b></span>
-            <span>이동 <b id="fcMovesText">0</b></span>
-            <span>시간 <b id="fcTimeText">00:00</b></span>
+        <div class="panel" id="fcSetup">
+          <h2>새 게임</h2>
+          <label>난이도</label>
+          <div class="choice-row" id="fcDiffRow">
+            <button class="choice on" data-v="EASY" onclick="fcPickDiff('EASY')">초급<small>카드를 쉽게 풀 수 있는 단순한 배치</small></button>
+            <button class="choice" data-v="MEDIUM" onclick="fcPickDiff('MEDIUM')">중급<small>무작위 배치</small></button>
+            <button class="choice" data-v="HARD" onclick="fcPickDiff('HARD')">고급<small>카드의 연계와 빈칸 활용이 필요한 배치</small></button>
           </div>
-          <div class="fc-btns">
-            <button id="fcUndoBtn" onclick="fcUndo()">↩️ 실행취소</button>
-            <button onclick="fcNewGame()">🔁 새 게임</button>
-            <button onclick="fcBackToSetup()">설정으로</button>
-          </div>
+          <button class="btn btn-amber" style="margin-top:18px" onclick="fcNewGame()">게임 시작</button>
         </div>
 
-        <div class="fc-board" id="fcBoard">
-          <div class="fc-zones">
-            <div class="fc-free-row" id="fcFreeRow"></div>
-            <div style="flex:1"></div>
-            <div class="fc-found-row" id="fcFoundRow"></div>
+        <div id="fcGame" style="display:none">
+          <div class="fc-topbar">
+            <div class="fc-stats">
+              <span>난이도 <b id="fcDiffLabel">초급</b></span>
+              <span>이동 <b id="fcMovesText">0</b></span>
+              <span>시간 <b id="fcTimeText">00:00</b></span>
+            </div>
+            <div class="fc-btns">
+              <button id="fcUndoBtn" onclick="fcUndo()">↩️ 실행취소</button>
+              <button onclick="fcNewGame()">🔁 새 게임</button>
+              <button onclick="fcBackToSetup()">설정으로</button>
+            </div>
           </div>
-          <div class="fc-tableau" id="fcTableau"></div>
-        </div>
 
-        <div class="win-banner" id="fcWinBanner">
-          <b id="fcWinText"></b>
-          <div class="nick-row">
-            <input id="fcNickname" placeholder="랭킹에 등록할 닉네임 (선택)" maxlength="12">
-            <button class="btn btn-amber" onclick="fcSaveScore()">등록</button>
+          <div class="fc-board" id="fcBoard">
+            <div class="fc-zones">
+              <div class="fc-free-row" id="fcFreeRow"></div>
+              <div style="flex:1"></div>
+              <div class="fc-found-row" id="fcFoundRow"></div>
+            </div>
+            <div class="fc-tableau" id="fcTableau"></div>
           </div>
-        </div>
 
-        <div class="gameover-banner" id="fcGameOverBanner">
-          <b>😵 더 이상 이동할 수 있는 카드가 없습니다.</b>
-          <div class="fc-btns">
-            <button onclick="fcRetryDeal()">🔄 이 판 다시 시도</button>
-            <button onclick="fcNewGame()">🎲 새 게임</button>
+          <div class="win-banner" id="fcWinBanner">
+            <b id="fcWinText"></b>
+            <div class="nick-row">
+              <input id="fcNickname" placeholder="랭킹에 등록할 닉네임 (선택)" maxlength="12">
+              <button class="btn btn-amber" onclick="fcSaveScore()">등록</button>
+            </div>
+          </div>
+
+          <div class="gameover-banner" id="fcGameOverBanner">
+            <b>😵 더 이상 이동할 수 있는 카드가 없습니다.</b>
+            <div class="fc-btns">
+              <button onclick="fcRetryDeal()">🔄 이 판 다시 시도</button>
+              <button onclick="fcNewGame()">🎲 새 게임</button>
+            </div>
           </div>
         </div>
       </div>
@@ -189,58 +191,60 @@
       순서대로 완성 칸에 쌓으면 승리입니다. 카드를 더블클릭하면 완성 칸으로 자동으로 옮겨집니다.
     </p>
 
-    <div class="panel" id="kdSetup">
-      <h2>새 게임</h2>
-      <label>난이도</label>
-      <div class="choice-row" id="kdDiffRow">
-        <button class="choice on" data-v="EASY" onclick="kdPickDiff('EASY')">초급<small>한 장씩 넘기기 · 완성 칸 자동 정리 · 힌트 3회</small></button>
-        <button class="choice" data-v="MEDIUM" onclick="kdPickDiff('MEDIUM')">중급<small>한 장씩 넘기기 · 힌트 없음</small></button>
-        <button class="choice" data-v="HARD" onclick="kdPickDiff('HARD')">고급<small>세 장씩 넘기기 · 힌트 없음</small></button>
-      </div>
-      <button class="btn btn-amber" style="margin-top:18px" onclick="kdNewGame()">게임 시작</button>
-    </div>
-
-    <div class="two-col" id="kdGame" style="display:none">
+    <div class="two-col" id="kdOuter">
       <div style="min-width:0">
-        <div class="fc-topbar">
-          <div class="fc-stats">
-            <span>난이도 <b id="kdDiffLabel">초급</b></span>
-            <span>이동 <b id="kdMovesText">0</b></span>
-            <span>시간 <b id="kdTimeText">00:00</b></span>
+        <div class="panel" id="kdSetup">
+          <h2>새 게임</h2>
+          <label>난이도</label>
+          <div class="choice-row" id="kdDiffRow">
+            <button class="choice on" data-v="EASY" onclick="kdPickDiff('EASY')">초급<small>한 장씩 넘기기 · 완성 칸 자동 정리 · 힌트 3회</small></button>
+            <button class="choice" data-v="MEDIUM" onclick="kdPickDiff('MEDIUM')">중급<small>한 장씩 넘기기 · 힌트 없음</small></button>
+            <button class="choice" data-v="HARD" onclick="kdPickDiff('HARD')">고급<small>세 장씩 넘기기 · 힌트 없음</small></button>
           </div>
-          <div class="fc-btns">
-            <button id="kdHintBtn" onclick="kdUseHint()">💡 힌트</button>
-            <button id="kdUndoBtn" onclick="kdUndo()">↩️ 실행취소</button>
-            <button onclick="kdNewGame()">🔁 새 게임</button>
-            <button onclick="kdBackToSetup()">설정으로</button>
-          </div>
+          <button class="btn btn-amber" style="margin-top:18px" onclick="kdNewGame()">게임 시작</button>
         </div>
 
-        <div class="fc-board" id="kdBoard">
-          <div class="fc-zones">
-            <div class="fc-free-row">
-              <div id="kdStockSlot" class="fc-slot" onclick="kdClickStock()"></div>
-              <div id="kdWasteSlot" class="fc-slot" onclick="kdClickWaste()"></div>
+        <div id="kdGame" style="display:none">
+          <div class="fc-topbar">
+            <div class="fc-stats">
+              <span>난이도 <b id="kdDiffLabel">초급</b></span>
+              <span>이동 <b id="kdMovesText">0</b></span>
+              <span>시간 <b id="kdTimeText">00:00</b></span>
             </div>
-            <div style="flex:1"></div>
-            <div class="fc-found-row" id="kdFoundRow"></div>
+            <div class="fc-btns">
+              <button id="kdHintBtn" onclick="kdUseHint()">💡 힌트</button>
+              <button id="kdUndoBtn" onclick="kdUndo()">↩️ 실행취소</button>
+              <button onclick="kdNewGame()">🔁 새 게임</button>
+              <button onclick="kdBackToSetup()">설정으로</button>
+            </div>
           </div>
-          <div class="fc-tableau" id="kdTableau"></div>
-        </div>
 
-        <div class="win-banner" id="kdWinBanner">
-          <b id="kdWinText"></b>
-          <div class="nick-row">
-            <input id="kdNickname" placeholder="랭킹에 등록할 닉네임 (선택)" maxlength="12">
-            <button class="btn btn-amber" onclick="kdSaveScore()">등록</button>
+          <div class="fc-board" id="kdBoard">
+            <div class="fc-zones">
+              <div class="fc-free-row">
+                <div id="kdStockSlot" class="fc-slot" onclick="kdClickStock()"></div>
+                <div id="kdWasteSlot" class="fc-slot" onclick="kdClickWaste()"></div>
+              </div>
+              <div style="flex:1"></div>
+              <div class="fc-found-row" id="kdFoundRow"></div>
+            </div>
+            <div class="fc-tableau" id="kdTableau"></div>
           </div>
-        </div>
 
-        <div class="gameover-banner" id="kdGameOverBanner">
-          <b>😵 더 이상 이동할 수 있는 카드가 없습니다.</b>
-          <div class="fc-btns">
-            <button onclick="kdRetryDeal()">🔄 이 판 다시 시도</button>
-            <button onclick="kdNewGame()">🎲 새 게임</button>
+          <div class="win-banner" id="kdWinBanner">
+            <b id="kdWinText"></b>
+            <div class="nick-row">
+              <input id="kdNickname" placeholder="랭킹에 등록할 닉네임 (선택)" maxlength="12">
+              <button class="btn btn-amber" onclick="kdSaveScore()">등록</button>
+            </div>
+          </div>
+
+          <div class="gameover-banner" id="kdGameOverBanner">
+            <b>😵 더 이상 이동할 수 있는 카드가 없습니다.</b>
+            <div class="fc-btns">
+              <button onclick="kdRetryDeal()">🔄 이 판 다시 시도</button>
+              <button onclick="kdNewGame()">🎲 새 게임</button>
+            </div>
           </div>
         </div>
       </div>
@@ -262,55 +266,57 @@
       모두 완성하면 승리입니다.
     </p>
 
-    <div class="panel" id="spSetup">
-      <h2>새 게임</h2>
-      <label>난이도</label>
-      <div class="choice-row" id="spDiffRow">
-        <button class="choice on" data-v="EASY" onclick="spPickDiff('EASY')">초급<small>한 가지 무늬만 사용 — 어떤 카드든 뭉치로 옮길 수 있음</small></button>
-        <button class="choice" data-v="MEDIUM" onclick="spPickDiff('MEDIUM')">중급<small>두 가지 무늬 사용</small></button>
-        <button class="choice" data-v="HARD" onclick="spPickDiff('HARD')">고급<small>네 가지 무늬 모두 사용(정식 스파이더 규칙)</small></button>
-      </div>
-      <button class="btn btn-amber" style="margin-top:18px" onclick="spNewGame()">게임 시작</button>
-    </div>
-
-    <div class="two-col" id="spGame" style="display:none">
+    <div class="two-col" id="spOuter">
       <div style="min-width:0">
-        <div class="fc-topbar">
-          <div class="fc-stats">
-            <span>난이도 <b id="spDiffLabel">초급</b></span>
-            <span>완성 <b id="spCompletedText">0/8</b></span>
-            <span>이동 <b id="spMovesText">0</b></span>
-            <span>시간 <b id="spTimeText">00:00</b></span>
+        <div class="panel" id="spSetup">
+          <h2>새 게임</h2>
+          <label>난이도</label>
+          <div class="choice-row" id="spDiffRow">
+            <button class="choice on" data-v="EASY" onclick="spPickDiff('EASY')">초급<small>한 가지 무늬만 사용 — 어떤 카드든 뭉치로 옮길 수 있음</small></button>
+            <button class="choice" data-v="MEDIUM" onclick="spPickDiff('MEDIUM')">중급<small>두 가지 무늬 사용</small></button>
+            <button class="choice" data-v="HARD" onclick="spPickDiff('HARD')">고급<small>네 가지 무늬 모두 사용(정식 스파이더 규칙)</small></button>
           </div>
-          <div class="fc-btns">
-            <button id="spUndoBtn" onclick="spUndo()">↩️ 실행취소</button>
-            <button onclick="spNewGame()">🔁 새 게임</button>
-            <button onclick="spBackToSetup()">설정으로</button>
-          </div>
+          <button class="btn btn-amber" style="margin-top:18px" onclick="spNewGame()">게임 시작</button>
         </div>
 
-        <div class="fc-board" id="spBoard">
-          <div class="fc-zones">
-            <div class="fc-free-row">
-              <div id="spStockSlot" class="fc-slot" onclick="spClickStock()"></div>
+        <div id="spGame" style="display:none">
+          <div class="fc-topbar">
+            <div class="fc-stats">
+              <span>난이도 <b id="spDiffLabel">초급</b></span>
+              <span>완성 <b id="spCompletedText">0/8</b></span>
+              <span>이동 <b id="spMovesText">0</b></span>
+              <span>시간 <b id="spTimeText">00:00</b></span>
+            </div>
+            <div class="fc-btns">
+              <button id="spUndoBtn" onclick="spUndo()">↩️ 실행취소</button>
+              <button onclick="spNewGame()">🔁 새 게임</button>
+              <button onclick="spBackToSetup()">설정으로</button>
             </div>
           </div>
-          <div class="fc-tableau sp-tableau" id="spTableau"></div>
-        </div>
 
-        <div class="win-banner" id="spWinBanner">
-          <b id="spWinText"></b>
-          <div class="nick-row">
-            <input id="spNickname" placeholder="랭킹에 등록할 닉네임 (선택)" maxlength="12">
-            <button class="btn btn-amber" onclick="spSaveScore()">등록</button>
+          <div class="fc-board" id="spBoard">
+            <div class="fc-zones">
+              <div class="fc-free-row">
+                <div id="spStockSlot" class="fc-slot" onclick="spClickStock()"></div>
+              </div>
+            </div>
+            <div class="fc-tableau sp-tableau" id="spTableau"></div>
           </div>
-        </div>
 
-        <div class="gameover-banner" id="spGameOverBanner">
-          <b>😵 더 이상 이동할 수 있는 카드가 없습니다.</b>
-          <div class="fc-btns">
-            <button onclick="spRetryDeal()">🔄 이 판 다시 시도</button>
-            <button onclick="spNewGame()">🎲 새 게임</button>
+          <div class="win-banner" id="spWinBanner">
+            <b id="spWinText"></b>
+            <div class="nick-row">
+              <input id="spNickname" placeholder="랭킹에 등록할 닉네임 (선택)" maxlength="12">
+              <button class="btn btn-amber" onclick="spSaveScore()">등록</button>
+            </div>
+          </div>
+
+          <div class="gameover-banner" id="spGameOverBanner">
+            <b>😵 더 이상 이동할 수 있는 카드가 없습니다.</b>
+            <div class="fc-btns">
+              <button onclick="spRetryDeal()">🔄 이 판 다시 시도</button>
+              <button onclick="spNewGame()">🎲 새 게임</button>
+            </div>
           </div>
         </div>
       </div>
@@ -392,6 +398,7 @@ let fcOver = false;
 function fcPickDiff(v){
   fcDifficulty = v;
   document.querySelectorAll('#fcDiffRow .choice').forEach(b => b.classList.toggle('on', b.dataset.v === v));
+  loadFcRanking();
 }
 
 function fcColor(card){ return FC_SUIT_COLOR[card.s]; }
@@ -453,7 +460,7 @@ function fcStartFromDeal(tableau){
   fcOver = false;
 
   $('fcSetup').style.display = 'none';
-  $('fcGame').style.display = 'grid';
+  $('fcGame').style.display = 'block';
   $('fcWinBanner').classList.remove('show');
   $('fcGameOverBanner').classList.remove('show');
   $('fcBoard').classList.remove('win');
@@ -813,6 +820,7 @@ let kdHintTimer = null;
 function kdPickDiff(v){
   kdDifficulty = v;
   document.querySelectorAll('#kdDiffRow .choice').forEach(b => b.classList.toggle('on', b.dataset.v === v));
+  loadKdRanking();
 }
 
 function kdColor(card){ return FC_SUIT_COLOR[card.s]; }
@@ -869,7 +877,7 @@ function kdStartFromDeal(deal){
   clearTimeout(kdHintTimer);
 
   $('kdSetup').style.display = 'none';
-  $('kdGame').style.display = 'grid';
+  $('kdGame').style.display = 'block';
   $('kdWinBanner').classList.remove('show');
   $('kdGameOverBanner').classList.remove('show');
   $('kdBoard').classList.remove('win');
@@ -1337,6 +1345,7 @@ let spOver = false;
 function spPickDiff(v){
   spDifficulty = v;
   document.querySelectorAll('#spDiffRow .choice').forEach(b => b.classList.toggle('on', b.dataset.v === v));
+  loadSpRanking();
 }
 
 function spColor(card){ return FC_SUIT_COLOR[card.s]; }
@@ -1394,7 +1403,7 @@ function spStartFromDeal(deal){
   spOver = false;
 
   $('spSetup').style.display = 'none';
-  $('spGame').style.display = 'grid';
+  $('spGame').style.display = 'block';
   $('spWinBanner').classList.remove('show');
   $('spGameOverBanner').classList.remove('show');
   $('spBoard').classList.remove('win');
@@ -1627,6 +1636,10 @@ async function loadSpRanking(){
   $('spRanking').innerHTML = !list.length ? '<div class="empty-msg">아직 등록된 기록이 없습니다.</div>' :
     list.map((r, i) => `<div class="rank-row"><span><span class="no">${i + 1}</span> ${esc(r.nickname)}</span><span>${r.metric}수 · ${esc(r.detail || '')}</span></div>`).join('');
 }
+
+loadFcRanking();
+loadKdRanking();
+loadSpRanking();
 
 if (location.pathname.includes('klondike')) switchCardMode('klondike');
 else if (location.pathname.includes('spider')) switchCardMode('spider');
