@@ -50,8 +50,11 @@
 .fc-found-row .fc-slot.hasCard{cursor:pointer}
 .fc-suit-ghost{font-size:30px;color:rgba(255,255,255,.18)}
 .fc-tableau{display:flex;gap:16px;justify-content:center}
+.fc-tableau.sp-tableau{gap:8px}
 .fc-col{width:76px;min-height:380px;position:relative;flex-shrink:0}
+.fc-col.sp-col{width:60px}
 .fc-card{width:76px;height:106px;border-radius:9px;position:absolute;left:0;box-sizing:border-box;cursor:pointer;user-select:none;transition:box-shadow .12s,transform .12s;filter:drop-shadow(0 2px 4px rgba(0,0,0,.35))}
+.fc-card.sp-card{width:60px;height:84px}
 .fc-card.selected{transform:translateY(-8px)}
 .fc-card.selected playing-card{outline:3px solid var(--amber);border-radius:9px}
 .fc-card.selected img{outline:3px solid var(--amber);border-radius:9px}
@@ -83,6 +86,9 @@
   .fc-slot{height:53px}
   .fc-suit-ghost{font-size:16px}
   .fc-card.selected{transform:translateY(-5px)}
+  .fc-tableau.sp-tableau{gap:3px}
+  .fc-col.sp-col{width:30px}
+  .fc-card.sp-card{width:30px;height:42px}
 }
 @media (max-width:360px){
   .fc-slot,.fc-card,.fc-col{width:33px}
@@ -100,7 +106,7 @@
   <div class="mode-tabs">
     <button class="mode-tab on" id="tabFreecell" onclick="switchCardMode('freecell')">🃏 프리셀</button>
     <button class="mode-tab" id="tabKlondike" onclick="switchCardMode('klondike')">🂡 클론다이크</button>
-    <button class="mode-tab disabled" disabled>🕷️ 스파이더 · 준비중</button>
+    <button class="mode-tab" id="tabSpider" onclick="switchCardMode('spider')">🕷️ 스파이더</button>
   </div>
 
   <!-- ===== 프리셀 ===== -->
@@ -244,6 +250,76 @@
       </div>
     </div>
   </section>
+
+  <!-- ===== 스파이더 ===== -->
+  <section id="panelSpider" style="display:none">
+    <p class="game-desc">
+      10개 컬럼에 104장(2벌)을 펼쳐놓고 시작하는 솔리테어입니다. 각 컬럼의 맨 위 카드만 앞면이고 나머지는
+      뒷면이며, 카드를 옮겨 뒷면 카드가 드러나면 자동으로 뒤집힙니다. 무늬에 상관없이 1씩 내려가는 카드
+      위에 놓을 수 있지만, <b>같은 무늬로 이어진 뭉치만 통째로</b> 옮길 수 있습니다. 빈 컬럼에는 아무
+      카드나 놓을 수 있습니다. 카드 더미를 클릭하면 모든 컬럼에 한 장씩 새 카드가 깔립니다(단, 빈 컬럼이
+      있으면 낼 수 없습니다). 한 무늬로 K부터 A까지 순서대로 이어지면 자동으로 완성되어 치워지고, 8세트를
+      모두 완성하면 승리입니다.
+    </p>
+
+    <div class="panel" id="spSetup">
+      <h2>새 게임</h2>
+      <label>난이도</label>
+      <div class="choice-row" id="spDiffRow">
+        <button class="choice on" data-v="EASY" onclick="spPickDiff('EASY')">초급<small>한 가지 무늬만 사용 — 어떤 카드든 뭉치로 옮길 수 있음</small></button>
+        <button class="choice" data-v="MEDIUM" onclick="spPickDiff('MEDIUM')">중급<small>두 가지 무늬 사용</small></button>
+        <button class="choice" data-v="HARD" onclick="spPickDiff('HARD')">고급<small>네 가지 무늬 모두 사용(정식 스파이더 규칙)</small></button>
+      </div>
+      <button class="btn btn-amber" style="margin-top:18px" onclick="spNewGame()">게임 시작</button>
+    </div>
+
+    <div class="two-col" id="spGame" style="display:none">
+      <div style="min-width:0">
+        <div class="fc-topbar">
+          <div class="fc-stats">
+            <span>난이도 <b id="spDiffLabel">초급</b></span>
+            <span>완성 <b id="spCompletedText">0/8</b></span>
+            <span>이동 <b id="spMovesText">0</b></span>
+            <span>시간 <b id="spTimeText">00:00</b></span>
+          </div>
+          <div class="fc-btns">
+            <button id="spUndoBtn" onclick="spUndo()">↩️ 실행취소</button>
+            <button onclick="spNewGame()">🔁 새 게임</button>
+            <button onclick="spBackToSetup()">설정으로</button>
+          </div>
+        </div>
+
+        <div class="fc-board" id="spBoard">
+          <div class="fc-zones">
+            <div class="fc-free-row">
+              <div id="spStockSlot" class="fc-slot" onclick="spClickStock()"></div>
+            </div>
+          </div>
+          <div class="fc-tableau sp-tableau" id="spTableau"></div>
+        </div>
+
+        <div class="win-banner" id="spWinBanner">
+          <b id="spWinText"></b>
+          <div class="nick-row">
+            <input id="spNickname" placeholder="랭킹에 등록할 닉네임 (선택)" maxlength="12">
+            <button class="btn btn-amber" onclick="spSaveScore()">등록</button>
+          </div>
+        </div>
+
+        <div class="gameover-banner" id="spGameOverBanner">
+          <b>😵 더 이상 이동할 수 있는 카드가 없습니다.</b>
+          <div class="fc-btns">
+            <button onclick="spRetryDeal()">🔄 이 판 다시 시도</button>
+            <button onclick="spNewGame()">🎲 새 게임</button>
+          </div>
+        </div>
+      </div>
+      <div class="panel">
+        <h2>랭킹 · 최소 이동 (<span id="spRankDiffLabel">초급</span>)</h2>
+        <div id="spRanking"><div class="empty-msg">아직 등록된 기록이 없습니다.</div></div>
+      </div>
+    </div>
+  </section>
 </main>
 
 <div class="fc-flash" id="fcFlash"></div>
@@ -259,12 +335,15 @@ function switchCardMode(next){
   cardMode = next;
   $('tabFreecell').classList.toggle('on', next === 'freecell');
   $('tabKlondike').classList.toggle('on', next === 'klondike');
+  $('tabSpider').classList.toggle('on', next === 'spider');
   $('panelFreecell').style.display = next === 'freecell' ? 'block' : 'none';
   $('panelKlondike').style.display = next === 'klondike' ? 'block' : 'none';
-  history.replaceState(null, '', next === 'klondike' ? '/game/card/klondike' : '/game/card/freecell');
+  $('panelSpider').style.display = next === 'spider' ? 'block' : 'none';
+  const path = next === 'klondike' ? '/game/card/klondike' : next === 'spider' ? '/game/card/spider' : '/game/card/freecell';
+  history.replaceState(null, '', path);
 }
 
-const FC_SUIT_COLOR = ['black', 'red', 'red', 'black']; // 0=spade 1=heart 2=diamond 3=club (프리셀·클론다이크 공용)
+const FC_SUIT_COLOR = ['black', 'red', 'red', 'black']; // 0=spade 1=heart 2=diamond 3=club (세 게임 공용)
 const FC_SUIT_LETTER = ['S', 'H', 'D', 'C'];
 const FC_RANK_LABELS = ['A','2','3','4','5','6','7','8','9','10','J','Q','K'];
 const CARD_BACK_IMG = '/images/cards/back.svg'; // 저장된 카드 뒷면 이미지(직접 그리지 않고 고정 파일 재사용)
@@ -1229,7 +1308,328 @@ async function loadKdRanking(){
     list.map((r, i) => `<div class="rank-row"><span><span class="no">${i + 1}</span> ${esc(r.nickname)}</span><span>${r.metric}수 · ${esc(r.detail || '')}</span></div>`).join('');
 }
 
+/* ===================================================
+   스파이더 — 프리셀·클론다이크와 같은 구조(카드 로직 전부 프론트엔드, 서버는 결과만 저장).
+   104장(2벌)을 10개 컬럼에 펼치고, 무늬 상관없이 1씩 내려가는 카드 위에 놓을 수 있지만 같은 무늬로
+   이어진 뭉치만 통째로 옮길 수 있다. 빈 컬럼엔 아무 카드나 가능. K부터 A까지 같은 무늬로 다 이어지면
+   자동으로 완성되어 치워진다(8세트 완성이 승리).
+   난이도는 진짜 스파이더 솔리테어의 정식 변형(사용하는 무늬 수)을 그대로 쓴다 — 무늬가 늘어날수록
+   같은 무늬끼리 뭉치를 짤 기회가 줄어 확실히 더 어려워진다(가짜 난이도 아님).
+   =================================================== */
+const SPIDER_API = '/api/game/spider';
+const SP_DIFF_META = {
+  EASY:   { label: '초급', suits: 1 },
+  MEDIUM: { label: '중급', suits: 2 },
+  HARD:   { label: '고급', suits: 4 }
+};
+const SP_COLS = 10;
+
+let spDifficulty = 'EASY';
+let spTableau = [], spStock = [], spCompleted = 0;
+let spMoves = 0, spStartAt = 0, spTimerHandle = null;
+let spSelected = null; // { col, idx }
+let spHistory = [];
+let spInitialDeal = null;
+let spLastMoved = null;
+let spFlippedCol = null;
+let spOver = false;
+
+function spPickDiff(v){
+  spDifficulty = v;
+  document.querySelectorAll('#spDiffRow .choice').forEach(b => b.classList.toggle('on', b.dataset.v === v));
+}
+
+function spColor(card){ return FC_SUIT_COLOR[card.s]; }
+function spCid(card){ return FC_RANK_LABELS[card.r - 1] + FC_SUIT_LETTER[card.s]; }
+function spCardBackHtml(){ return `<img src="${CARD_BACK_IMG}" alt="카드 뒷면" draggable="false">`; }
+
+/** suitCount가 1/2/4일 때 각각 104장을 채우도록 같은 무늬를 8/4/2번씩 반복해 만든다. */
+function spBuildDeck(suitCount){
+  const suits = [0, 1, 2, 3].slice(0, suitCount);
+  const copies = 8 / suitCount;
+  const deck = [];
+  suits.forEach(s => { for (let c = 0; c < copies; c++) for (let r = 1; r <= 13; r++) deck.push({ r, s, faceUp: false }); });
+  for (let i = deck.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [deck[i], deck[j]] = [deck[j], deck[i]];
+  }
+  return deck;
+}
+
+function spResetTimer(){
+  clearInterval(spTimerHandle);
+  spStartAt = Date.now();
+  spTimerHandle = setInterval(spUpdateTime, 1000);
+  spUpdateTime();
+}
+
+function spNewGame(){
+  const deck = spBuildDeck(SP_DIFF_META[spDifficulty].suits);
+  const tableau = Array.from({ length: SP_COLS }, () => []);
+  let idx = 0;
+  for (let col = 0; col < SP_COLS; col++) {
+    const count = col < 4 ? 6 : 5;
+    for (let k = 0; k < count; k++) tableau[col].push(deck[idx++]);
+    tableau[col][tableau[col].length - 1].faceUp = true;
+  }
+  const stock = deck.slice(idx);
+  spInitialDeal = JSON.parse(JSON.stringify({ tableau, stock }));
+  spStartFromDeal(JSON.parse(JSON.stringify({ tableau, stock })));
+}
+
+function spRetryDeal(){
+  if (!spInitialDeal) { spNewGame(); return; }
+  spStartFromDeal(JSON.parse(JSON.stringify(spInitialDeal)));
+}
+
+function spStartFromDeal(deal){
+  const meta = SP_DIFF_META[spDifficulty];
+  spTableau = deal.tableau;
+  spStock = deal.stock;
+  spCompleted = 0;
+  spMoves = 0;
+  spSelected = null;
+  spHistory = [];
+  spLastMoved = null;
+  spOver = false;
+
+  $('spSetup').style.display = 'none';
+  $('spGame').style.display = 'grid';
+  $('spWinBanner').classList.remove('show');
+  $('spGameOverBanner').classList.remove('show');
+  $('spBoard').classList.remove('win');
+  $('spNickname').disabled = false; $('spNickname').value = '';
+  $('spDiffLabel').textContent = meta.label;
+  $('spRankDiffLabel').textContent = meta.label;
+  $('spCompletedText').textContent = '0/8';
+  loadSpRanking();
+
+  spResetTimer();
+  spRender(true);
+}
+
+function spBackToSetup(){
+  clearInterval(spTimerHandle);
+  $('spGame').style.display = 'none';
+  $('spSetup').style.display = 'block';
+}
+
+function spUpdateTime(){
+  const secs = Math.floor((Date.now() - spStartAt) / 1000);
+  const m = String(Math.floor(secs / 60)).padStart(2, '0');
+  const s = String(secs % 60).padStart(2, '0');
+  $('spTimeText').textContent = `${m}:${s}`;
+}
+
+function spPushHistory(){
+  spHistory.push(JSON.parse(JSON.stringify({ tableau: spTableau, stock: spStock, completed: spCompleted, moves: spMoves })));
+  if (spHistory.length > 200) spHistory.shift();
+}
+
+function spUndo(){
+  if (!spHistory.length) { fcFlash('되돌릴 수 없습니다'); return; }
+  const prev = spHistory.pop();
+  spTableau = prev.tableau; spStock = prev.stock; spCompleted = prev.completed; spMoves = prev.moves;
+  spSelected = null;
+  spOver = false;
+  $('spGameOverBanner').classList.remove('show');
+  spRender();
+}
+
+function spTopOf(arr){ return arr[arr.length - 1]; }
+
+/** 같은 무늬로 이어진 뭉치만 통째로 옮길 수 있다(무늬가 섞이면 그 지점부터는 뭉치에 포함되지 않는다). */
+function spIsValidSeqStart(col, i){
+  const arr = spTableau[col];
+  if (i < 0 || i >= arr.length || !arr[i].faceUp) return false;
+  for (let k = i; k < arr.length - 1; k++) {
+    if (!(arr[k].faceUp && arr[k + 1].faceUp && arr[k].s === arr[k + 1].s && arr[k].r === arr[k + 1].r + 1)) return false;
+  }
+  return true;
+}
+
+function spFlipExposedTop(col){
+  const arr = spTableau[col];
+  if (arr.length && !spTopOf(arr).faceUp) {
+    spTopOf(arr).faceUp = true;
+    spFlippedCol = col;
+  }
+}
+
+/** K부터 A까지 같은 무늬로 다 이어지면 자동으로 떼어내 완성 세트로 치운다. */
+function spCheckCompletedRun(col){
+  const arr = spTableau[col];
+  if (arr.length < 13) return false;
+  const start = arr.length - 13;
+  for (let i = 0; i < 13; i++) {
+    const c = arr[start + i];
+    if (!c.faceUp || c.r !== 13 - i || c.s !== arr[start].s) return false;
+  }
+  arr.splice(start, 13);
+  spCompleted++;
+  spFlipExposedTop(col);
+  return true;
+}
+
+function spAfterMove(){
+  spMoves++;
+  spSelected = null;
+  for (let c = 0; c < SP_COLS; c++) while (spCheckCompletedRun(c)) {}
+  spRender();
+  if (spCheckWin()) return;
+  if (!spHasAnyMove()) spTriggerGameOver();
+}
+
+function spTriggerGameOver(){
+  spOver = true;
+  clearInterval(spTimerHandle);
+  $('spGameOverBanner').classList.add('show');
+}
+
+/** 스톡을 클릭하면 모든 컬럼에 한 장씩 새 카드를 깐다 — 빈 컬럼이 있으면 표준 규칙상 낼 수 없다. */
+function spClickStock(){
+  if (!spStock.length) return;
+  if (spTableau.some(c => c.length === 0)) { fcFlash('빈 컬럼이 있으면 카드를 더 낼 수 없어요'); return; }
+  spPushHistory();
+  for (let col = 0; col < SP_COLS; col++) {
+    const c = spStock.pop();
+    c.faceUp = true;
+    spTableau[col].push(c);
+  }
+  spSelected = null;
+  spAfterMove();
+}
+
+function spAttemptMoveToTableau(destCol){
+  if (!spSelected) return false;
+  if (spSelected.col === destCol) { spSelected = null; return true; }
+  const seq = spTableau[spSelected.col].slice(spSelected.idx);
+  const destArr = spTableau[destCol];
+  const top = spTopOf(destArr);
+  const validAttach = !top || seq[0].r === top.r - 1;
+  if (!validAttach) { fcFlash('그 카드 위엔 놓을 수 없어요'); return false; }
+  spPushHistory();
+  spTableau[spSelected.col].splice(spSelected.idx, seq.length);
+  spTableau[destCol].push(...seq);
+  spFlipExposedTop(spSelected.col);
+  spLastMoved = { kind: 'col', idx: destCol };
+  spAfterMove();
+  return true;
+}
+
+function spClickCard(col, i){
+  if (spSelected) {
+    const moved = spAttemptMoveToTableau(col);
+    if (moved) { spRender(); return; }
+  }
+  if (spSelected && spSelected.col === col && spSelected.idx === i) {
+    spSelected = null;
+  } else if (spIsValidSeqStart(col, i)) {
+    spSelected = { col, idx: i };
+  } else {
+    spSelected = null;
+  }
+  spRender();
+}
+
+function spClickColumnBg(col){
+  if (spSelected) spAttemptMoveToTableau(col);
+  spRender();
+}
+
+/** 스톡에 카드가 남아있고 빈 컬럼이 없으면 항상 수가 있는 것으로 본다(더 낼 수 있으므로).
+ *  그 외엔 빈 컬럼이 하나라도 있으면(그리고 옮길 카드가 있으면) 항상 수가 있고, 아니면 노출된
+ *  연속열의 시작 카드들을 다른 컬럼 맨 위(한 랭크 높은 카드, 무늬 무관)에 붙일 수 있는지 확인한다. */
+function spHasAnyMove(){
+  const anyEmpty = spTableau.some(c => c.length === 0);
+  const anyCard = spTableau.some(c => c.length > 0);
+  if (spStock.length > 0 && !anyEmpty) return true;
+  if (anyEmpty && anyCard) return true;
+  for (let col = 0; col < SP_COLS; col++) {
+    const arr = spTableau[col];
+    if (!arr.length) continue;
+    let start = arr.length - 1;
+    while (start > 0 && arr[start - 1].faceUp && arr[start - 1].s === arr[start].s && arr[start - 1].r === arr[start].r + 1) start--;
+    for (let i = start; i < arr.length; i++) {
+      const head = arr[i];
+      for (let cj = 0; cj < SP_COLS; cj++) {
+        if (cj === col) continue;
+        const destTop = spTopOf(spTableau[cj]);
+        if (destTop && head.r === destTop.r - 1) return true;
+      }
+    }
+  }
+  return false;
+}
+
+function spCheckWin(){
+  if (spCompleted < 8) return false;
+  clearInterval(spTimerHandle);
+  const secs = Math.floor((Date.now() - spStartAt) / 1000);
+  const m = String(Math.floor(secs / 60)).padStart(2, '0');
+  const s = String(secs % 60).padStart(2, '0');
+  $('spWinText').textContent = `🎉 클리어! ${SP_DIFF_META[spDifficulty].label} · 이동 ${spMoves}회 · 시간 ${m}:${s}`;
+  $('spWinBanner').classList.add('show');
+  $('spBoard').classList.add('win');
+  window.spLastResult = { moves: spMoves, seconds: secs };
+  return true;
+}
+
+function spRender(dealAnim){
+  $('spCompletedText').textContent = `${spCompleted}/8`;
+
+  $('spStockSlot').innerHTML = spStock.length
+    ? `<div class="fc-card facedown">${spCardBackHtml()}</div>`
+    : '';
+
+  const dealOrder = {};
+  if (dealAnim) {
+    spTableau.forEach((col, ci) => col.forEach((card, i) => { dealOrder[ci + ',' + i] = i * SP_COLS + ci; }));
+  }
+
+  $('spTableau').innerHTML = spTableau.map((col, ci) => {
+    const offset = 22;
+    const height = Math.max(360, col.length * offset + 84);
+    const cards = col.map((card, i) => {
+      const deal = dealAnim ? 'deal' : '';
+      const delay = dealAnim ? `animation-delay:${dealOrder[ci + ',' + i] * 10}ms;` : '';
+      if (!card.faceUp) {
+        return `<div class="fc-card sp-card facedown ${deal}" style="top:${i * offset}px;${delay}">${spCardBackHtml()}</div>`;
+      }
+      const sel = (spSelected && spSelected.col === ci && i >= spSelected.idx) ? 'selected' : '';
+      const pop = (spLastMoved && spLastMoved.kind === 'col' && spLastMoved.idx === ci && i === col.length - 1) ? 'pop' : '';
+      const flip = (spFlippedCol === ci && i === col.length - 1) ? 'flip' : '';
+      return `<div class="fc-card sp-card ${sel} ${pop} ${flip} ${deal}" style="top:${i * offset}px;${delay}"
+        onclick="event.stopPropagation();spClickCard(${ci},${i})">
+        <playing-card cid="${spCid(card)}"></playing-card>
+      </div>`;
+    }).join('');
+    return `<div class="fc-col sp-col" style="min-height:${height}px" onclick="spClickColumnBg(${ci})">${cards}</div>`;
+  }).join('');
+
+  spLastMoved = null;
+  spFlippedCol = null;
+}
+
+async function spSaveScore(){
+  if (!window.spLastResult) return;
+  const nickname = $('spNickname').value.trim();
+  await fetch(SPIDER_API + '/score', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ nickname, difficulty: spDifficulty, moves: window.spLastResult.moves, seconds: window.spLastResult.seconds })
+  });
+  $('spNickname').disabled = true;
+  loadSpRanking();
+}
+
+async function loadSpRanking(){
+  const list = await fetch(`${SPIDER_API}/ranking?difficulty=${spDifficulty}`).then(r => r.json());
+  $('spRanking').innerHTML = !list.length ? '<div class="empty-msg">아직 등록된 기록이 없습니다.</div>' :
+    list.map((r, i) => `<div class="rank-row"><span><span class="no">${i + 1}</span> ${esc(r.nickname)}</span><span>${r.metric}수 · ${esc(r.detail || '')}</span></div>`).join('');
+}
+
 if (location.pathname.includes('klondike')) switchCardMode('klondike');
+else if (location.pathname.includes('spider')) switchCardMode('spider');
 </script>
 </body>
 </html>
