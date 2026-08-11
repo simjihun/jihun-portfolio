@@ -57,7 +57,7 @@
 
   <!-- ===== 숫자야구 ===== -->
   <section id="panelBaseball">
-    <p class="game-desc"><b>1~9 중복 없는 숫자 4자리</b>를 서버가 무작위로 정해두면, 여러분이 추리해서 맞히는 게임입니다. 숫자와 자릿수가 모두 일치하면 <b>스트라이크(S)</b>, 숫자만 일치하면 <b>볼(B)</b>입니다. 최소 시도 횟수로 맞히면 랭킹에 이름을 올릴 수 있어요.</p>
+    <p class="game-desc"><b>1~9 중복 없는 숫자 4자리</b>를 서버가 무작위로 정해두면, 여러분이 추리해서 맞히는 게임입니다. 숫자와 자릿수가 모두 일치하면 <b>스트라이크(S)</b>, 숫자만 일치하면 <b>볼(B)</b>입니다. 최소 시도 횟수·최단 시간으로 맞히면 랭킹에 이름을 올릴 수 있어요.</p>
     <div class="two-col">
       <div class="panel">
         <h2>추리하기</h2>
@@ -149,10 +149,12 @@ function switchMode(next){
 const BASEBALL_API = '/api/game/baseball';
 let baseballGameId = null;
 let baseballFinished = false;
+let baseballStartAt = 0;
 async function newBaseball(){
   const data = await fetch(BASEBALL_API + '/new', { method: 'POST' }).then(r => r.json());
   baseballGameId = data.id;
   baseballFinished = false;
+  baseballStartAt = Date.now();
   $('winBanner').classList.remove('show');
   $('guessMsg').textContent = '';
   $('guessInput').value = '';
@@ -170,7 +172,11 @@ async function submitGuess(){
   renderHistory(data.history);
   if (data.status === 'WON') {
     baseballFinished = true;
-    $('winText').textContent = `🎉 정답입니다! 총 ${data.attempts}번 만에 맞혔어요.`;
+    const secs = Math.floor((Date.now() - baseballStartAt) / 1000);
+    window.baseballLastSeconds = secs;
+    const m = String(Math.floor(secs / 60)).padStart(2, '0');
+    const s = String(secs % 60).padStart(2, '0');
+    $('winText').textContent = `🎉 정답입니다! 총 ${data.attempts}번, ${m}:${s} 만에 맞혔어요.`;
     $('winBanner').classList.add('show');
   }
 }
@@ -184,13 +190,14 @@ function renderHistory(hist){
 async function saveScore(){
   if (!baseballGameId) return;
   const nickname = $('nickname').value.trim();
-  await fetch(`${BASEBALL_API}/${baseballGameId}/score`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nickname }) });
+  const seconds = window.baseballLastSeconds ?? 0;
+  await fetch(`${BASEBALL_API}/${baseballGameId}/score`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nickname, seconds }) });
   $('nickname').disabled = true;
   loadRanking();
 }
 async function loadRanking(){
   const list = await fetch(BASEBALL_API + '/ranking').then(r => r.json());
-  $('ranking').innerHTML = !list.length ? '<div class="empty-msg">아직 등록된 기록이 없습니다.</div>' : list.map((r, i) => `<div class="rank-row"><span><span class="no">${i + 1}</span> ${esc(r.nickname)}</span><span>${r.metric}회</span></div>`).join('');
+  $('ranking').innerHTML = !list.length ? '<div class="empty-msg">아직 등록된 기록이 없습니다.</div>' : list.map((r, i) => `<div class="rank-row"><span><span class="no">${i + 1}</span> ${esc(r.nickname)}</span><span>${esc(r.detail || '-')} · ${r.metric}회</span></div>`).join('');
 }
 const VOLLEY_API = '/api/game/volleyball';
 const V_W = 640, V_H = 360, V_GROUND = V_H - 30, V_GRAVITY = 0.24;
