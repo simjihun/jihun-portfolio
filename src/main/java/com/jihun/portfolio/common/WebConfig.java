@@ -22,7 +22,7 @@ public class WebConfig implements WebMvcConfigurer {
         registry.addViewController("/map").setViewName("forward:/map.html");
         registry.addViewController("/map/food").setViewName("forward:/map.html");
         registry.addViewController("/map/estate").setViewName("forward:/map.html");
-        // 웹 게임(상위 분류) — /game 아래 웹게임(숫자야구·발리볼) / board(오목·장기) / card(프리셀·클론다이크) 3갈래
+        // 웹 게임(상위 분류) — /game 아래 웹게임(숫자야구·발리볼) / board(오목·장기) / card(프리셀·클론다이크·스파이더) 3갈래
         registry.addViewController("/game").setViewName("forward:/game.html");
         registry.addViewController("/game/baseball").setViewName("forward:/game.html");
         registry.addViewController("/game/volleyball").setViewName("forward:/game.html");
@@ -32,6 +32,7 @@ public class WebConfig implements WebMvcConfigurer {
         registry.addViewController("/game/card").setViewName("forward:/cardgame.html");
         registry.addViewController("/game/card/freecell").setViewName("forward:/cardgame.html");
         registry.addViewController("/game/card/klondike").setViewName("forward:/cardgame.html");
+        registry.addViewController("/game/card/spider").setViewName("forward:/cardgame.html");
         // 주식 AI 대시보드
         registry.addViewController("/stock").setViewName("forward:/stock.html");
     }
