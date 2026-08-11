@@ -8,9 +8,9 @@
     { type: 'link', href: '/map', label: '지도 API' },
     { type: 'link', href: '/mms', label: 'MMS' },
     { type: 'dropdown', href: '/game', label: '웹 게임', children: [
-      { href: '/game', label: '웹게임 (숫자야구·발리볼)' },
-      { href: '/game/board', label: '보드게임 (오목·장기)' },
-      { href: '/cardgame', label: '카드게임 (프리셀·클론다이크)' }
+      { href: '/game', label: '웹게임' },
+      { href: '/game/board', label: '보드게임' },
+      { href: '/game/card', label: '카드게임' }
     ] }
   ];
 
@@ -59,7 +59,7 @@
   const dropdownStyle = '<style>'
     + '.nav-dropdown{position:relative;display:inline-flex}'
     + '.nav-dropdown .nav-caret{font-size:10px;opacity:.7;margin-left:2px}'
-    + '.nav-dropdown-menu{position:absolute;top:100%;left:0;min-width:220px;background:var(--panel-2,#161d2e);border:1px solid var(--line,#2a3348);border-radius:10px;padding:6px;display:none;flex-direction:column;gap:2px;box-shadow:0 10px 24px rgba(0,0,0,.35);z-index:50}'
+    + '.nav-dropdown-menu{position:absolute;top:100%;left:0;min-width:160px;background:var(--panel-2,#161d2e);border:1px solid var(--line,#2a3348);border-radius:10px;padding:6px;display:none;flex-direction:column;gap:2px;box-shadow:0 10px 24px rgba(0,0,0,.35);z-index:50}'
     + '.nav-dropdown:hover .nav-dropdown-menu,.nav-dropdown:focus-within .nav-dropdown-menu{display:flex}'
     + '.nav-dropdown-link{padding:8px 10px;border-radius:7px;color:var(--mut,#9aa4bb);font-size:13.5px;white-space:nowrap;text-decoration:none}'
     + '.nav-dropdown-link:hover{background:rgba(242,169,59,.12);color:var(--ink,#eef1f8)}'
