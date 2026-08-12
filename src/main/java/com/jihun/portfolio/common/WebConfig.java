@@ -35,5 +35,11 @@ public class WebConfig implements WebMvcConfigurer {
         registry.addViewController("/game/card/spider").setViewName("forward:/cardgame.html");
         // 주식 AI 대시보드
         registry.addViewController("/stock").setViewName("forward:/stock.html");
+
+        // 비공개 회원 영역 — 공개 포트폴리오 nav에는 노출하지 않음(직접 URL로만 접근)
+        registry.addViewController("/login").setViewName("forward:/login.html");
+        registry.addViewController("/signup").setViewName("forward:/signup.html");
+        registry.addViewController("/mypage").setViewName("forward:/mypage.html");
+        registry.addViewController("/admin").setViewName("forward:/admin.html");
     }
 }
