@@ -47,7 +47,8 @@ hunit.kr 사이트(메인화면·기능 페이지·게임 설명) 전부**에 �
 - `/news`, `/stock`, `/map`(`/map/food`, `/map/estate`), `/mms`
 - `/game`(웹게임: 숫자야구·발리볼), `/game/board`(보드게임: 오목·장기), `/game/card`(카드게임: 프리셀·클론다이크·스파이더)
 - 상단 "웹 게임" 메뉴는 드롭다운으로 웹게임/보드게임/카드게임 3갈래를 노출(`nav.js`)
-- `/login`, `/signup`, `/mypage`, `/admin` — 비공개 회원 영역(공개 nav 미노출)
+- `/login`, `/signup`, `/mypage`, `/admin` — 비공개 회원 영역(공개 nav 미노출). `/admin`은 관리자 전용 기능
+  허브이고, 하위 기능은 `/admin/<기능영문>[/<세부기능영문>]` 패턴으로 계속 확장한다(예: `/admin/members`).
 
 ## 기능별 현황
 
@@ -60,7 +61,7 @@ hunit.kr 사이트(메인화면·기능 페이지·게임 설명) 전부**에 �
 | 웹게임 | `/game` | LIVE(숫자야구·발리볼) | 발리볼: 물리 전부 클라이언트(Canvas+rAF), 서버는 결과만 저장. 랭킹 상시 노출 |
 | 보드게임 | `/game/board` | LIVE(오목·장기) | 장기: 알파베타 완전탐색 AI. 오목: 난이도/착수수/클리어시간 랭킹 |
 | 카드게임 | `/game/card` | LIVE(프리셀·클론다이크·스파이더) | 카드 로직 전부 프론트엔드, 카드 이미지는 자체 저장한 SVG 라이브러리(cardmeister.js). 상세는 아래 참고 |
-| 비공개 회원 영역 | `/login` `/mypage` `/admin` | LIVE | Spring Security 세션 인증, 관리자 승인제. 상세는 아래 참고. **공개 문서(README 등)에 노출 금지** |
+| 비공개 회원 영역 | `/login` `/mypage` `/admin` | LIVE | Spring Security 세션 인증, 관리자 승인제, 로그인 24시간 유지. 상세는 아래 참고. **공개 문서(README 등)에 노출 금지** |
 | 체스, 가격비교 | - | 미착수 | |
 
 ## AI 주식 메모 (`/stock`)
@@ -129,44 +130,49 @@ hunit.kr 사이트(메인화면·기능 페이지·게임 설명) 전부**에 �
 - **전화번호·이메일**: `CryptoService`가 AES-256-GCM으로 암호화해 저장. 중복확인·조회(비밀번호 찾기 등)를 위해
   HMAC-SHA256 기반 "조회 전용 해시"(`emailLookupHash`/`phoneLookupHash`)를 별도 컬럼에 함께 저장 — 이 해시는
   같은 입력이면 항상 같은 값이 나오지만 원문으로 되돌릴 수는 없음
-- **가입 → 승인 → 로그인**: 가입 직후 상태는 `PENDING`이라 로그인 불가. 관리자가 `/admin`에서 승인(`APPROVED`)해야
-  로그인 가능. `MemberDetailsService`가 PENDING을 disabled, REJECTED를 accountLocked로 매핑해 Spring Security가
-  자동으로 막는다
+- **가입 → 승인 → 로그인**: 가입 직후 상태는 `PENDING`이라 로그인 불가. 관리자가 `/admin/members`에서
+  승인(`APPROVED`)해야 로그인 가능. `MemberDetailsService`가 PENDING을 disabled, REJECTED를 accountLocked로
+  매핑해 Spring Security가 자동으로 막는다
 - **최초 관리자 계정은 코드에 고정값**: `MemberService`의 `BOOTSTRAP_ADMIN_USERNAME`/`BOOTSTRAP_ADMIN_PASSWORD`
   상수(현재 `simering`/`admin`)로, 서버 시작 시 관리자 계정이 하나도 없을 때만 1회 생성(status=APPROVED로 바로
   활성화). **최초 로그인 직후 반드시 마이페이지에서 비밀번호를 변경할 것** — 소스에 남는 값이라 깃 이력에서도
-  계속 보임. 이후 추가 관리자는 DB에서 role을 직접 바꾸거나 별도 승격 기능을 만들어야 함(현재 승격 UI 없음).
-  환경변수(ADMIN_USERNAME/ADMIN_PASSWORD)로 관리하던 이전 방식은 제거했음
+  계속 보임. 이후 추가 관리자는 DB에서 role을 직접 바꾸거나 별도 승격 기능을 만들어야 함(현재 승격 UI 없음)
 - **비밀번호 찾기 3단계**(`PasswordResetService`): 인증번호 요청 → 확인(성공 시 1회용 `resetToken` 발급) →
   `resetToken`으로만 실제 비밀번호 변경. 인증번호 자체는 비밀번호 변경에 직접 쓰이지 않음(토큰으로 한 단계 분리)
 - **이메일만 실동작**(`EmailService`, Gmail SMTP 등 `MAIL_USERNAME`/`MAIL_PASSWORD` 필요). **SMS는 UI·API 형태만
   존재하고 실제 발송 미연동** — 채널 선택 시 SMS를 고르면 "준비 중" 안내만 반환한다. 추후 알리고/NHN Cloud 등
   붙일 때는 `PasswordResetService.requestCode()`의 채널 분기만 확장하면 됨
+- **로그인 유지 24시간**: `server.servlet.session.timeout: 24h` + Spring Security `rememberMe`(토큰 유효기간
+  24시간, `alwaysRemember(true)`로 체크박스 없이 항상 발급, 서명 키는 `app.security.encryption-key` 재사용).
+  브라우저를 껐다 켜도 24시간 안에는 재로그인 없이 유지된다
 - **[알려진 단순화] CSRF 보호 비활성화**: 템플릿 엔진 없이 정적 HTML+fetch 구조라 토큰을 헤더에 실어 보내는
   작업을 생략했다. 결제·금전 처리가 없는 개인 연습용 비공개 영역이라 우선순위를 낮췄음 — 나중에 강화하려면
   `/api/csrf-token` 같은 엔드포인트로 토큰을 내려주고 프론트에서 헤더에 실어 보내는 방식으로 다시 켤 수 있음
-- **로그아웃**은 `<form method="post" action="/logout">`로 처리(CSRF 비활성화라 별도 토큰 불필요)
+- **로그아웃**은 `<form method="post" action="/logout">`로 처리(CSRF 비활성화라 별도 토큰 불필요). remember-me
+  쿠키도 함께 삭제됨(`deleteCookies("JSESSIONID","remember-me")`)
 
-### 서버 환경변수 분리 — `conf/app.conf` vs `conf/private.conf`
+### 관리자 허브 구조 (`/admin`, `/admin/<기능>[/<세부기능>]`)
 
-기존 기능(뉴스·주식·지도 등) API 키는 계속 `conf/app.conf`에 둔다. 회원 인증 관련 민감 정보
-(`APP_ENCRYPTION_KEY`, `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`)는 **`conf/private.conf`라는
-별도 파일로 분리해서 관리한다.** `Start.sh`·`conf/app.conf`·`conf/private.conf`는 레포에 포함되지 않고
-EC2 서버(`/home/jihun/`)에만 있어서, 이 분리 작업은 서버에 직접 접속해 다음을 해야 한다:
+- `/admin`은 카드형 메뉴(`hub-grid`/`hub-card`, base.css)만 있는 랜딩 페이지. 실제 기능은 전부 하위 경로에 있다
+  (예: 회원 관리 = `/admin/members`, `admin-members.html`)
+- 새 관리자 전용 기능을 추가하는 절차:
+  1. `WebConfig`에 `/admin/<기능>` (필요하면 `/admin/<기능>/<세부기능>`도) 라우팅 추가
+  2. 정적 페이지 작성 시 `<div id="private-nav"></div>` + `<script src="/js/private-nav.js"></script>`를
+     넣으면 공통 상단바(로그인 확인, 메뉴, 로그아웃)가 자동으로 붙는다 — 커스텀 헤더를 새로 만들지 않는다
+  3. 완성 전이면 `/admin/admin.html`의 `hub-grid`에 `class="hub-card soon"`(href 없음)으로 먼저 등록해두고,
+     완성되면 `class="hub-card"` + `href`로 바꿔 정식 노출
+  4. 메뉴 링크에 상시 노출하고 싶으면 `private-nav.js`의 `PRIVATE_NAV_ITEMS` 배열에 한 줄 추가(관리자 전용이면
+     `adminOnly: true`) — 모든 비공개 페이지 상단바에 자동 반영됨
+- 인가는 이미 `SecurityConfig`의 `"/admin/**"` 매칭이 전부 커버하므로, 새 기능을 추가해도 보안 설정을 따로
+  건드릴 필요가 없다
 
-1. `conf/private.conf` 파일을 새로 만들고 `app.conf`와 같은 포맷(`export KEY=value` 등)으로 아래 값을 넣는다.
-   ```
-   APP_ENCRYPTION_KEY=...
-   MAIL_HOST=smtp.gmail.com
-   MAIL_PORT=587
-   MAIL_USERNAME=...
-   MAIL_PASSWORD=...
-   ```
-2. `conf/app.conf`에서 위 5개 항목은 제거한다(있었다면).
-3. `Start.sh`가 `conf/app.conf`를 읽어들이는 부분 바로 다음(또는 같은 방식)에 `conf/private.conf`도 함께
-   읽도록 한 줄 추가한다. 예: `app.conf`를 `source conf/app.conf` 로 읽고 있다면 `source conf/private.conf`를
-   같은 방식으로 추가.
-4. `chmod 600 conf/private.conf`로 소유자만 읽게 권한을 좁혀둔다(app.conf도 이미 그렇다면 동일하게).
+### 정책: 타인 계정/콘텐츠 스크래핑 기능 금지
+
+이 프로젝트에서 "인스타그램 아이디를 입력하면 그 계정 사진·스토리를 가져와서 보여주는" 종류의 기능은 비공개
+영역이라도 만들지 않기로 확정했다(요청 이력 있음, 매번 거절). 본인 소유가 아닌 계정의 콘텐츠를 스크래핑하는
+것은 플랫폼 이용약관 위반이고, 비공개로 운영되더라도 임의의 타인 계정을 들여다보는 구조 자체가 문제가 된다.
+인스타그램 관련 기능이 필요하면 ① 본인 계정을 비즈니스/크리에이터로 전환해 공식 Graph API로 본인 데이터만
+다루거나, ② 본인이 직접 업로드한 사진으로 인스타그램 스타일 UI만 재현하는 방향으로만 진행한다.
 
 ## 프론트 프레임워크 원칙
 
@@ -194,14 +200,14 @@ EC2 서버(`/home/jihun/`)에만 있어서, 이 분리 작업은 서버에 직�
 
 **`conf/app.conf`**: `SPRING_PROFILES_ACTIVE`, `DB_HOST/NAME/USER/PASSWORD`, `GEMINI_API_KEY`, `NAVER_MAP_CLIENT_ID/SECRET`, `KAKAO_API_KEY`, `REALESTATE_API_KEY`, `TOSS_CLIENT_ID`, `TOSS_CLIENT_SECRET`
 
-**`conf/private.conf`**(회원 인증 관련, 분리 관리): `APP_ENCRYPTION_KEY`(회원 전화번호·이메일 암호화 키, 운영에서 반드시 별도 값 지정), `MAIL_HOST`/`MAIL_PORT`/`MAIL_USERNAME`/`MAIL_PASSWORD`(비밀번호 재설정 이메일 발송)
+**`conf/private.conf`**(회원 인증 관련, 분리 관리): `APP_ENCRYPTION_KEY`(회원 전화번호·이메일 암호화 키이자 remember-me 서명 키, 운영에서 반드시 별도 값 지정 — 한 번 정하면 바꾸지 말 것, 바꾸면 기존 암호화된 회원정보를 못 읽음), `MAIL_HOST`/`MAIL_PORT`/`MAIL_USERNAME`/`MAIL_PASSWORD`(비밀번호 재설정 이메일 발송)
 
 최초 관리자 계정(`simering`/`admin`)은 환경변수가 아니라 `MemberService`에 고정값으로 들어있음 — 별도 설정 불필요, 로그인 후 즉시 비밀번호 변경.
 
 ## 코딩 컨벤션
 
 - 새 기능: `com.jihun.portfolio.<기능>` + `/api/<기능>/*` + 정적 페이지/탭
-- 공통 스타일 `/css/base.css`, 공통 네비 `/js/nav.js`(`NAV_ITEMS`, 드롭다운 지원)
+- 공통 스타일 `/css/base.css`, 공통 네비 `/js/nav.js`(`NAV_ITEMS`, 드롭다운 지원) — 비공개 영역은 `/js/private-nav.js`(`PRIVATE_NAV_ITEMS`)로 별도 관리
 - 다크 네이비(#0B101B)+앰버(#F2A93B) 테마
 - 신규 UI는 Vue.js/React(CDN) 우선 검토
 - 게임별 인메모리 대국상태 + 공통 `GameScore` 랭킹 패턴 유지(난이도별로 나눠야 하면 `gameType`에 접미사 부여, 예: `FREECELL_EASY`, `KLONDIKE_EASY`, `OMOK_EASY`, `SPIDER_EASY`)
