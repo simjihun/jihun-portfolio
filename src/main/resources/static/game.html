@@ -12,7 +12,9 @@
 .mode-tab{padding:8px 18px;border-radius:7px;border:0;background:transparent;color:var(--mut);font-size:13.5px;font-weight:600;cursor:pointer}
 .mode-tab.on{background:var(--amber);color:#131A2A}
 .mode-tab.disabled{opacity:.4;cursor:default}
-.game-desc{color:var(--mut);font-size:13.5px;line-height:1.8;margin-bottom:18px;max-width:640px}
+.game-desc{color:var(--mut);font-size:13px;line-height:1.7;margin-bottom:18px;max-width:600px;list-style:none;padding:0}
+.game-desc li{display:flex;gap:7px;margin-bottom:5px}
+.game-desc li::before{content:'—';color:var(--amber);flex:none}
 .game-desc b{color:var(--ink)}
 .choice-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:4px}
 .choice{padding:9px 16px;border-radius:8px;border:1px solid var(--line);background:var(--panel-2);color:var(--mut);font-size:13.5px;font-weight:600;cursor:pointer}
@@ -57,7 +59,11 @@
 
   <!-- ===== 숫자야구 ===== -->
   <section id="panelBaseball">
-    <p class="game-desc"><b>1~9 중복 없는 숫자 4자리</b>를 서버가 무작위로 정해두면, 여러분이 추리해서 맞히는 게임입니다. 숫자와 자릿수가 모두 일치하면 <b>스트라이크(S)</b>, 숫자만 일치하면 <b>볼(B)</b>입니다. 최소 시도 횟수·최단 시간으로 맞히면 랭킹에 이름을 올릴 수 있어요.</p>
+    <ul class="game-desc">
+      <li>1~9 중복 없는 숫자 4자리를 추리</li>
+      <li>숫자·자릿수 모두 일치: <b>스트라이크(S)</b> / 숫자만 일치: <b>볼(B)</b></li>
+      <li>최소 시도 횟수·최단 시간 기준 랭킹 등록</li>
+    </ul>
     <div class="two-col">
       <div class="panel">
         <h2>추리하기</h2>
@@ -84,7 +90,12 @@
 
   <!-- ===== 발리볼 ===== -->
   <section id="panelVolley" style="display:none">
-    <p class="game-desc">오리지널 병아리 캐릭터 <b>몽이</b>로 AI와 실시간 비치발리볼 대결을 합니다. ←→(또는 A/D)로 이동, 스페이스바(또는 ↑)로 점프해서 공을 상대 코트로 넘기세요. 대결 전 <b>총 라운드 수(10/20/30판)</b>를 정하고, 라운드를 모두 마치면 승패와 무관하게 대결이 끝나며 최종 스코어가 랭킹에 남습니다. 점프하며 맞으면 공이 더 높이, 내려오며 맞으면 스매시처럼 빠르게 튕겨나갑니다. 난이도 선택 없이 AI는 항상 공의 낙하 지점을 예측해서 움직입니다.</p>
+    <ul class="game-desc">
+      <li>←→(A/D) 이동, 스페이스바(↑) 점프</li>
+      <li>대결 전 총 라운드 수(10/20/30판) 선택, 라운드 종료 시 최종 스코어 랭킹 등록</li>
+      <li>점프 중 타격 시 공 상승, 하강 중 타격 시 스매시성 가속</li>
+      <li>AI는 매 프레임 공 낙하 지점을 예측해 이동</li>
+    </ul>
     <div class="two-col">
       <div id="volleyLeft">
         <div class="panel" id="volleySetup">
