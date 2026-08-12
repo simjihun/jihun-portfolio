@@ -45,5 +45,6 @@ public class WebConfig implements WebMvcConfigurer {
         // 형태로 한 줄씩 추가한다 (예: /admin/instaviewer, /admin/instaviewer/photos 등).
         registry.addViewController("/admin").setViewName("forward:/admin.html");
         registry.addViewController("/admin/members").setViewName("forward:/admin-members.html");
+        registry.addViewController("/admin/toss-stock").setViewName("forward:/toss-stock.html"); // TOSS 주식(개인 보유종목·조회 전용)
     }
 }
