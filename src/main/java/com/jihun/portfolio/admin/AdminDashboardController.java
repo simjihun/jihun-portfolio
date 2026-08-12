@@ -10,23 +10,24 @@ import java.util.concurrent.ConcurrentHashMap;
 /**
  * 관리자 대시보드용 시스템 정보 API. SecurityConfig의 "/api/admin/**" 규칙으로 ROLE_ADMIN만 접근 가능.
  *
- * AWS Cost Explorer(ce:GetCostAndUsage)는 호출 1건당 소액 과금되는 API라, 페이지를 열 때마다 매번
- * 실시간 호출하지 않고 이 컨트롤러에서 6시간 캐시한다 — 하루에 최대 4번만 실제로 AWS에 요청이
- * 나가므로 비용을 사실상 무시할 수 있는 수준으로 유지한다. Free Tier 사용량 API는 무료라 캐시 없이
- * 매번 최신값을 조회한다.
+ * AWS Cost Explorer(ce:GetCostAndUsage)와 Billing Credits(billing:GetCredits)는 호출 1건당 소액
+ * 과금되는 API라, 페이지를 열 때마다 매번 실시간 호출하지 않고 이 컨트롤러에서 6시간 캐시한다 —
+ * 하루에 최대 4번만 실제로 AWS에 요청이 나가므로 비용을 사실상 무시할 수 있는 수준으로 유지한다.
+ * Free Tier 사용량 API는 무료라 캐시 없이 매번 최신값을 조회한다.
  */
 @RestController
 @RequestMapping("/api/admin/dashboard")
 public class AdminDashboardController {
 
-    private static final long COST_CACHE_TTL_MILLIS = 6 * 3600_000L;
+    private static final long CACHE_TTL_MILLIS = 6 * 3600_000L;
+    private static final int COST_WINDOW_DAYS = 7;
 
     private final AwsInstanceInfoService awsInstanceInfoService;
     private final DatabaseInfoService databaseInfoService;
     private final AwsBillingService awsBillingService;
 
     private record CacheEntry(long expiresAt, Map<String, Object> value) {}
-    private final Map<String, CacheEntry> costCache = new ConcurrentHashMap<>();
+    private final Map<String, CacheEntry> cache = new ConcurrentHashMap<>();
 
     public AdminDashboardController(AwsInstanceInfoService awsInstanceInfoService,
                                      DatabaseInfoService databaseInfoService,
@@ -54,13 +55,22 @@ public class AdminDashboardController {
 
     /** 유료 API(호출당 과금)라 6시간 캐시 후에만 재호출 */
     @GetMapping("/cost")
-    public synchronized Map<String, Object> cost() {
-        String key = "daily-cost-14d";
-        CacheEntry cached = costCache.get(key);
+    public Map<String, Object> cost() {
+        return cached("daily-cost", () -> awsBillingService.getDailyCost(COST_WINDOW_DAYS));
+    }
+
+    /** 유료 API(호출당 과금)라 6시간 캐시 후에만 재호출 — 남은 크레딧·소진 예상일 */
+    @GetMapping("/credits")
+    public Map<String, Object> credits() {
+        return cached("credits", awsBillingService::getCreditsSummary);
+    }
+
+    private synchronized Map<String, Object> cached(String key, java.util.function.Supplier<Map<String, Object>> loader) {
+        CacheEntry entry = cache.get(key);
         long now = System.currentTimeMillis();
-        if (cached != null && now < cached.expiresAt()) return cached.value();
-        Map<String, Object> value = awsBillingService.getDailyCost(14);
-        costCache.put(key, new CacheEntry(now + COST_CACHE_TTL_MILLIS, value));
+        if (entry != null && now < entry.expiresAt()) return entry.value();
+        Map<String, Object> value = loader.get();
+        cache.put(key, new CacheEntry(now + CACHE_TTL_MILLIS, value));
         return value;
     }
 }
