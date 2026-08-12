@@ -18,7 +18,8 @@ Claude Code(또는 다른 Claude 세션)가 이 레포를 처음 열었을 때 �
 
 특정 회사·직무를 겨냥한 어필용 문구를 걷어내고, 담백한 기술 문서로 전환한다. **README.md, CLAUDE.md 자체,
 hunit.kr 사이트(메인화면·기능 페이지·게임 설명) 전부**에 동일하게 적용하고, 앞으로 추가되는 모든 기능도 처음부터
-이 기준으로 작성한다.
+이 기준으로 작성한다. 단, **비공개 회원 영역(`/login` `/signup` `/mypage` `/admin`)은 README.md에 절대 언급하지
+않는다** — 공개 포트폴리오로 내보이는 대상이 아니라 개인·지인 전용이라, 존재 자체를 공개 문서에 노출하지 않는다.
 
 - **주관적 의견·감상·어필 문구 금지**: "정교한", "매끄러운", "강력한", "직접 만들고 쌓아가는 공간" 같은
   형용사·서사 문구를 쓰지 않는다. 사실만 나열한다.
@@ -39,30 +40,35 @@ hunit.kr 사이트(메인화면·기능 페이지·게임 설명) 전부**에 �
 
 메뉴·메인화면 기능 섹션 순서 고정: **AI 뉴스 → AI 주식 → 지도 API → MMS → 웹 게임(웹게임/보드게임/카드게임 통합)**.
 새 기능 배포 시 `index.html` 기능 섹션과 `nav.js`의 `NAV_ITEMS`에 이 순서로 동시 반영한다.
+**단, 비공개 회원 영역은 nav.js·index.html 어디에도 등록하지 않는다** — 직접 URL로만 접근 가능해야 한다.
 
 ## URL 구조
 
 - `/news`, `/stock`, `/map`(`/map/food`, `/map/estate`), `/mms`
 - `/game`(웹게임: 숫자야구·발리볼), `/game/board`(보드게임: 오목·장기), `/game/card`(카드게임: 프리셀·클론다이크·스파이더)
 - 상단 "웹 게임" 메뉴는 드롭다운으로 웹게임/보드게임/카드게임 3갈래를 노출(`nav.js`)
+- `/login`, `/signup`, `/mypage`, `/admin` — 비공개 회원 영역(공개 nav 미노출)
 
 ## 기능별 현황
 
 | 기능 | 경로 | 상태 | 비고 |
 |---|---|---|---|
-| AI 뉴스 | `/news` | LIVE | 다중언론사 RSS, Gemini 매일 07시 브리핑, 제목 완전일치 중복 제거, 카테고리별 최소 1건+이미지 |
+| AI 뉴스 | `/news` | LIVE | 다중언론사 RSS, Gemini 매일 07시 브리핑, 문자 2-그램 유사도 기반 근사중복 제거, 카테고리별 최소 1건+이미지 |
 | AI 주식 | `/stock` | LIVE | 토스증권 Open API+업비트+Gemini. 상세는 아래 참고 |
 | 지도 API | `/map` | LIVE | 맛집(카카오)+부동산(국토부) |
 | MMS | `/mms` | LIVE | 워커 5개, 다중발송, 자정 초기화 |
 | 웹게임 | `/game` | LIVE(숫자야구·발리볼) | 발리볼: 물리 전부 클라이언트(Canvas+rAF), 서버는 결과만 저장. 랭킹 상시 노출 |
 | 보드게임 | `/game/board` | LIVE(오목·장기) | 장기: 알파베타 완전탐색 AI. 오목: 난이도/착수수/클리어시간 랭킹 |
 | 카드게임 | `/game/card` | LIVE(프리셀·클론다이크·스파이더) | 카드 로직 전부 프론트엔드, 카드 이미지는 자체 저장한 SVG 라이브러리(cardmeister.js). 상세는 아래 참고 |
+| 비공개 회원 영역 | `/login` `/mypage` `/admin` | LIVE | Spring Security 세션 인증, 관리자 승인제. 상세는 아래 참고. **공개 문서(README 등)에 노출 금지** |
 | 체스, 가격비교 | - | 미착수 | |
 
 ## AI 주식 메모 (`/stock`)
 
 - `com.jihun.portfolio.stock`: `TossApiClient`(OAuth+전역 스로틀+429재시도), `StockDashboardService`(TTL캐시), `StockController`
-- 스키마 함정: RankingItem엔 종목명/시총 없음(종목마스터 조인), changeRate는 소수비율(×100 필요), exchange-rate는 baseCurrency/quoteCurrency 필수+등락률 자체계산, 캘린더 12h 캐시+별도 엔드포인트
+- 스키마 함정: RankingItem엔 종목명/시총 없음(종목마스터 조인), changeRate는 소수비율(×100 필요), exchange-rate는 baseCurrency/quoteCurrency 필수+등락률 자체계산
+- 캘린더는 토스 API 자체가 전일/당일/익일 3영업일만 반환한다(더 긴 범위 불가 — API 제약). 프론트는 개장일 포함 그대로 표시, 데이터가 없으면 "주요일정이 없습니다" 안내만 표시
+- AI 브리핑(시황 요약·주목종목·체크포인트)은 Gemini 호출 1건으로 한 번에 생성. 성공 시 12시간 캐시, 실패 시에만 10분 뒤 재시도 — 예전엔 성공/실패 무관 30분마다 재호출(하루 48회)해서 다른 기능과 Gemini 무료 할당량을 다투다 자주 소진됐던 문제를 이렇게 해결함
 - 프론트: 랭킹 테이블은 폴링마다 지우지 않고 심볼키로 재사용+FLIP 재정렬+변경셀 플래시. 국기는 flagcdn.com 이미지(이모지는 Windows에서 깨짐)
 - 서버설정 필요: `TOSS_CLIENT_ID/SECRET`, 토스 허용IP 등록
 
@@ -114,6 +120,31 @@ hunit.kr 사이트(메인화면·기능 페이지·게임 설명) 전부**에 �
 - 난이도 = 사용 무늬 수(1/2/4종, 실제 정식 스파이더 변형). suitCount에 따라 같은 무늬를 8/4/2회씩 반복해 104장을 채움
 - 스톡 클릭 시 10컬럼에 한 장씩 배분, 빈 컬럼이 있으면 배분 불가(표준 규칙)
 
+## 비공개 회원 영역 메모 (`/login`, `/signup`, `/mypage`, `/admin`)
+
+패키지 `com.jihun.portfolio.auth`. 공개 포트폴리오와 별개로 관리자가 승인한 회원만 쓸 수 있는 개인·지인 전용
+영역이다. **README.md 등 공개 문서에는 이 기능을 절대 언급하지 않는다.**
+
+- **비밀번호**: BCrypt 해시로만 저장(복호화 불가). 로그인 시 입력값을 같은 방식으로 해시해 비교
+- **전화번호·이메일**: `CryptoService`가 AES-256-GCM으로 암호화해 저장. 중복확인·조회(비밀번호 찾기 등)를 위해
+  HMAC-SHA256 기반 "조회 전용 해시"(`emailLookupHash`/`phoneLookupHash`)를 별도 컬럼에 함께 저장 — 이 해시는
+  같은 입력이면 항상 같은 값이 나오지만 원문으로 되돌릴 수는 없음
+- **가입 → 승인 → 로그인**: 가입 직후 상태는 `PENDING`이라 로그인 불가. 관리자가 `/admin`에서 승인(`APPROVED`)해야
+  로그인 가능. `MemberDetailsService`가 PENDING을 disabled, REJECTED를 accountLocked로 매핑해 Spring Security가
+  자동으로 막는다
+- **최초 관리자 계정**: 서버 시작 시 `MemberService.bootstrapAdmin()`이 `ADMIN_USERNAME`/`ADMIN_PASSWORD`
+  환경변수로 관리자 계정이 하나도 없을 때만 1회 생성(status=APPROVED로 바로 활성화). 이후 추가 관리자는 DB에서
+  role을 직접 바꾸거나 별도 기능으로 승격해야 함(현재 승격 UI는 없음)
+- **비밀번호 찾기 3단계**(`PasswordResetService`): 인증번호 요청 → 확인(성공 시 1회용 `resetToken` 발급) →
+  `resetToken`으로만 실제 비밀번호 변경. 인증번호 자체는 비밀번호 변경에 직접 쓰이지 않음(토큰으로 한 단계 분리)
+- **이메일만 실동작**(`EmailService`, Gmail SMTP 등 `MAIL_USERNAME`/`MAIL_PASSWORD` 필요). **SMS는 UI·API 형태만
+  존재하고 실제 발송 미연동** — 채널 선택 시 SMS를 고르면 "준비 중" 안내만 반환한다. 추후 알리고/NHN Cloud 등
+  붙일 때는 `PasswordResetService.requestCode()`의 채널 분기만 확장하면 됨
+- **[알려진 단순화] CSRF 보호 비활성화**: 템플릿 엔진 없이 정적 HTML+fetch 구조라 토큰을 헤더에 실어 보내는
+  작업을 생략했다. 결제·금전 처리가 없는 개인 연습용 비공개 영역이라 우선순위를 낮췄음 — 나중에 강화하려면
+  `/api/csrf-token` 같은 엔드포인트로 토큰을 내려주고 프론트에서 헤더에 실어 보내는 방식으로 다시 켤 수 있음
+- **로그아웃**은 `<form method="post" action="/logout">`로 처리(CSRF 비활성화라 별도 토큰 불필요)
+
 ## 프론트 프레임워크 원칙
 
 신규 기능은 순수 JS보다 Vue.js/React(CDN, 빌드 없이) 우선 검토. 기존 페이지 통째 마이그레이션은 불필요, 신규 단위로 점진 도입.
@@ -131,11 +162,15 @@ hunit.kr 사이트(메인화면·기능 페이지·게임 설명) 전부**에 �
 - 카드 문양이나 카드 뒷면을 유니코드·CSS·전용 cid로 매번 다시 그리는 방식은 렌더링이 불안정하거나 시각적으로 구분이 안 될 수 있음 — 검증된 이미지/라이브러리를 저장해서 재사용하는 편이 안전함
 - 게임마다 같은 개념(빈 컬럼 규칙 등)이 실제로는 다를 수 있음 — 다른 카드게임을 만들 때 규칙을 그대로 복사하지 말고 해당 게임의 정식 규칙을 확인할 것
 - 클론다이크 난이도는 "다시 섞기 횟수 제한"으로 어렵게 만들면 체감 난이도가 과도하게 튀어오름 — 다시 섞기는 무제한으로 두고 힌트/자동정리 유무로 난이도를 나누는 편이 나음
+- 뉴스 중복 제거는 완전일치만으로는 부족함(언론사마다 제목 표현이 미묘하게 다름) — 문자 2-그램 자카드 유사도로 근사중복까지 잡아야 실제로 걸러짐(임계값 0.40, `NewsFetchService`)
+- AI 브리핑류(Gemini 호출)는 짧은 주기로 재시도하면 무료 할당량이 다른 기능과 겹쳐 금방 소진됨 — 성공 시 길게(몇 시간) 캐시하고 실패 시에만 짧게 재시도하는 패턴을 기본으로 삼을 것
 - **새 페이지·기능을 추가할 때마다 "콘텐츠 작성 원칙" 절을 다시 확인할 것** — 특정 기업 어필성 문구나 주관적 형용사가 섞이지 않았는지, 게임 설명이 불릿 위주로 간결한지 체크
 
 ## 환경변수
 
-`SPRING_PROFILES_ACTIVE`, `DB_HOST/NAME/USER/PASSWORD`, `GEMINI_API_KEY`, `NAVER_MAP_CLIENT_ID/SECRET`, `KAKAO_API_KEY`, `REALESTATE_API_KEY`, `TOSS_CLIENT_ID`, `TOSS_CLIENT_SECRET`
+`SPRING_PROFILES_ACTIVE`, `DB_HOST/NAME/USER/PASSWORD`, `GEMINI_API_KEY`, `NAVER_MAP_CLIENT_ID/SECRET`, `KAKAO_API_KEY`, `REALESTATE_API_KEY`, `TOSS_CLIENT_ID`, `TOSS_CLIENT_SECRET`,
+`APP_ENCRYPTION_KEY`(회원 전화번호·이메일 암호화 키, 운영에서 반드시 별도 값 지정), `ADMIN_USERNAME`/`ADMIN_PASSWORD`(최초 관리자 계정 부트스트랩),
+`MAIL_HOST`/`MAIL_PORT`/`MAIL_USERNAME`/`MAIL_PASSWORD`(비밀번호 재설정 이메일 발송)
 
 ## 코딩 컨벤션
 
