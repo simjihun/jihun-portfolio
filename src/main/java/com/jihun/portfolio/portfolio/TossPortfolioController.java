@@ -1,6 +1,7 @@
 package com.jihun.portfolio.portfolio;
 
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -31,5 +32,25 @@ public class TossPortfolioController {
     public Map<String, Object> orders(@RequestParam(defaultValue = "CLOSED") String status,
                                        @RequestParam(required = false) String symbol) {
         return portfolioService.getOrders(status, symbol);
+    }
+
+    @GetMapping("/stock/{symbol}/chart")
+    public Map<String, Object> chart(@PathVariable String symbol, @RequestParam(defaultValue = "90") int count) {
+        return portfolioService.getChart(symbol, count);
+    }
+
+    @GetMapping("/stock/{symbol}/orderbook")
+    public Map<String, Object> orderbook(@PathVariable String symbol) {
+        return portfolioService.getOrderbook(symbol);
+    }
+
+    @GetMapping("/stock/{symbol}/investor-trading")
+    public Map<String, Object> investorTrading(@PathVariable String symbol) {
+        return portfolioService.getInvestorTrading(symbol);
+    }
+
+    @GetMapping("/stock/{symbol}/short-selling")
+    public Map<String, Object> shortSelling(@PathVariable String symbol) {
+        return portfolioService.getShortSelling(symbol);
     }
 }
