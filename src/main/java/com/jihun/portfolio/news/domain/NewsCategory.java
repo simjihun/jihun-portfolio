@@ -7,6 +7,7 @@ package com.jihun.portfolio.news.domain;
 public enum NewsCategory {
     POLITICS("정치"),
     ECONOMY("경제"),
+    IT_SCIENCE("IT·과학"),
     SOCIETY("사회"),
     LIFE("생활·문화"),
     WORLD("세계"),
