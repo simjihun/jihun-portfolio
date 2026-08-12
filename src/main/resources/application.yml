@@ -1,6 +1,10 @@
 server:
   # 환경변수 SERVER_PORT가 있으면 그 값을, 없으면 8081 사용 (로컬 개발용)
   port: ${SERVER_PORT:8081}
+  servlet:
+    session:
+      # 비공개 회원 영역 세션 유지시간. remember-me 쿠키(24h)와 맞춰 24시간으로 설정.
+      timeout: 24h
 
 spring:
   application:
@@ -44,5 +48,5 @@ app:
     max-retry: 2           # 발송 실패 시 자동 재시도 횟수
 
   security:
-    # 전화번호·이메일 암호화 및 조회용 해시에 쓰는 키. 운영 서버에서는 conf/private.conf 에서 주입한다.
+    # 전화번호·이메일 암호화 및 조회용 해시, remember-me 쿠키 서명에 함께 쓰는 키. 운영 서버에서는 conf/private.conf 에서 주입한다.
     encryption-key: ${APP_ENCRYPTION_KEY:local-dev-only-change-me}
