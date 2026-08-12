@@ -50,3 +50,8 @@ app:
   security:
     # 전화번호·이메일 암호화 및 조회용 해시, remember-me 쿠키 서명에 함께 쓰는 키. 운영 서버에서는 conf/private.conf 에서 주입한다.
     encryption-key: ${APP_ENCRYPTION_KEY:local-dev-only-change-me}
+
+  aws:
+    # 관리자 대시보드의 프리티어 잔여일수 계산용(선택). 형식 YYYY-MM-DD, 미설정 시 잔여일수 대신 안내 문구만 표시.
+    # AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY는 AWS SDK가 환경변수에서 자동으로 읽으므로 여기 별도 바인딩 불필요.
+    account-created-date: ${ACCOUNT_CREATED_DATE:}
