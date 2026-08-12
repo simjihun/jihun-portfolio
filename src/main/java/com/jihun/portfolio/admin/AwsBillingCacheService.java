@@ -22,7 +22,7 @@ public class AwsBillingCacheService {
 
     private final AwsBillingService awsBillingService;
 
-    private volatile Map<String, Object> costCache;
+    private volatile Map<String, Object> creditUsageCache;
     private volatile Map<String, Object> creditsCache;
 
     public AwsBillingCacheService(AwsBillingService awsBillingService) {
@@ -42,18 +42,23 @@ public class AwsBillingCacheService {
     }
 
     private synchronized void refresh() {
-        log.info("[admin-dashboard] AWS 비용/크레딧 일일 갱신 시작");
+        log.info("[admin-dashboard] AWS 크레딧 소모량/잔액 일일 갱신 시작");
         try {
-            costCache = awsBillingService.getDailyCost(COST_WINDOW_DAYS);
+            creditUsageCache = awsBillingService.getDailyCreditUsage(COST_WINDOW_DAYS);
             creditsCache = awsBillingService.getCreditsSummary();
-            log.info("[admin-dashboard] AWS 비용/크레딧 일일 갱신 완료");
+            log.info("[admin-dashboard] AWS 크레딧 소모량/잔액 일일 갱신 완료");
         } catch (Exception e) {
-            log.warn("[admin-dashboard] AWS 비용/크레딧 갱신 실패: {}", e.getMessage());
+            log.warn("[admin-dashboard] AWS 크레딧 소모량/잔액 갱신 실패: {}", e.getMessage());
         }
     }
 
-    public Map<String, Object> getCost() {
-        return costCache != null ? costCache : awsBillingService.getDailyCost(COST_WINDOW_DAYS);
+    /** 관리자가 IAM 결제 접근을 새로 켠 직후처럼, 다음 자정까지 기다리지 않고 지금 바로 다시 조회하고 싶을 때 사용. */
+    public void forceRefresh() {
+        refresh();
+    }
+
+    public Map<String, Object> getCreditUsage() {
+        return creditUsageCache != null ? creditUsageCache : awsBillingService.getDailyCreditUsage(COST_WINDOW_DAYS);
     }
 
     public Map<String, Object> getCredits() {
