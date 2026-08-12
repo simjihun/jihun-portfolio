@@ -7,7 +7,6 @@ import com.jihun.portfolio.auth.repository.MemberRepository;
 import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -30,14 +29,17 @@ public class MemberService {
     private static final Pattern PHONE_PATTERN = Pattern.compile("^01[016789]-?\\d{3,4}-?\\d{4}$");
     private static final Pattern EMAIL_PATTERN = Pattern.compile("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$");
 
+    /**
+     * 최초 관리자 계정 고정값. 서버를 처음 띄웠을 때 관리자 계정이 하나도 없으면 이 값으로 1회 생성된다.
+     * 로그인 직후 반드시 마이페이지에서 비밀번호를 바꿀 것 — 이 값은 소스에 그대로 남기 때문에
+     * 깃 이력에도 계속 보인다(비공개 저장소가 아니라면 특히).
+     */
+    private static final String BOOTSTRAP_ADMIN_USERNAME = "simering";
+    private static final String BOOTSTRAP_ADMIN_PASSWORD = "admin";
+
     private final MemberRepository memberRepository;
     private final CryptoService crypto;
     private final PasswordEncoder passwordEncoder;
-
-    @Value("${app.admin.username:}")
-    private String bootstrapAdminUsername;
-    @Value("${app.admin.password:}")
-    private String bootstrapAdminPassword;
 
     public MemberService(MemberRepository memberRepository, CryptoService crypto, PasswordEncoder passwordEncoder) {
         this.memberRepository = memberRepository;
@@ -45,17 +47,15 @@ public class MemberService {
         this.passwordEncoder = passwordEncoder;
     }
 
-    /** 서버 시작 시 관리자 계정이 하나도 없고 ADMIN_USERNAME/ADMIN_PASSWORD가 설정돼 있으면 1회 생성한다(최초 로그인용). */
+    /** 서버 시작 시 관리자 계정이 하나도 없으면 고정된 최초 계정을 1회 생성한다. 로그인 후 바로 비밀번호를 바꿀 것. */
     @PostConstruct
     public void bootstrapAdmin() {
-        if (bootstrapAdminUsername == null || bootstrapAdminUsername.isBlank()) return;
-        if (bootstrapAdminPassword == null || bootstrapAdminPassword.isBlank()) return;
-        if (memberRepository.existsByUsername(bootstrapAdminUsername)) return;
+        if (memberRepository.existsByUsername(BOOTSTRAP_ADMIN_USERNAME)) return;
         String placeholderPhone = "010-0000-0000";
-        String placeholderEmail = bootstrapAdminUsername + "@admin.local";
+        String placeholderEmail = BOOTSTRAP_ADMIN_USERNAME + "@admin.local";
         Member admin = new Member(
-                bootstrapAdminUsername,
-                passwordEncoder.encode(bootstrapAdminPassword),
+                BOOTSTRAP_ADMIN_USERNAME,
+                passwordEncoder.encode(BOOTSTRAP_ADMIN_PASSWORD),
                 "관리자",
                 crypto.encrypt(placeholderPhone), crypto.lookupHash(placeholderPhone),
                 crypto.encrypt(placeholderEmail), crypto.lookupHash(placeholderEmail),
@@ -63,7 +63,7 @@ public class MemberService {
         );
         admin.setStatus(MemberStatus.APPROVED);
         memberRepository.save(admin);
-        log.info("[auth] 최초 관리자 계정 생성 완료: {}", bootstrapAdminUsername);
+        log.info("[auth] 최초 관리자 계정 생성 완료: {} (반드시 로그인 후 비밀번호를 변경할 것)", BOOTSTRAP_ADMIN_USERNAME);
     }
 
     public Map<String, Object> signup(String username, String rawPassword, String name, String phone, String email) {
