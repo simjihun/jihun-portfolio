@@ -30,12 +30,13 @@ import java.util.Set;
  * 30분마다 카테고리별 RSS를 순회하며 새 기사를 수집한다.
  * 카테고리마다 여러 언론사 소스를 등록해 다양한 매체의 기사를 함께 모은다.
  * - 링크 기준 중복 제거
- * - 제목을 정규화(공백 정리 + 특수 따옴표 통일)한 뒤 완전히 같은 기사는 언론사가 달라도 중복으로 보고 거른다(먼저 수집된 것 유지)
+ * - 제목을 정규화(공백 정리 + 특수 따옴표 통일)한 뒤 완전히 같은 기사는 언론사가 달라도 중복으로 보고 거른다(먼저 수집된 것 유지) — 저비용의 1차 필터
+ * - 매 수집 주기마다 보존 기간 내 기사 전체를 문자 2-그램 자카드 유사도로 비교해 근사 중복(표현은 다르지만 같은 사건)까지
+ *   추가로 정리한다 — 언론사마다 제목을 다르게 뽑아써서 문자열은 달라도 같은 사건을 다루는 경우가 많기 때문에,
+ *   완전일치보다 넓게 잡아야 실제로 걸러진다. 카테고리 경계 없이 전체를 대상으로 한다(같은 사건이 언론사 성격에 따라
+ *   다른 카테고리로 분류되는 경우도 있기 때문 — 예: 법원 판결 기사가 사회면과 증권면에 동시에 실리는 경우).
  * - 제목에 [속보]/[단독]가 포함되면 속보로 표시
  * - 3일 지난 기사는 자동 삭제 (테이블 관리)
- * - 매 수집 주기마다 보존 기간 내 기사를 훑어 정규화 제목이 같은 중복을 추가로 정리(가장 먼저 수집된 것만 남김) —
- *   등록 시점에는 정상적으로 걸러졌어도 원문 소스의 따옴표 표기가 미세하게 달라 정규화 전 문자열 비교로는
- *   놓쳤던 중복까지 사후에 잡아낸다
  * - 소스 하나가 장애나도 나머지는 계속 수집 (소스 단위 장애 격리)
  */
 @Service
@@ -43,6 +44,9 @@ public class NewsFetchService {
 
     private static final Logger log = LoggerFactory.getLogger(NewsFetchService.class);
     private static final int RETENTION_DAYS = 3;
+
+    /** 문자 2-그램 자카드 유사도가 이 값 이상이면 같은 사건을 다룬 기사로 보고 하나만 남긴다. */
+    private static final double DUPLICATE_SIMILARITY_THRESHOLD = 0.40;
 
     /** 언론사별 RSS 소스 */
     private record FeedSource(String url, String press) {}
@@ -117,10 +121,10 @@ public class NewsFetchService {
         }
         // 보존 기간 지난 기사 정리
         long deleted = newsRepository.deleteByPublishedAtBefore(LocalDateTime.now().minusDays(RETENTION_DAYS));
-        // 정규화 제목 기준 잔여 중복 정리 (따옴표 표기 차이 등으로 등록 시점에 놓친 것)
-        int dupDeleted = cleanupDuplicateTitles();
+        // 근사 중복(문구는 다르지만 같은 사건) 정리 — 매 수집 주기마다 보존 기간 전체를 다시 훑는다
+        int dupDeleted = cleanupNearDuplicateTitles();
         lastFetchAt = LocalDateTime.now();
-        log.info("[news] 수집 완료: 신규 {}건, 보존기간 정리 {}건, 중복 정리 {}건", totalNew, deleted, dupDeleted);
+        log.info("[news] 수집 완료: 신규 {}건, 보존기간 정리 {}건, 근사중복 정리 {}건", totalNew, deleted, dupDeleted);
     }
 
     /** 피드 1개 수집 */
@@ -139,7 +143,7 @@ public class NewsFetchService {
             if (link == null || rawTitle == null || rawTitle.isBlank()) continue;
             String title = normalizeTitle(rawTitle);
             if (newsRepository.existsByLink(link)) continue;    // 링크 기준 중복 제거
-            if (newsRepository.existsByTitle(title)) continue;  // 정규화한 제목 기준 중복 제거 (먼저 수집된 것 유지)
+            if (newsRepository.existsByTitle(title)) continue;  // 정규화한 제목 완전일치 중복 제거(저비용 1차 필터, 나머지는 수집 후 근사중복 정리가 처리)
 
             LocalDateTime publishedAt = e.getPublishedDate() != null
                     ? LocalDateTime.ofInstant(e.getPublishedDate().toInstant(), ZoneId.of("Asia/Seoul"))
@@ -170,18 +174,56 @@ public class NewsFetchService {
     }
 
     /**
-     * 보존 기간(3일) 내 기사를 오래된 순으로 훑어, 정규화 제목이 같은 기사가 여러 건이면
-     * 가장 먼저 수집된 것만 남기고 나머지를 삭제한다. fetchFeed()의 실시간 중복 체크를
-     * 통과해 이미 저장된(과거 실행분 포함) 중복도 여기서 함께 정리된다.
+     * 유사도 비교용 정규화 — [속보]/[단독] 같은 태그와 따옴표·공백·구두점을 모두 제거해 순수 내용 글자만 남긴다.
+     * 언론사마다 "대법 X"/"대법원 X"처럼 어미나 조사, 인용부호 위치가 달라도 핵심 내용 글자 나열은
+     * 비슷하게 남기 때문에, 이 상태에서 2-그램(연속 두 글자) 집합을 비교하면 표현이 달라도 겹치는 정도를
+     * 안정적으로 잴 수 있다.
      */
-    private int cleanupDuplicateTitles() {
+    private String stripForSimilarity(String title) {
+        return title
+                .replaceAll("\\[[^\\]]*\\]", "")
+                .replaceAll("[\"'“”‘’…·,.\\-–—()\\s]", "");
+    }
+
+    private Set<String> charBigrams(String s) {
+        Set<String> set = new HashSet<>();
+        for (int i = 0; i + 1 < s.length(); i++) set.add(s.substring(i, i + 2));
+        return set;
+    }
+
+    /** 두 제목의 문자 2-그램 자카드 유사도(0~1). 완전히 다른 문구라도 겹치는 핵심 단어가 많으면 값이 높게 나온다. */
+    private double titleSimilarity(String a, String b) {
+        Set<String> setA = charBigrams(stripForSimilarity(a));
+        Set<String> setB = charBigrams(stripForSimilarity(b));
+        if (setA.isEmpty() || setB.isEmpty()) return 0;
+        Set<String> intersection = new HashSet<>(setA);
+        intersection.retainAll(setB);
+        Set<String> union = new HashSet<>(setA);
+        union.addAll(setB);
+        return union.isEmpty() ? 0 : (double) intersection.size() / union.size();
+    }
+
+    /**
+     * 보존 기간(3일) 내 기사를 오래된 순으로 훑어, 유사도가 임계값 이상인 기사가 여러 건이면
+     * 가장 먼저 수집된 것만 남기고 나머지를 삭제한다(카테고리 구분 없이 전체 대상 — 같은 사건이
+     * 카테고리를 넘나들며 실리는 경우까지 잡기 위함). fetchFeed()의 실시간 중복 체크(완전일치)를
+     * 통과해 저장된 표현만 다른 중복도 여기서 함께 정리된다.
+     */
+    private int cleanupNearDuplicateTitles() {
         List<NewsArticle> recent = newsRepository.findByPublishedAtAfterOrderByPublishedAtAsc(
                 LocalDateTime.now().minusDays(RETENTION_DAYS));
-        Set<String> seen = new HashSet<>();
+        List<NewsArticle> kept = new ArrayList<>();
         List<Long> toDelete = new ArrayList<>();
         for (NewsArticle a : recent) {
-            String key = a.getCategory() + "|" + normalizeTitle(a.getTitle());
-            if (!seen.add(key)) toDelete.add(a.getId());
+            boolean isDuplicate = false;
+            for (NewsArticle k : kept) {
+                if (titleSimilarity(a.getTitle(), k.getTitle()) >= DUPLICATE_SIMILARITY_THRESHOLD) {
+                    isDuplicate = true;
+                    break;
+                }
+            }
+            if (isDuplicate) toDelete.add(a.getId());
+            else kept.add(a);
         }
         if (!toDelete.isEmpty()) newsRepository.deleteAllById(toDelete);
         return toDelete.size();
