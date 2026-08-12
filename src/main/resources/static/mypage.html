@@ -11,10 +11,15 @@
 <style>
 .sandbox-note{color:var(--dim);font-size:12.5px;padding:20px;text-align:center;border:1px dashed var(--line);border-radius:10px}
 .dash-note{font-size:11.5px;color:var(--dim);margin-top:10px;line-height:1.6}
-.chart-wrap{height:180px;margin-top:4px}
-.expiry-box{display:flex;align-items:baseline;gap:10px;background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin-bottom:14px}
+.chart-wrap{height:170px;margin-top:4px}
+.expiry-box{display:flex;align-items:baseline;gap:10px;background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin-bottom:10px;flex-wrap:wrap}
 .expiry-box .num{font-family:var(--mono);font-size:26px;font-weight:700;color:var(--amber)}
 .expiry-box .label{font-size:12.5px;color:var(--mut)}
+.credit-box{display:flex;gap:10px;margin-bottom:14px}
+.credit-box .cell{flex:1;background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+.credit-box .cell .k{font-size:11.5px;color:var(--mut);margin-bottom:4px}
+.credit-box .cell .v{font-family:var(--mono);font-size:19px;font-weight:700;color:var(--green)}
+.credit-box .cell .v.warn{color:var(--red)}
 .ft-item{padding:9px 0;border-bottom:1px solid var(--line)}
 .ft-item:last-child{border-bottom:0}
 .ft-item .top{display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:5px}
@@ -23,6 +28,10 @@
 .ft-bar{height:5px;border-radius:999px;background:var(--panel-2);overflow:hidden}
 .ft-bar-fill{height:100%;background:var(--amber);border-radius:999px}
 .ft-bar-fill.warn{background:var(--red)}
+.today-box{display:flex;gap:10px;margin-bottom:10px}
+.today-box .cell{flex:1;background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:10px 14px}
+.today-box .cell .k{font-size:11.5px;color:var(--mut);margin-bottom:3px}
+.today-box .cell .v{font-family:var(--mono);font-size:18px;font-weight:700}
 </style>
 </head>
 <body style="padding-top:0">
@@ -51,12 +60,13 @@
 
     <div class="dash-grid">
       <div class="panel">
-        <h2>💳 프리티어 사용량</h2>
-        <div id="ftExpiry"></div>
+        <h2>💳 프리티어 · 크레딧</h2>
+        <div id="creditBox"></div>
         <div id="freeTierList"><div class="empty">불러오는 중...</div></div>
       </div>
       <div class="panel">
-        <h2>📈 최근 14일 비용(USD)</h2>
+        <h2>📈 최근 7일 비용(USD)</h2>
+        <div class="today-box" id="todayBox"></div>
         <div class="chart-wrap"><canvas id="costChart"></canvas></div>
         <div class="dash-note" id="costNote"></div>
       </div>
@@ -83,6 +93,7 @@ async function initDashboard(){
   loadAws();
   loadDb();
   loadFreeTier();
+  loadCredits();
   loadCost();
 }
 
@@ -123,20 +134,33 @@ async function loadDb(){
     : tables.map(t => `<tr><td>${esc(t.name)}</td><td>${t.rows == null ? '-' : t.rows.toLocaleString()}</td><td>${t.sizeMb ?? '-'}</td></tr>`).join('');
 }
 
+/* ===== 계정 크레딧 잔액·소진 예상일 — 유료 API라 서버가 6시간 캐시 ===== */
+async function loadCredits(){
+  const data = await fetch('/api/admin/dashboard/credits').then(r => r.json()).catch(() => null);
+  if (!data || !data.available) {
+    $('creditBox').innerHTML = `<div class="dash-note">${esc(data ? data.message : '크레딧 정보를 불러오지 못했습니다.')}</div>`;
+    return;
+  }
+  const basisLabel = data.dateBasis === 'exhaust' ? '소진 예상' : '만료';
+  const days = data.daysRemaining;
+  const warn = days != null && days <= 14 ? 'warn' : '';
+  $('creditBox').innerHTML = `<div class="credit-box">
+    <div class="cell">
+      <div class="k">남은 크레딧</div>
+      <div class="v">$${esc(data.totalRemaining)}</div>
+    </div>
+    <div class="cell">
+      <div class="k">${basisLabel}까지</div>
+      <div class="v ${warn}">${days != null ? days + '일' : '-'}</div>
+    </div>
+  </div>
+  ${data.targetDate ? `<div class="dash-note">${basisLabel}일: ${esc(data.targetDate)} (현재 사용 속도 기준 AWS 예측치)</div>` : ''}`;
+}
+
 /* ===== 프리티어 사용량 — 무료 API라 매번 최신값 조회 ===== */
 async function loadFreeTier(){
   const data = await fetch('/api/admin/dashboard/free-tier').then(r => r.json()).catch(() => null);
   if (!data) { $('freeTierList').innerHTML = '<div class="empty">불러오지 못했습니다.</div>'; return; }
-
-  if (data.daysRemaining != null) {
-    $('ftExpiry').innerHTML = `<div class="expiry-box">
-      <span class="num">${data.daysRemaining}</span>
-      <span class="label">일 남음 · 만료일 ${esc(data.freeTierExpiryDate)}</span>
-    </div>`;
-  } else if (data.expiryNote) {
-    $('ftExpiry').innerHTML = `<div class="dash-note">${esc(data.expiryNote)}</div>`;
-  }
-
   if (!data.available) {
     $('freeTierList').innerHTML = `<div class="empty">${esc(data.message)}</div>`;
     return;
@@ -154,7 +178,7 @@ async function loadFreeTier(){
       }).join('');
 }
 
-/* ===== 일별 비용 — 유료 API라 서버가 6시간 캐시. 프론트는 그 결과를 그대로 그리기만 함 ===== */
+/* ===== 최근 7일 일별 비용 — 유료 API라 서버가 6시간 캐시. 프론트는 그 결과를 그대로 그리기만 함 ===== */
 let costChart = null;
 async function loadCost(){
   const data = await fetch('/api/admin/dashboard/cost').then(r => r.json()).catch(() => null);
@@ -165,6 +189,14 @@ async function loadCost(){
   const points = data.points || [];
   const labels = points.map(p => p.date.substring(5));
   const amounts = points.map(p => p.amount);
+
+  // 오늘/어제 하이라이트 — points는 날짜 오름차순이라 배열 끝 2개가 최신
+  const today = points[points.length - 1];
+  const yesterday = points[points.length - 2];
+  $('todayBox').innerHTML = `
+    <div class="cell"><div class="k">오늘</div><div class="v">$${(today ? today.amount : 0).toFixed(2)}</div></div>
+    <div class="cell"><div class="k">어제</div><div class="v">$${(yesterday ? yesterday.amount : 0).toFixed(2)}</div></div>
+  `;
 
   Chart.defaults.color = '#7E8DA9';
   Chart.defaults.borderColor = '#243149';
@@ -180,7 +212,7 @@ async function loadCost(){
     }
   });
   const total = amounts.reduce((a, b) => a + b, 0);
-  $('costNote').textContent = `최근 14일 합계 $${total.toFixed(2)} · 이 데이터는 6시간마다만 갱신됩니다(Cost Explorer 호출당 과금이라 서버에서 캐시)`;
+  $('costNote').textContent = `최근 7일 합계 $${total.toFixed(2)} · 이 데이터는 6시간마다만 갱신됩니다(Cost Explorer 호출당 과금이라 서버에서 캐시). 오늘 데이터는 아직 집계 중이라 실제보다 낮게 보일 수 있습니다.`;
 }
 
 initDashboard();
