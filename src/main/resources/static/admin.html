@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>관리자 · hunit</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
+<link rel="stylesheet" href="/css/base.css">
+<style>
+.priv-header{display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border-bottom:1px solid var(--line);background:var(--panel-2)}
+.priv-header .brand{font-weight:700;font-size:14px}
+.priv-header .who{font-size:12.5px;color:var(--mut)}
+.logout-btn{background:none;border:1px solid var(--line);color:var(--mut);padding:6px 12px;border-radius:8px;font-size:12px;cursor:pointer}
+.logout-btn:hover{color:var(--ink);border-color:var(--mut)}
+.tabs{display:flex;gap:8px;margin-bottom:14px}
+.tab{padding:7px 16px;border-radius:999px;border:1px solid var(--line);background:transparent;color:var(--mut);font-size:13px;cursor:pointer}
+.tab.on{background:rgba(242,169,59,.12);border-color:var(--amber);color:var(--amber);font-weight:600}
+.badge-status{padding:2px 9px;border-radius:999px;font-size:11px;font-weight:600}
+.badge-status.PENDING{background:rgba(242,169,59,.14);color:var(--amber)}
+.badge-status.APPROVED{background:rgba(62,207,142,.14);color:var(--green)}
+.badge-status.REJECTED{background:rgba(241,96,99,.14);color:var(--red)}
+.row-btns{display:flex;gap:6px}
+.row-btns button{padding:4px 10px;border-radius:6px;border:1px solid var(--line);background:transparent;color:var(--mut);font-size:11.5px;cursor:pointer}
+.row-btns button:hover{color:var(--amber);border-color:var(--amber)}
+</style>
+</head>
+<body style="padding-top:0">
+<div class="priv-header">
+  <span class="brand">🛠️ 관리자</span>
+  <div style="display:flex;align-items:center;gap:12px">
+    <a class="who" href="/mypage">마이페이지</a>
+    <form method="post" action="/logout"><button class="logout-btn" type="submit">로그아웃</button></form>
+  </div>
+</div>
+
+<main>
+  <header class="page"><h1>회원 관리</h1></header>
+
+  <div class="tabs" id="tabs">
+    <button class="tab on" data-v="PENDING" onclick="selectStatus('PENDING')">승인 대기</button>
+    <button class="tab" data-v="APPROVED" onclick="selectStatus('APPROVED')">승인됨</button>
+    <button class="tab" data-v="REJECTED" onclick="selectStatus('REJECTED')">거절됨</button>
+    <button class="tab" data-v="" onclick="selectStatus('')">전체</button>
+  </div>
+
+  <div class="panel">
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>아이디</th><th>이름</th><th>휴대폰</th><th>이메일</th><th>권한</th><th>상태</th><th>가입일</th><th></th></tr></thead>
+        <tbody id="memberBody"></tbody>
+      </table>
+    </div>
+    <div class="empty" id="memberEmpty" style="display:none">해당 조건의 회원이 없습니다.</div>
+  </div>
+</main>
+
+<script>
+const $ = id => document.getElementById(id);
+const esc = s => (s ?? '').toString().replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+let curStatus = 'PENDING';
+
+async function init(){
+  const me = await fetch('/api/auth/me').then(r => r.json());
+  if (!me.authenticated || !(me.roles || []).includes('ROLE_ADMIN')) { location.href = '/login'; return; }
+  loadMembers();
+}
+init();
+
+function selectStatus(status){
+  curStatus = status;
+  document.querySelectorAll('#tabs .tab').forEach(b => b.classList.toggle('on', b.dataset.v === status));
+  loadMembers();
+}
+
+const fmt = t => t ? t.replace('T', ' ').substring(0, 16) : '-';
+
+async function loadMembers(){
+  const qs = curStatus ? '?status=' + curStatus : '';
+  const list = await fetch('/api/admin/members' + qs).then(r => r.json());
+  $('memberEmpty').style.display = list.length ? 'none' : 'block';
+  $('memberBody').innerHTML = list.map(m => `
+    <tr>
+      <td>${esc(m.username)}</td>
+      <td>${esc(m.name)}</td>
+      <td>${esc(m.phone)}</td>
+      <td>${esc(m.email)}</td>
+      <td>${esc(m.role)}</td>
+      <td><span class="badge-status ${m.status}">${m.status}</span></td>
+      <td>${fmt(m.createdAt)}</td>
+      <td>
+        <div class="row-btns">
+          ${m.status !== 'APPROVED' ? `<button onclick="updateStatus(${m.id},'approve')">승인</button>` : ''}
+          ${m.status !== 'REJECTED' ? `<button onclick="updateStatus(${m.id},'reject')">거절</button>` : ''}
+        </div>
+      </td>
+    </tr>`).join('');
+}
+
+async function updateStatus(id, action){
+  await fetch(`/api/admin/members/${id}/${action}`, { method: 'POST' });
+  loadMembers();
+}
+</script>
+</body>
+</html>
