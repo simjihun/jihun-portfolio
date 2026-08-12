@@ -5,10 +5,24 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>대시보드 · hunit</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 <link rel="stylesheet" href="/css/base.css">
 <style>
 .sandbox-note{color:var(--dim);font-size:12.5px;padding:20px;text-align:center;border:1px dashed var(--line);border-radius:10px}
 .dash-note{font-size:11.5px;color:var(--dim);margin-top:10px;line-height:1.6}
+.chart-wrap{height:180px;margin-top:4px}
+.expiry-box{display:flex;align-items:baseline;gap:10px;background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin-bottom:14px}
+.expiry-box .num{font-family:var(--mono);font-size:26px;font-weight:700;color:var(--amber)}
+.expiry-box .label{font-size:12.5px;color:var(--mut)}
+.ft-item{padding:9px 0;border-bottom:1px solid var(--line)}
+.ft-item:last-child{border-bottom:0}
+.ft-item .top{display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:5px}
+.ft-item .svc{color:var(--ink)}
+.ft-item .pct{font-family:var(--mono);color:var(--mut)}
+.ft-bar{height:5px;border-radius:999px;background:var(--panel-2);overflow:hidden}
+.ft-bar-fill{height:100%;background:var(--amber);border-radius:999px}
+.ft-bar-fill.warn{background:var(--red)}
 </style>
 </head>
 <body style="padding-top:0">
@@ -28,10 +42,23 @@
         <div class="dash-kv" id="dbInfo"><div class="empty">불러오는 중...</div></div>
         <div class="dash-table-wrap table-scroll">
           <table>
-            <thead><tr><th>테이블</th><th>행 수(추정)</th><th>용량(MB)</th></tr></thead>
+            <thead><tr><th>테이블</th><th>행 수</th><th>용량(MB)</th></tr></thead>
             <tbody id="dbTables"></tbody>
           </table>
         </div>
+      </div>
+    </div>
+
+    <div class="dash-grid">
+      <div class="panel">
+        <h2>💳 프리티어 사용량</h2>
+        <div id="ftExpiry"></div>
+        <div id="freeTierList"><div class="empty">불러오는 중...</div></div>
+      </div>
+      <div class="panel">
+        <h2>📈 최근 14일 비용(USD)</h2>
+        <div class="chart-wrap"><canvas id="costChart"></canvas></div>
+        <div class="dash-note" id="costNote"></div>
       </div>
     </div>
   </div>
@@ -55,6 +82,8 @@ async function initDashboard(){
   $('adminPanels').style.display = 'block';
   loadAws();
   loadDb();
+  loadFreeTier();
+  loadCost();
 }
 
 function kvRow(k, v){
@@ -76,7 +105,7 @@ async function loadAws(){
     kvRow('퍼블릭 IP', data.publicIp),
     kvRow('프라이빗 IP', data.privateIp),
     kvRow('AMI ID', data.amiId)
-  ].join('') + `<div class="dash-note">${esc(data.usageNote)}</div>`;
+  ].join('');
 }
 
 async function loadDb(){
@@ -91,7 +120,67 @@ async function loadDb(){
   const tables = data.tables || [];
   $('dbTables').innerHTML = !tables.length
     ? '<tr><td colspan="3" class="empty">테이블 정보가 없습니다.</td></tr>'
-    : tables.map(t => `<tr><td>${esc(t.name)}</td><td>${(t.rows ?? 0).toLocaleString()}</td><td>${t.sizeMb ?? '-'}</td></tr>`).join('');
+    : tables.map(t => `<tr><td>${esc(t.name)}</td><td>${t.rows == null ? '-' : t.rows.toLocaleString()}</td><td>${t.sizeMb ?? '-'}</td></tr>`).join('');
+}
+
+/* ===== 프리티어 사용량 — 무료 API라 매번 최신값 조회 ===== */
+async function loadFreeTier(){
+  const data = await fetch('/api/admin/dashboard/free-tier').then(r => r.json()).catch(() => null);
+  if (!data) { $('freeTierList').innerHTML = '<div class="empty">불러오지 못했습니다.</div>'; return; }
+
+  if (data.daysRemaining != null) {
+    $('ftExpiry').innerHTML = `<div class="expiry-box">
+      <span class="num">${data.daysRemaining}</span>
+      <span class="label">일 남음 · 만료일 ${esc(data.freeTierExpiryDate)}</span>
+    </div>`;
+  } else if (data.expiryNote) {
+    $('ftExpiry').innerHTML = `<div class="dash-note">${esc(data.expiryNote)}</div>`;
+  }
+
+  if (!data.available) {
+    $('freeTierList').innerHTML = `<div class="empty">${esc(data.message)}</div>`;
+    return;
+  }
+  const items = (data.items || []).slice(0, 8); // 사용량 높은 순 상위 8개만
+  $('freeTierList').innerHTML = !items.length
+    ? '<div class="empty">사용 중인 프리티어 항목이 없습니다.</div>'
+    : items.map(it => {
+        const pct = it.percent ?? 0;
+        const warn = pct >= 80 ? 'warn' : '';
+        return `<div class="ft-item">
+          <div class="top"><span class="svc">${esc(it.service)} · ${esc(it.usageType)}</span><span class="pct">${it.percent == null ? '-' : pct + '%'}</span></div>
+          <div class="ft-bar"><div class="ft-bar-fill ${warn}" style="width:${Math.min(pct, 100)}%"></div></div>
+        </div>`;
+      }).join('');
+}
+
+/* ===== 일별 비용 — 유료 API라 서버가 6시간 캐시. 프론트는 그 결과를 그대로 그리기만 함 ===== */
+let costChart = null;
+async function loadCost(){
+  const data = await fetch('/api/admin/dashboard/cost').then(r => r.json()).catch(() => null);
+  if (!data || !data.available) {
+    $('costNote').textContent = data ? data.message : '불러오지 못했습니다.';
+    return;
+  }
+  const points = data.points || [];
+  const labels = points.map(p => p.date.substring(5));
+  const amounts = points.map(p => p.amount);
+
+  Chart.defaults.color = '#7E8DA9';
+  Chart.defaults.borderColor = '#243149';
+  Chart.defaults.font.family = "'JetBrains Mono',monospace";
+  Chart.defaults.font.size = 10;
+  costChart = new Chart($('costChart'), {
+    type: 'bar',
+    data: { labels, datasets: [{ label: '일별 비용($)', data: amounts, backgroundColor: 'rgba(242,169,59,.55)', borderRadius: 3, barPercentage: .6 }] },
+    options: {
+      responsive: true, maintainAspectRatio: false, animation: false,
+      plugins: { legend: { display: false } },
+      scales: { y: { beginAtZero: true, ticks: { callback: v => '$' + v } } }
+    }
+  });
+  const total = amounts.reduce((a, b) => a + b, 0);
+  $('costNote').textContent = `최근 14일 합계 $${total.toFixed(2)} · 이 데이터는 6시간마다만 갱신됩니다(Cost Explorer 호출당 과금이라 서버에서 캐시)`;
 }
 
 initDashboard();
