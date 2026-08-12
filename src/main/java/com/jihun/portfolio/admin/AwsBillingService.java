@@ -38,6 +38,9 @@ import java.util.Map;
  * - 세 API 모두 us-east-1 리전에서만 제공돼 리전을 코드에 고정했다(EC2 리전과 무관).
  * - 자격증명은 AWS SDK 기본 체인이 환경변수 AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY를 자동으로
  *   읽으므로 이 클래스에서 별도로 자격증명을 다루지 않는다(conf/private.conf에만 넣으면 됨).
+ * - billing:GetCredits의 startDate/endDate, CreditData의 endDate/exhaustDate는 API 문서상
+ *   "Unix epoch seconds"라고 적혀있지만 실제 자바 SDK 모델은 java.time.Instant로 나온다
+ *   (long이 아님 — 처음에 long으로 짜서 빌드가 깨졌던 부분).
  */
 @Service
 public class AwsBillingService {
@@ -101,8 +104,8 @@ public class AwsBillingService {
         Map<String, Object> result = new LinkedHashMap<>();
         try {
             String accountId = resolveAccountId();
-            long now = Instant.now().getEpochSecond();
-            long yearAgo = Instant.now().minus(364, ChronoUnit.DAYS).getEpochSecond();
+            Instant now = Instant.now();
+            Instant yearAgo = now.minus(364, ChronoUnit.DAYS);
 
             try (BillingClient client = BillingClient.builder().region(Region.US_EAST_1).build()) {
                 GetCreditsRequest req = GetCreditsRequest.builder()
@@ -114,8 +117,8 @@ public class AwsBillingService {
 
                 double totalRemaining = 0;
                 String currency = "USD";
-                Long earliestExhaust = null;
-                Long earliestEnd = null;
+                Instant earliestExhaust = null;
+                Instant earliestEnd = null;
                 List<Map<String, Object>> credits = new ArrayList<>();
 
                 for (CreditData c : res.credits()) {
@@ -124,28 +127,28 @@ public class AwsBillingService {
                         totalRemaining += Double.parseDouble(c.estimatedAmount().currencyAmount());
                         currency = c.estimatedAmount().currencyCode();
                     }
-                    if (c.exhaustDate() != null && (earliestExhaust == null || c.exhaustDate() < earliestExhaust)) {
+                    if (c.exhaustDate() != null && (earliestExhaust == null || c.exhaustDate().isBefore(earliestExhaust))) {
                         earliestExhaust = c.exhaustDate();
                     }
-                    if (c.endDate() != null && (earliestEnd == null || c.endDate() < earliestEnd)) {
+                    if (c.endDate() != null && (earliestEnd == null || c.endDate().isBefore(earliestEnd))) {
                         earliestEnd = c.endDate();
                     }
                     Map<String, Object> m = new LinkedHashMap<>();
                     m.put("description", c.description());
                     m.put("remaining", c.estimatedAmount() != null ? c.estimatedAmount().currencyAmount() : null);
-                    m.put("endDate", c.endDate() != null ? epochToDate(c.endDate()) : null);
-                    m.put("exhaustDate", c.exhaustDate() != null ? epochToDate(c.exhaustDate()) : null);
+                    m.put("endDate", c.endDate() != null ? toLocalDate(c.endDate()) : null);
+                    m.put("exhaustDate", c.exhaustDate() != null ? toLocalDate(c.exhaustDate()) : null);
                     credits.add(m);
                 }
 
-                Long targetEpoch = earliestExhaust != null ? earliestExhaust : earliestEnd;
+                Instant target = earliestExhaust != null ? earliestExhaust : earliestEnd;
                 result.put("available", true);
                 result.put("totalRemaining", Math.round(totalRemaining * 100.0) / 100.0);
                 result.put("totalRemainingKrw", Math.round(totalRemaining * USD_TO_KRW));
                 result.put("currency", currency);
                 result.put("dateBasis", earliestExhaust != null ? "exhaust" : "expiry"); // 소진예상 vs 하드만료
-                if (targetEpoch != null) {
-                    LocalDate targetDate = epochToDate(targetEpoch);
+                if (target != null) {
+                    LocalDate targetDate = toLocalDate(target);
                     result.put("targetDate", targetDate.toString());
                     result.put("daysRemaining", ChronoUnit.DAYS.between(LocalDate.now(), targetDate));
                 }
@@ -168,8 +171,8 @@ public class AwsBillingService {
         }
     }
 
-    private LocalDate epochToDate(long epochSeconds) {
-        return Instant.ofEpochSecond(epochSeconds).atZone(ZoneOffset.UTC).toLocalDate();
+    private LocalDate toLocalDate(Instant instant) {
+        return instant.atZone(ZoneOffset.UTC).toLocalDate();
     }
 
     /**
