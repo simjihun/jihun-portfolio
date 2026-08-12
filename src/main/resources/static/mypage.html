@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>마이페이지 · hunit</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
+<link rel="stylesheet" href="/css/base.css">
+<style>
+.priv-header{display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border-bottom:1px solid var(--line);background:var(--panel-2)}
+.priv-header .brand{font-weight:700;font-size:14px}
+.priv-header .who{font-size:12.5px;color:var(--mut)}
+main{max-width:640px}
+.auth-msg{font-size:12.5px;border-radius:8px;padding:9px 12px;margin-bottom:14px;display:none}
+.auth-msg.show{display:block}
+.auth-msg.err{background:rgba(241,96,99,.1);color:var(--red);border:1px solid rgba(241,96,99,.3)}
+.auth-msg.ok{background:rgba(62,207,142,.1);color:var(--green);border:1px solid rgba(62,207,142,.3)}
+.logout-btn{background:none;border:1px solid var(--line);color:var(--mut);padding:6px 12px;border-radius:8px;font-size:12px;cursor:pointer}
+.logout-btn:hover{color:var(--ink);border-color:var(--mut)}
+.sandbox-note{color:var(--dim);font-size:12.5px;padding:20px;text-align:center;border:1px dashed var(--line);border-radius:10px}
+</style>
+</head>
+<body style="padding-top:0">
+<div class="priv-header">
+  <span class="brand">🔒 hunit 비공개 영역</span>
+  <div style="display:flex;align-items:center;gap:12px">
+    <span class="who" id="whoText">-</span>
+    <a class="who" id="adminLink" href="/admin" style="display:none;color:var(--amber)">관리자 페이지</a>
+    <form method="post" action="/logout"><button class="logout-btn" type="submit">로그아웃</button></form>
+  </div>
+</div>
+
+<main>
+  <header class="page"><h1>마이페이지</h1></header>
+
+  <div class="panel" style="margin-bottom:16px">
+    <h2>비밀번호 변경</h2>
+    <div class="auth-msg err" id="pwErr"></div>
+    <div class="auth-msg ok" id="pwOk"></div>
+    <label>현재 비밀번호</label>
+    <input type="password" id="curPw">
+    <label>새 비밀번호</label>
+    <input type="password" id="newPw">
+    <div style="font-size:11px;color:var(--dim);margin-top:4px">8자 이상</div>
+    <label>새 비밀번호 확인</label>
+    <input type="password" id="newPw2">
+    <button class="btn btn-amber" style="margin-top:14px" onclick="changePassword()">변경하기</button>
+  </div>
+
+  <div class="panel">
+    <h2>테스트 기능 모음</h2>
+    <div class="sandbox-note">여기에 앞으로 테스트해보고 싶은 기능들을 하나씩 추가할 예정입니다.</div>
+  </div>
+</main>
+
+<script>
+const $ = id => document.getElementById(id);
+
+async function init(){
+  const me = await fetch('/api/auth/me').then(r => r.json());
+  if (!me.authenticated) { location.href = '/login'; return; }
+  $('whoText').textContent = (me.name || me.username) + '님';
+  if (me.roles && me.roles.includes('ROLE_ADMIN')) $('adminLink').style.display = 'inline';
+}
+init();
+
+async function changePassword(){
+  $('pwErr').classList.remove('show');
+  $('pwOk').classList.remove('show');
+  const currentPassword = $('curPw').value;
+  const newPassword = $('newPw').value;
+  if (newPassword !== $('newPw2').value) {
+    $('pwErr').textContent = '새 비밀번호가 서로 일치하지 않습니다';
+    $('pwErr').classList.add('show');
+    return;
+  }
+  const res = await fetch('/api/auth/password/change', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ currentPassword, newPassword })
+  }).then(r => r.json());
+  if (!res.success) {
+    $('pwErr').textContent = res.message;
+    $('pwErr').classList.add('show');
+    return;
+  }
+  $('pwOk').textContent = res.message;
+  $('pwOk').classList.add('show');
+  $('curPw').value = ''; $('newPw').value = ''; $('newPw2').value = '';
+}
+</script>
+</body>
+</html>
