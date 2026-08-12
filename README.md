@@ -2,7 +2,7 @@
 
 **https://hunit.kr**
 
-Spring Boot 애플리케이션 하나에 기능별 패키지를 추가하는 구조의 포트폴리오 플랫폼. 모든 기능은 AWS EC2에서 동작하며 `main` 브랜치 push 시 GitHub Actions로 자동 빌드·배포된다.
+Spring Boot 애플리케이션 하나에 기능별 패키지를 추가하는 구조. 모든 기능은 AWS EC2에서 동작하며 `main` 브랜치 push 시 GitHub Actions로 자동 빌드·배포된다.
 
 ## 프로젝트 목록
 
@@ -12,8 +12,9 @@ Spring Boot 애플리케이션 하나에 기능별 패키지를 추가하는 구
 | 🟢 LIVE | **AI 주식** | 토스증권 Open API(OAuth2 Client Credentials, 전역 요청 스로틀링, TTL 캐시), 업비트 공개 API, Gemini API 시황 요약, 프론트엔드 FLIP 애니메이션 기반 실시간 테이블 갱신 |
 | 🟢 LIVE | **지도 API** | 카카오 Local API(키워드·반경 검색), 네이버 지도 SDK, 국토교통부 실거래가 공공데이터 API 연동 |
 | 🟢 LIVE | **MMS** | 비동기 큐 + 멀티쓰레드 워커 풀(5개), 재시도 로직, 실시간 처리량 집계 |
-| 🟢 LIVE | **웹 게임** | 오목(미니맥스 탐색), 숫자야구, 장기(알파베타 가지치기 완전탐색 AI, 궁성 대각선 이동 규칙 구현), 발리볼(Canvas 기반 실시간 물리 시뮬레이션) |
-| 🟢 LIVE | **카드게임** | 프리셀 — 서플무브(뭉치 이동) 용량 계산, 안전 자동정리, 배치 기반 난이도 |
+| 🟢 LIVE | **웹게임** | 숫자야구(스트라이크/볼 판정), 발리볼(Canvas 기반 실시간 물리 시뮬레이션) |
+| 🟢 LIVE | **보드게임** | 오목(미니맥스 탐색 AI), 장기(알파베타 가지치기 완전탐색 AI, 궁성 대각선 이동 규칙) |
+| 🟢 LIVE | **카드게임** | 프리셀(서플무브 용량 계산), 클론다이크(점수 기반 힌트 탐색), 스파이더(무늬 수 기반 난이도) |
 | ⚪ 예정 | 체스 | 규칙 엔진 + AI 탐색 |
 | ⚪ 예정 | 가격 비교 | 상품 링크 기반 가격 비교 |
 
@@ -52,7 +53,7 @@ Spring Boot 애플리케이션 하나에 기능별 패키지를 추가하는 구
 [TossApiClient] OAuth2 Client Credentials 토큰 캐싱, 전역 300ms 요청 스로틀,
     429 응답 시 Retry-After 기반 재시도
 [StockDashboardService] 지표(60s)·랭킹(60s)·수급(10m)·캘린더(12h)·AI브리핑(30m)
-    TTL 캐시로 외부 API 호출량 제한. 종목마스터 조인으로 랭킹에 종목명·시가총액 계산 부여.
+    TTL 캐시로 외부 API 호출량 제한. 종목마스터 조인으로 랭킹에 종목명·시가총액 부여.
     환율 등락률은 당일 최초 샘플 대비로 서버가 직접 산출
 [Upbit 공개 API] 비트코인 시세·캔들 조회
 [Gemini API] 지표·수급·거래대금 데이터를 근거로 시황 요약 생성
@@ -60,29 +61,41 @@ Spring Boot 애플리케이션 하나에 기능별 패키지를 추가하는 구
     엘리먼트를 재사용, FLIP 기법으로 순위 변동을 애니메이션 처리
 ```
 
-### 웹 게임 — 오목·숫자야구·장기·발리볼
+### 웹게임 — 숫자야구·발리볼 (`/game`)
 
 ```
-[오목] 미니맥스 탐색 기반 AI, 난이도별 탐색 깊이 조절
-[장기] 알파베타 가지치기를 적용한 완전탐색 AI(중급 2플라이 / 고급 4플라이)
-    - 기물별 이동 규칙, 궁성 대각선 이동(포는 스크린 기물을 넘어야 이동 가능)
-    - 마·상 포진 4종 선택 가능
-    - 장군 판정을 사람 수 처리와 AI 응수 처리로 분리한 API 설계
-[숫자야구] 스트라이크/볼 판정 로직 + 최소 시도 기록 랭킹
+[숫자야구] 스트라이크/볼 판정 로직, 시도 횟수·소요시간 기준 랭킹
 [발리볼] 중력·충돌·반사·캐릭터 이동을 포함한 물리 시뮬레이션을 Canvas +
     requestAnimationFrame으로 프론트엔드에서 전부 처리, 서버는 대결 결과만 저장.
     AI는 공의 궤적을 프레임 단위로 시뮬레이션해 낙하 지점을 예측
 ```
 
-### 카드게임 — 프리셀
+### 보드게임 — 오목·장기 (`/game/board`)
 
 ```
-[프리셀 규칙 엔진] 뭉치(연속 하강·교대색) 이동 유효성 검증, 서플무브 용량 계산
-    ((빈 오픈칸 수+1) × 2^빈 컬럼 수), 완성 칸 안전 자동정리, 막힘 상태 판정 —
-    전부 프론트엔드에서 계산하고 서버는 결과만 저장
-[FreecellController] 난이도별 랭킹 분리 저장(gameType 접미사 방식), metric=이동 횟수 오름차순
-[카드 이미지] 자유 라이선스(Unlicense) SVG 카드 렌더링 라이브러리를 자체 저장해 사용
-[난이도] 오픈칸 수·자동정리·실행취소 같은 조작 제약이 아니라 초기 카드 배치 자체로 구분
+[오목] 미니맥스 탐색 기반 AI, 난이도별 탐색 깊이 조절.
+    승리한 대국만 서버가 검증 후 착수 수·소요시간을 랭킹에 기록
+[장기] 알파베타 가지치기를 적용한 완전탐색 AI(중급 2플라이 / 고급 4플라이)
+    - 기물별 이동 규칙, 궁성 대각선 이동(포는 스크린 기물을 넘어야 이동 가능)
+    - 마·상 포진 4종 선택 가능
+    - 장군 판정을 사람 수 처리와 AI 응수 처리로 분리한 API 설계
+```
+
+### 카드게임 — 프리셀·클론다이크·스파이더 (`/game/card`)
+
+```
+[공통] 뭉치 이동 유효성, 승리·막힘 판정을 전부 프론트엔드에서 계산, 서버는 결과만 저장.
+    카드 이미지는 자유 라이선스(Unlicense) SVG 렌더링 라이브러리를 자체 저장해 사용
+
+[프리셀] 서플무브 용량 = (빈 오픈칸 수+1) × 2^빈 컬럼 수, 완성 칸 안전 자동정리,
+    난이도는 초기 카드 배치로만 구분
+
+[클론다이크] 스톡→웨이스트 넘기기 방식, 완성 칸→줄 스택 되돌리기 지원.
+    힌트는 가능한 모든 수를 점수화(완성 칸行 > 뒷면 카드 노출 > 빈 컬럼 확보 >
+    웨이스트 이동 > 그 외)해 최고점 수를 안내
+
+[스파이더] 104장(2벌)을 10개 컬럼에 배치, 같은 무늬로 연결된 뭉치만 이동 가능,
+    K→A 같은 무늬 13장 연결 시 자동 완성. 난이도는 사용 무늬 수(1/2/4종)로 구분
 ```
 
 ### 지도 API — 맛집 지도 + 부동산 시세
@@ -99,7 +112,7 @@ Spring Boot 애플리케이션 하나에 기능별 패키지를 추가하는 구
 - **Backend**: Java 21, Spring Boot 3.5(Web, Data JPA, Validation, Scheduler), Logback
 - **DB**: MySQL(AWS RDS, `prod` 프로파일) / H2(로컬)
 - **외부 API**: 토스증권 Open API, 카카오 Local API, 네이버 지도 SDK, 국토교통부 실거래가 공공데이터 API, Google Gemini API, 업비트 공개 API, RSS(ROME)
-- **Frontend**: Vanilla JS + Chart.js(신규 기능은 Vue.js/React CDN 방식 우선 검토), 공통 네비게이션(`nav.js`)
+- **Frontend**: Vanilla JS + Chart.js(신규 기능은 Vue.js/React CDN 방식 우선 검토), Web Components(cardmeister 카드 렌더링), 공통 네비게이션(`nav.js`)
 - **Infra**: AWS EC2(Amazon Linux 2023), nginx 리버스 프록시, Let's Encrypt HTTPS
 - **CI/CD**: GitHub Actions — push → 빌드 → EC2 배포 → 헬스체크
 - **개발 환경**: Eclipse IDE 2025-03(4.35.0)
@@ -108,7 +121,7 @@ Spring Boot 애플리케이션 하나에 기능별 패키지를 추가하는 구
 
 ```
 com.jihun.portfolio
-├── common/          # 공통(헬스체크, URL 라우팅)
+├── common/          # 공통(헬스체크, URL 라우팅 - WebConfig)
 ├── message/         # MMS
 │   ├── controller/  #   REST API (/api/message/*)
 │   ├── domain/
@@ -130,18 +143,20 @@ com.jihun.portfolio
 │   ├── RealEstateController.java   # 부동산 실거래 조회(국토부)
 │   ├── KakaoGeocodeService.java    # 좌표 지오코딩
 │   └── RealEstateRegions.java
-└── game/            # 웹 게임 + 카드게임 (공통 GameScore 랭킹 엔티티 공유)
+└── game/            # 웹게임·보드게임·카드게임 (공통 GameScore 랭킹 엔티티 공유)
     ├── domain/GameScore.java       # 게임 공용 랭킹 엔티티(gameType으로 구분)
     ├── repository/GameScoreRepository.java
-    ├── omok/        # 오목 규칙·AI
+    ├── omok/        # 오목 규칙·AI·랭킹 API
     ├── baseball/    # 숫자야구
     ├── janggi/      # 장기 규칙·AI(JanggiRules/JanggiAiService/JanggiService/JanggiController)
     ├── volleyball/  # 발리볼 랭킹 API(물리는 프론트엔드에서 전부 처리)
-    └── freecell/    # 프리셀 랭킹 API(카드 로직은 프론트엔드에서 전부 처리)
+    ├── freecell/    # 프리셀 랭킹 API(카드 로직은 프론트엔드에서 전부 처리)
+    ├── klondike/    # 클론다이크 랭킹 API(동일)
+    └── spider/      # 스파이더 랭킹 API(동일)
 ```
 
 새 기능은 하위 패키지 + `/api/<기능>/*` REST API + 정적 페이지(공통 `nav.js` 메뉴 등록) 방식으로 확장한다.
-정적 페이지: `game.html`(오목·숫자야구·장기·발리볼 탭), `cardgame.html`(프리셀, 향후 카드게임 추가 예정).
+정적 페이지: `game.html`(숫자야구·발리볼), `board.html`(오목·장기), `cardgame.html`(프리셀·클론다이크·스파이더).
 
 ## 실행
 
