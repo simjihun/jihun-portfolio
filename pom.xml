@@ -24,7 +24,7 @@
 
     <dependencyManagement>
         <dependencies>
-            <!-- AWS SDK v2 BOM — 관리자 대시보드의 Free Tier·Cost Explorer 조회용 -->
+            <!-- AWS SDK v2 BOM — 관리자 대시보드의 Free Tier·Cost Explorer·Billing Credits 조회용 -->
             <dependency>
                 <groupId>software.amazon.awssdk</groupId>
                 <artifactId>bom</artifactId>
@@ -104,6 +104,18 @@
         <dependency>
             <groupId>software.amazon.awssdk</groupId>
             <artifactId>costexplorer</artifactId>
+        </dependency>
+
+        <!-- 관리자 대시보드: 계정 크레딧 잔액·소진 예상일 조회(2026-07 공개된 billing:GetCredits) -->
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>billing</artifactId>
+        </dependency>
+
+        <!-- 관리자 대시보드: GetCredits 호출에 필요한 12자리 계정ID를 자동으로 조회(읽기 전용) -->
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>sts</artifactId>
         </dependency>
     </dependencies>
 
