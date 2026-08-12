@@ -40,6 +40,9 @@ public class WebConfig implements WebMvcConfigurer {
         registry.addViewController("/login").setViewName("forward:/login.html");
         registry.addViewController("/signup").setViewName("forward:/signup.html");
         registry.addViewController("/mypage").setViewName("forward:/mypage.html");
+        // 관리자 허브 + 하위 기능. 새 관리자 전용 기능을 추가할 때마다 /admin/<기능>[/<세부기능>]
+        // 형태로 한 줄씩 추가한다 (예: /admin/instaviewer, /admin/instaviewer/photos 등).
         registry.addViewController("/admin").setViewName("forward:/admin.html");
+        registry.addViewController("/admin/members").setViewName("forward:/admin-members.html");
     }
 }
