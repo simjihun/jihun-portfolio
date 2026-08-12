@@ -136,7 +136,7 @@ async function loadDb(){
     : tables.map(t => `<tr><td>${esc(t.name)}</td><td>${t.rows == null ? '-' : t.rows.toLocaleString()}</td><td>${t.sizeMb ?? '-'}</td></tr>`).join('');
 }
 
-/* ===== 계정 크레딧 잔액·소진 예상일 — 유료 API라 서버가 6시간 캐시 ===== */
+/* ===== 계정 크레딧 잔액·소진 예상일 — AWS 집계 자체가 하루 단위라 서버가 매일 자정 1회만 조회 ===== */
 async function loadCredits(){
   const data = await fetch('/api/admin/dashboard/credits').then(r => r.json()).catch(() => null);
   if (!data || !data.available) {
@@ -156,7 +156,7 @@ async function loadCredits(){
       <div class="v ${warn}">${days != null ? days + '일' : '-'}</div>
     </div>
   </div>
-  ${data.targetDate ? `<div class="dash-note">${basisLabel}일: ${esc(data.targetDate)} (현재 사용 속도 기준 AWS 예측치)</div>` : ''}`;
+  ${data.targetDate ? `<div class="dash-note">${basisLabel}일: ${esc(data.targetDate)} (현재 사용 속도 기준 AWS 예측치 · 매일 자정 갱신)</div>` : ''}`;
 }
 
 /* ===== 프리티어 사용량 — 무료 API라 매번 최신값 조회.
@@ -186,7 +186,8 @@ async function loadFreeTier(){
   }).join('');
 }
 
-/* ===== 최근 7일 일별 비용(원화) — 유료 API라 서버가 6시간 캐시. 프론트는 그 결과를 그대로 그리기만 함 ===== */
+/* ===== 최근 7일 일별 비용(원화) — AWS 집계 자체가 하루 단위라 서버가 매일 자정 1회만 조회.
+   프론트는 그 결과를 그대로 그리기만 함 ===== */
 let costChart = null;
 async function loadCost(){
   const data = await fetch('/api/admin/dashboard/cost').then(r => r.json()).catch(() => null);
@@ -223,7 +224,7 @@ async function loadCost(){
     }
   });
   const total = amountsKrw.reduce((a, b) => a + b, 0);
-  $('costNote').textContent = `최근 7일 합계 ${won(total)} · 원/달러 환율 약 1,380원 고정 환산(실시간 환율 아님, 대략적인 참고용) · 6시간마다만 갱신됩니다(Cost Explorer 호출당 과금이라 서버에서 캐시). 오늘 데이터는 AWS 쪽 집계가 하루 이상 늦게 반영되는 경우가 많아 실제보다 낮게 보일 수 있습니다.`;
+  $('costNote').textContent = `최근 7일 합계 ${won(total)} · 원/달러 환율 약 1,380원 고정 환산(실시간 환율 아님, 대략적인 참고용) · 매일 자정 1회만 갱신됩니다(AWS 쪽 집계 자체가 하루 단위). 오늘 데이터는 AWS 쪽 집계가 하루 이상 늦게 반영되는 경우가 많아 실제보다 낮게 보일 수 있습니다.`;
 }
 
 initDashboard();
