@@ -45,6 +45,10 @@ public class AwsBillingService {
     private static final Logger log = LoggerFactory.getLogger(AwsBillingService.class);
     private static final DateTimeFormatter DATE_FMT = DateTimeFormatter.ISO_LOCAL_DATE;
 
+    // 대시보드 표시용 근사 환율(고정값). 정확한 회계용이 아니라 "대략 얼마 쓰고 있는지" 감을 잡기 위한
+    // 용도라 실시간 환율 API를 별도로 붙이지 않았다. 필요하면 이 상수만 주기적으로 갱신하면 된다.
+    private static final double USD_TO_KRW = 1380.0;
+
     private volatile String cachedAccountId; // 세션 내내 안 바뀌는 값이라 한 번 조회 후 재사용
 
     public Map<String, Object> getFreeTierUsage() {
@@ -91,8 +95,7 @@ public class AwsBillingService {
     /**
      * 계정 크레딧 잔액 + 소진 예상일. AWS 콘솔 "남은 크레딧 / 남은 기간" 위젯과 같은 값을 보여준다.
      * exhaustDate(현재 소비 속도로 계산한 잔액 0 도달 예상일)를 우선 쓰고, 없으면 endDate(크레딧
-     * 하드 만료일)로 대체한다 — 계정 생성일을 수동 입력해 계산하던 이전 방식(365일 고정)보다
-     * 정확하다(AWS가 실제 사용량 기반으로 계산한 값이라서).
+     * 하드 만료일)로 대체한다.
      */
     public Map<String, Object> getCreditsSummary() {
         Map<String, Object> result = new LinkedHashMap<>();
@@ -138,6 +141,7 @@ public class AwsBillingService {
                 Long targetEpoch = earliestExhaust != null ? earliestExhaust : earliestEnd;
                 result.put("available", true);
                 result.put("totalRemaining", Math.round(totalRemaining * 100.0) / 100.0);
+                result.put("totalRemainingKrw", Math.round(totalRemaining * USD_TO_KRW));
                 result.put("currency", currency);
                 result.put("dateBasis", earliestExhaust != null ? "exhaust" : "expiry"); // 소진예상 vs 하드만료
                 if (targetEpoch != null) {
@@ -168,7 +172,12 @@ public class AwsBillingService {
         return Instant.ofEpochSecond(epochSeconds).atZone(ZoneOffset.UTC).toLocalDate();
     }
 
-    /** 최근 days일 일별 비용(USD). 호출당 과금되니 상위에서 반드시 캐시해서 호출할 것. */
+    /**
+     * 최근 days일 일별 비용. USD 원본과 원화 환산(고정 환율)을 함께 반환한다.
+     * 음수(부동소수점 반올림으로 생기는 -0.0000001 같은 잡음)는 0으로 클램프한다 — 이 지표에서
+     * 실제로 비용이 마이너스일 일은 없고, 그래프에서 기준선 아래로 삐져나와 보기만 불편해진다.
+     * 호출당 과금되니 상위에서 반드시 캐시해서 호출할 것.
+     */
     public Map<String, Object> getDailyCost(int days) {
         Map<String, Object> result = new LinkedHashMap<>();
         try (CostExplorerClient client = CostExplorerClient.builder().region(Region.US_EAST_1).build()) {
@@ -186,12 +195,15 @@ public class AwsBillingService {
                 Map<String, Object> p = new LinkedHashMap<>();
                 p.put("date", r.timePeriod().start());
                 var metric = r.total().get("UnblendedCost");
-                p.put("amount", metric != null ? Double.parseDouble(metric.amount()) : 0.0);
+                double usd = metric != null ? Double.parseDouble(metric.amount()) : 0.0;
+                usd = Math.max(0, usd);
+                p.put("amountUsd", usd);
+                p.put("amountKrw", Math.round(usd * USD_TO_KRW * 100.0) / 100.0);
                 points.add(p);
             }
             result.put("available", true);
             result.put("points", points);
-            result.put("currency", "USD");
+            result.put("exchangeRate", USD_TO_KRW);
         } catch (Exception e) {
             log.warn("[admin-dashboard] 비용 조회 실패: {}", e.getMessage());
             result.put("available", false);
