@@ -67,7 +67,7 @@
       <div class="panel">
         <div class="panel-head">
           <h2>💳 남은 크레딧/기간</h2>
-          <button class="refresh-btn" id="refreshBtn" onclick="refreshBilling()">갱신</button>
+          <button class="refresh-btn" id="refreshBtn" onclick="refreshBilling()">↻ 갱신</button>
         </div>
         <div id="creditBox"></div>
         <div id="freeTierList"><div class="empty">불러오는 중...</div></div>
@@ -165,11 +165,11 @@ async function loadCredits(){
 async function refreshBilling(){
   const btn = $('refreshBtn');
   btn.disabled = true;
-  btn.textContent = '조회 중...';
+  btn.textContent = '↻ 조회 중...';
   await fetch('/api/admin/dashboard/refresh-billing', { method: 'POST' }).catch(() => {});
   await Promise.all([loadCredits(), loadCreditUsage()]);
   btn.disabled = false;
-  btn.textContent = '갱신';
+  btn.textContent = '↻ 갱신';
 }
 
 /* ===== 프리티어 사용량 — 무료 API라 매번 최신값 조회.
