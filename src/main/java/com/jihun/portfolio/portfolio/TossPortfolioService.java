@@ -16,6 +16,11 @@ import java.util.*;
  * 하나뿐이라 첫 번째 계좌를 기본으로 쓴다.
  *
  * accountSeq는 자주 안 바뀌는 값이라 짧게 캐시해 /accounts 호출 빈도를 줄인다.
+ *
+ * 차트·호가·수급(투자자별 매매동향)·공매도는 계좌와 무관한 공개 시세 데이터라 X-Tossinvest-Account
+ * 헤더 없이 조회한다(get(path)만 사용, accountSeq 불필요). 응답 스키마가 중첩이 깊어 굳이 자바
+ * 타입으로 다 옮겨적지 않고, "result"만 벗겨서 프론트에 그대로 넘긴다 — 프론트에서 필요한 필드만
+ * 안전하게 꺼내 쓰도록 한다(중첩 필드명을 서버에서 하나하나 틀리게 옮겨 적어 배포가 깨지는 위험을 줄임).
  */
 @Service
 public class TossPortfolioService {
@@ -79,7 +84,7 @@ public class TossPortfolioService {
         Long accountSeq = resolveAccountSeq();
         if (accountSeq == null) {
             result.put("available", false);
-            result.put("message", "토스증권 계좌를 찾지 못했습니다. TOSS_CLIENT_ID/SECRET 설정과 계좌 API 개통 여부를 확인하세요.");
+            result.put("message", "토스증권 계좌를 찾지 못했습니다. 계좌 API 개통 여부와 계정 설정의 토스 API 키를 확인하세요.");
             return result;
         }
         Map<String, Object> raw = unwrap(toss.get("/api/v1/holdings", accountSeq));
@@ -132,6 +137,8 @@ public class TossPortfolioService {
 
     /**
      * 주문 내역. GET /api/v1/orders. status=OPEN(진행중)|CLOSED(종료, 체결완료·취소 등).
+     * symbol을 지정하면 그 종목만. 개별 주문의 실제 상태(FILLED/CANCELED/REJECTED 등)는 status
+     * 필드에 그대로 담아 반환하므로, "체결된 것만 보기" 같은 세부 필터는 프론트에서 이 필드로 거른다.
      * 매수/매도 자체는 하지 않고 이미 낸 주문을 조회만 한다.
      */
     @SuppressWarnings("unchecked")
@@ -144,7 +151,7 @@ public class TossPortfolioService {
             return result;
         }
         String s = "OPEN".equalsIgnoreCase(status) ? "OPEN" : "CLOSED";
-        StringBuilder path = new StringBuilder("/api/v1/orders?status=").append(s).append("&limit=50");
+        StringBuilder path = new StringBuilder("/api/v1/orders?status=").append(s).append("&limit=100");
         if (symbol != null && !symbol.isBlank()) path.append("&symbol=").append(symbol.trim());
 
         Map<String, Object> raw = unwrap(toss.get(path.toString(), accountSeq));
@@ -171,6 +178,63 @@ public class TossPortfolioService {
         result.put("available", raw != null);
         if (raw == null) result.put("message", "주문 내역을 가져오지 못했습니다.");
         result.put("orders", orders);
+        return result;
+    }
+
+    /** 일봉 차트. GET /api/v1/candles. 최근 count개(최대 200). */
+    public Map<String, Object> getChart(String symbol, int count) {
+        Map<String, Object> result = new LinkedHashMap<>();
+        Map<String, Object> raw = unwrap(toss.get("/api/v1/candles?symbol=" + symbol + "&interval=1d&count=" + Math.min(count, 200)));
+        if (raw == null) {
+            result.put("available", false);
+            result.put("message", "차트 데이터를 가져오지 못했습니다.");
+            return result;
+        }
+        result.put("available", true);
+        result.put("candles", raw.getOrDefault("candles", List.of()));
+        return result;
+    }
+
+    /** 호가. GET /api/v1/orderbook. asks(매도)/bids(매수) 그대로 전달. */
+    public Map<String, Object> getOrderbook(String symbol) {
+        Map<String, Object> result = new LinkedHashMap<>();
+        Map<String, Object> raw = unwrap(toss.get("/api/v1/orderbook?symbol=" + symbol));
+        if (raw == null) {
+            result.put("available", false);
+            result.put("message", "호가 데이터를 가져오지 못했습니다.");
+            return result;
+        }
+        result.put("available", true);
+        result.put("asks", raw.getOrDefault("asks", List.of()));
+        result.put("bids", raw.getOrDefault("bids", List.of()));
+        return result;
+    }
+
+    /** 투자자별 매매동향(개인/외국인/기관). GET /api/v1/stocks/{symbol}/investor-trading. */
+    public Map<String, Object> getInvestorTrading(String symbol) {
+        Map<String, Object> result = new LinkedHashMap<>();
+        Map<String, Object> raw = unwrap(toss.get("/api/v1/stocks/" + symbol + "/investor-trading"));
+        if (raw == null) {
+            result.put("available", false);
+            result.put("message", "투자자별 매매동향을 가져오지 못했습니다.");
+            return result;
+        }
+        result.put("available", true);
+        result.put("records", raw.getOrDefault("records", raw.getOrDefault("items", List.of())));
+        return result;
+    }
+
+    /** 공매도 동향. GET /api/v1/stocks/{symbol}/short-selling. */
+    public Map<String, Object> getShortSelling(String symbol) {
+        Map<String, Object> result = new LinkedHashMap<>();
+        Map<String, Object> raw = unwrap(toss.get("/api/v1/stocks/" + symbol + "/short-selling"));
+        if (raw == null) {
+            result.put("available", false);
+            result.put("message", "공매도 동향을 가져오지 못했습니다.");
+            return result;
+        }
+        result.put("available", true);
+        result.put("records", raw.getOrDefault("records", raw.getOrDefault("items", List.of())));
         return result;
     }
 }
