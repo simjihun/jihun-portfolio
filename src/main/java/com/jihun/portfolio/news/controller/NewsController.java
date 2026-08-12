@@ -80,7 +80,7 @@ public class NewsController {
         List<Map<String, Object>> latestWithImages = futures.stream().map(CompletableFuture::join).toList();
 
         Map<String, Object> res = new HashMap<>();
-        res.put("breaking", newsRepository.findTop6ByBreakingTrueAndPublishedAtAfterOrderByPublishedAtDesc(
+        res.put("breaking", newsRepository.findTop10ByBreakingTrueAndPublishedAtAfterOrderByPublishedAtDesc(
                 LocalDateTime.now().minusHours(24)));
         res.put("latest", latestWithImages);
         res.put("lastFetchAt", fetchService.getLastFetchAt());
