@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>로그인 · hunit</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
+<link rel="stylesheet" href="/css/base.css">
+<style>
+body{padding-top:0;display:flex;align-items:center;justify-content:center;min-height:100vh}
+.auth-wrap{width:100%;max-width:380px;padding:24px}
+.auth-card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:28px 26px}
+.auth-title{font-size:19px;font-weight:700;margin-bottom:4px}
+.auth-sub{color:var(--dim);font-size:12.5px;margin-bottom:22px}
+.auth-msg{font-size:12.5px;border-radius:8px;padding:9px 12px;margin-bottom:14px;display:none}
+.auth-msg.show{display:block}
+.auth-msg.err{background:rgba(241,96,99,.1);color:var(--red);border:1px solid rgba(241,96,99,.3)}
+.auth-msg.ok{background:rgba(62,207,142,.1);color:var(--green);border:1px solid rgba(62,207,142,.3)}
+.auth-links{display:flex;justify-content:space-between;margin-top:14px;font-size:12.5px}
+.auth-links a,.auth-links button{color:var(--mut);background:none;border:0;cursor:pointer;font-size:12.5px;padding:0}
+.auth-links a:hover,.auth-links button:hover{color:var(--amber)}
+.modal-bg{position:fixed;inset:0;background:rgba(5,8,15,.72);display:none;place-items:center;z-index:300;padding:20px}
+.modal-bg.show{display:grid}
+.modal-box{background:var(--panel);border:1px solid var(--line);border-radius:14px;max-width:360px;width:100%;padding:24px}
+.modal-box h2{font-size:15px;margin-bottom:14px}
+.step{display:none}
+.step.on{display:block}
+.seg-btn-row{display:flex;gap:8px;margin-bottom:4px}
+.seg-btn{flex:1;padding:9px;border-radius:8px;border:1px solid var(--line);background:var(--panel-2);color:var(--mut);font-size:12.5px;cursor:pointer}
+.seg-btn.on{border-color:var(--amber);color:var(--amber);background:rgba(242,169,59,.1)}
+.modal-x{position:absolute;top:10px;right:14px;background:none;border:0;color:var(--mut);font-size:16px;cursor:pointer}
+</style>
+</head>
+<body>
+<div class="auth-wrap">
+  <div class="auth-card" style="position:relative">
+    <div class="auth-title">🔒 hunit 비공개 영역</div>
+    <div class="auth-sub">승인된 회원만 로그인할 수 있습니다</div>
+    <div class="auth-msg err" id="loginErr">아이디 또는 비밀번호가 올바르지 않거나, 아직 승인 대기 중인 계정입니다.</div>
+    <div class="auth-msg ok" id="loginOk">로그아웃되었습니다.</div>
+
+    <form method="post" action="/login">
+      <label>아이디</label>
+      <input type="text" name="username" required autocomplete="username">
+      <label>비밀번호</label>
+      <input type="password" name="password" required autocomplete="current-password">
+      <button class="btn btn-amber" type="submit" style="width:100%;margin-top:18px">로그인</button>
+    </form>
+
+    <div class="auth-links">
+      <a href="/signup">회원가입</a>
+      <button type="button" onclick="openForgot()">비밀번호를 잊으셨나요?</button>
+    </div>
+  </div>
+</div>
+
+<!-- 비밀번호 찾기 모달 -->
+<div class="modal-bg" id="forgotModal">
+  <div class="modal-box" style="position:relative">
+    <button class="modal-x" onclick="closeForgot()">✕</button>
+
+    <!-- 1단계: 인증 요청 -->
+    <div class="step on" id="stepRequest">
+      <h2>비밀번호 찾기</h2>
+      <label>아이디</label>
+      <input type="text" id="fUsername">
+      <label>인증 방법</label>
+      <div class="seg-btn-row">
+        <button type="button" class="seg-btn on" data-ch="EMAIL" onclick="pickChannel('EMAIL')">이메일</button>
+        <button type="button" class="seg-btn" data-ch="SMS" onclick="pickChannel('SMS')">SMS(준비중)</button>
+      </div>
+      <label id="fContactLabel">등록된 이메일</label>
+      <input type="text" id="fContact" placeholder="you@example.com">
+      <div class="auth-msg err" id="fRequestErr"></div>
+      <button class="btn btn-amber" style="width:100%;margin-top:14px" onclick="requestCode()">인증번호 받기</button>
+    </div>
+
+    <!-- 2단계: 인증번호 확인 -->
+    <div class="step" id="stepVerify">
+      <h2>인증번호 입력</h2>
+      <div class="auth-sub">5분 이내에 받은 인증번호 6자리를 입력해주세요</div>
+      <input type="text" id="fCode" maxlength="6" inputmode="numeric" placeholder="123456" style="text-align:center;letter-spacing:4px;font-family:var(--mono);font-size:18px">
+      <div class="auth-msg err" id="fVerifyErr"></div>
+      <button class="btn btn-amber" style="width:100%;margin-top:14px" onclick="verifyCode()">확인</button>
+    </div>
+
+    <!-- 3단계: 새 비밀번호 -->
+    <div class="step" id="stepReset">
+      <h2>새 비밀번호 설정</h2>
+      <label>새 비밀번호 (8자 이상)</label>
+      <input type="password" id="fNewPw">
+      <label>새 비밀번호 확인</label>
+      <input type="password" id="fNewPw2">
+      <div class="auth-msg err" id="fResetErr"></div>
+      <button class="btn btn-amber" style="width:100%;margin-top:14px" onclick="resetPassword()">비밀번호 변경</button>
+    </div>
+
+    <!-- 완료 -->
+    <div class="step" id="stepDone">
+      <h2>✅ 완료</h2>
+      <div class="auth-sub" id="fDoneMsg">비밀번호가 재설정되었습니다.</div>
+      <button class="btn btn-ghost" style="width:100%;margin-top:14px" onclick="closeForgot()">닫기</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const qs = new URLSearchParams(location.search);
+if (qs.has('error')) $('loginErr').classList.add('show');
+if (qs.has('logout')) $('loginOk').classList.add('show');
+
+let forgotChannel = 'EMAIL';
+let resetToken = null;
+
+function openForgot(){
+  $('forgotModal').classList.add('show');
+  goStep('stepRequest');
+}
+function closeForgot(){
+  $('forgotModal').classList.remove('show');
+  $('fUsername').value = ''; $('fContact').value = ''; $('fCode').value = '';
+  $('fNewPw').value = ''; $('fNewPw2').value = '';
+  resetToken = null;
+}
+function goStep(id){
+  document.querySelectorAll('.step').forEach(s => s.classList.remove('on'));
+  $(id).classList.add('on');
+}
+function pickChannel(ch){
+  forgotChannel = ch;
+  document.querySelectorAll('.seg-btn').forEach(b => b.classList.toggle('on', b.dataset.ch === ch));
+  $('fContactLabel').textContent = ch === 'EMAIL' ? '등록된 이메일' : '등록된 휴대폰 번호';
+  $('fContact').placeholder = ch === 'EMAIL' ? 'you@example.com' : '010-1234-5678';
+}
+
+async function requestCode(){
+  $('fRequestErr').classList.remove('show');
+  const username = $('fUsername').value.trim();
+  const contact = $('fContact').value.trim();
+  if (!username || !contact) { $('fRequestErr').textContent = '아이디와 연락처를 모두 입력해주세요'; $('fRequestErr').classList.add('show'); return; }
+  const res = await fetch('/api/auth/password/forgot', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username, channel: forgotChannel, contact })
+  }).then(r => r.json());
+  if (forgotChannel === 'SMS') {
+    $('fRequestErr').textContent = res.message;
+    $('fRequestErr').classList.add('show');
+    return;
+  }
+  goStep('stepVerify');
+}
+
+async function verifyCode(){
+  $('fVerifyErr').classList.remove('show');
+  const username = $('fUsername').value.trim();
+  const code = $('fCode').value.trim();
+  const res = await fetch('/api/auth/password/verify', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username, code })
+  }).then(r => r.json());
+  if (!res.success) { $('fVerifyErr').textContent = res.message; $('fVerifyErr').classList.add('show'); return; }
+  resetToken = res.resetToken;
+  goStep('stepReset');
+}
+
+async function resetPassword(){
+  $('fResetErr').classList.remove('show');
+  const pw1 = $('fNewPw').value, pw2 = $('fNewPw2').value;
+  if (pw1 !== pw2) { $('fResetErr').textContent = '비밀번호가 서로 일치하지 않습니다'; $('fResetErr').classList.add('show'); return; }
+  const res = await fetch('/api/auth/password/reset', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ resetToken, newPassword: pw1 })
+  }).then(r => r.json());
+  if (!res.success) { $('fResetErr').textContent = res.message; $('fResetErr').classList.add('show'); return; }
+  $('fDoneMsg').textContent = res.message;
+  goStep('stepDone');
+}
+</script>
+</body>
+</html>
