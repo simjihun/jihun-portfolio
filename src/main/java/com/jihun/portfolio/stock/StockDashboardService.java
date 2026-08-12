@@ -19,7 +19,7 @@ import java.util.concurrent.ConcurrentHashMap;
  *
  * 보호장치 3중:
  *  1) TossApiClient 전역 스로틀(300ms 간격) + 429 재시도
- *  2) TTL 캐시: 지표/랭킹 60초, 수급 10분, 캘린더 12시간(서버 재시작 시에도 새로 채워짐), AI 브리핑 30분, 종목마스터 24시간, 종목별 AI 요약 12시간
+ *  2) TTL 캐시: 지표/랭킹 60초, 수급 10분, 캘린더 12시간(서버 재시작 시에도 새로 채워짐), AI 브리핑 12시간(실패 시 10분 후 재시도), 종목마스터 24시간, 종목별 AI 요약 12시간
  *  3) 요청 병합: cached()가 동기화되어 같은 데이터를 동시에 중복 로드하지 않음
  *
  * 스키마(공식 문서 확인):
@@ -29,7 +29,8 @@ import java.util.concurrent.ConcurrentHashMap;
  *    (developers.tossinvest.com/llms.txt 확인). 업종은 종목별 AI 요약에서 Gemini가 함께 추정한다.
  *  - MarketIndicatorPriceResponse / PriceResponse: lastPrice만 있고 등락률 없음 → 일봉 2개로 전일대비 계산.
  *  - exchange-rate: baseCurrency=USD&quoteCurrency=KRW 필수. 등락률 필드가 없어 자체 수집 이력으로 당일 대비를 계산한다.
- *  - 캘린더는 전일/당일/익일 3영업일만 반환.
+ *  - 캘린더는 전일/당일/익일 3영업일만 반환한다(토스 API 자체 제약) — 프론트가 향후 7일을 훑어도 실제로는
+ *    최대 1영업일치 휴장 정보만 나올 수 있다. 더 긴 범위를 원하면 별도 공휴일 데이터가 필요하다.
  */
 @Service
 public class StockDashboardService {
@@ -433,8 +434,30 @@ public class StockDashboardService {
             "gemini-flash-latest", "gemini-3-flash", "gemini-3-flash-preview", "gemini-2.0-flash", "gemini-2.5-flash"
     };
 
+    /**
+     * 성공하면 12시간 캐시, 실패하면 10분 뒤 재시도(짧게 재시도하되 실패할 때마다 계속 두드리지는 않음).
+     * 이전엔 성공/실패 구분 없이 30분 캐시라 하루 최대 48번 Gemini를 호출했는데, 무료 티어 일일 한도를
+     * 다른 기능(종목별 AI 요약, AI 뉴스 브리핑)과 나눠 쓰다 보니 자주 소진되어 계속 실패 문구만 보이는
+     * 원인이 됐다. 호출 자체를 하루 2~3회 수준으로 줄여 한도 소진을 피한다.
+     */
     public Map<String, Object> getAiBriefing() {
-        return cached("briefing", 30 * 60_000, this::loadAiBriefing);
+        CacheEntry e = cache.get("briefing");
+        long now = System.currentTimeMillis();
+        if (e != null && now < e.expiresAt()) {
+            @SuppressWarnings("unchecked")
+            Map<String, Object> cachedVal = (Map<String, Object>) e.value();
+            return cachedVal;
+        }
+        Map<String, Object> result = loadAiBriefing();
+        boolean failed = isBriefingFailure(result);
+        long ttl = failed ? 10 * 60_000 : 12 * 3600_000;
+        cache.put("briefing", new CacheEntry(now + ttl, result));
+        return result;
+    }
+
+    private boolean isBriefingFailure(Map<String, Object> result) {
+        Object summary = result == null ? null : result.get("summary");
+        return summary == null || summary.toString().contains("생성하지 못했") || summary.toString().contains("설정되지 않아");
     }
 
     @SuppressWarnings("unchecked")
