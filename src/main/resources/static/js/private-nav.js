@@ -10,7 +10,7 @@
  * 모든 비공개 페이지의 메뉴에 자동으로 반영된다 (공개 사이트의 nav.js NAV_ITEMS와 동일한 패턴).
  */
 const PRIVATE_NAV_ITEMS = [
-  // { label: '기능 이름', path: '/admin/기능영문', adminOnly: true }
+  { label: 'TOSS 주식', path: '/admin/toss-stock', adminOnly: true }
 ];
 
 (function () {
