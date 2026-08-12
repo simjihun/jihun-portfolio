@@ -12,7 +12,9 @@
 .mode-tab{padding:8px 18px;border-radius:7px;border:0;background:transparent;color:var(--mut);font-size:13.5px;font-weight:600;cursor:pointer}
 .mode-tab.on{background:var(--amber);color:#131A2A}
 .mode-tab.disabled{opacity:.4;cursor:default}
-.game-desc{color:var(--mut);font-size:13.5px;line-height:1.8;margin-bottom:18px;max-width:640px}
+.game-desc{color:var(--mut);font-size:13px;line-height:1.7;margin-bottom:18px;max-width:600px;list-style:none;padding:0}
+.game-desc li{display:flex;gap:7px;margin-bottom:5px}
+.game-desc li::before{content:'—';color:var(--amber);flex:none}
 .game-desc b{color:var(--ink)}
 .choice-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:4px}
 .choice{padding:9px 16px;border-radius:8px;border:1px solid var(--line);background:var(--panel-2);color:var(--mut);font-size:13.5px;font-weight:600;cursor:pointer}
@@ -83,7 +85,11 @@
 
   <!-- ===== 오목 ===== -->
   <section id="panelOmok">
-    <p class="game-desc">15×15 바둑판에서 <b>AI와 1:1 대국</b>합니다. 원하는 돌 색과 난이도를 고르고 시작하세요. 가로·세로·대각선 중 어느 방향으로든 먼저 5목을 이으면 승리입니다.</p>
+    <ul class="game-desc">
+      <li>15×15 바둑판, AI와 1:1 대국</li>
+      <li>돌 색·난이도 선택 후 시작</li>
+      <li>가로·세로·대각선 중 어느 방향이든 5목 완성 시 승리</li>
+    </ul>
     <div class="two-col" id="omokSetupWrap">
       <div class="panel" id="omokSetup">
         <h2>대국 설정</h2>
@@ -132,7 +138,12 @@
 
   <!-- ===== 장기 ===== -->
   <section id="panelJanggi" style="display:none">
-    <p class="game-desc">9×10 궁성이 있는 전통 장기판에서 <b>AI와 1:1 대국</b>합니다. 진영과 포진을 고르고 시작한 뒤, 기물을 클릭하면 이동 가능한 칸이 초록색으로 표시됩니다 — 그 칸을 다시 클릭하면 이동합니다. 직전 수는 주황색 테두리로, 장군 상태는 보드 테두리와 궁 칸이 함께 깜빡이며 표시됩니다. 병(졸)의 궁성 대각선 이동만 간소화를 위해 생략했습니다.</p>
+    <ul class="game-desc">
+      <li>9×10 궁성 포함 전통 장기판, AI와 1:1 대국</li>
+      <li>기물 클릭 → 이동 가능한 칸(초록) 표시 → 재클릭으로 이동</li>
+      <li>직전 수는 주황 테두리, 장군 상태는 보드·궁 칸 깜빡임으로 표시</li>
+      <li>병(졸)의 궁성 대각선 이동은 미구현</li>
+    </ul>
     <div class="panel" id="janggiSetup">
       <h2>대국 설정</h2>
       <label>내 진영</label>
