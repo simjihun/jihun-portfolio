@@ -2,9 +2,11 @@ package com.jihun.portfolio.admin;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import software.amazon.awssdk.regions.Region;
+import software.amazon.awssdk.services.billing.BillingClient;
+import software.amazon.awssdk.services.billing.model.CreditData;
+import software.amazon.awssdk.services.billing.model.GetCreditsRequest;
 import software.amazon.awssdk.services.costexplorer.CostExplorerClient;
 import software.amazon.awssdk.services.costexplorer.model.DateInterval;
 import software.amazon.awssdk.services.costexplorer.model.Granularity;
@@ -14,8 +16,11 @@ import software.amazon.awssdk.services.costexplorer.model.ResultByTime;
 import software.amazon.awssdk.services.freetier.FreeTierClient;
 import software.amazon.awssdk.services.freetier.model.FreeTierUsage;
 import software.amazon.awssdk.services.freetier.model.GetFreeTierUsageRequest;
+import software.amazon.awssdk.services.sts.StsClient;
 
+import java.time.Instant;
 import java.time.LocalDate;
+import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
@@ -24,23 +29,23 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * AWS 프리티어 사용량 + 일별 비용 조회.
- * Free Tier API(freetier:GetFreeTierUsage)는 2023년 공개된 무료 조회 API라 몇 번을 불러도 과금이
- * 없다. 반면 Cost Explorer API(ce:GetCostAndUsage)는 호출 1건당 소액 과금되므로, 이 서비스를 직접
- * 자주 호출하지 말고 반드시 상위(AdminDashboardController 등)에서 캐시를 거쳐 호출 빈도를 줄여야
- * 한다. 두 API 모두 us-east-1 리전에서만 제공돼 리전을 코드에 고정했다(EC2 리전과 무관).
- * 자격증명은 AWS SDK 기본 체인이 환경변수 AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY를 자동으로
- * 읽으므로 이 클래스에서 별도로 자격증명을 다루지 않는다(conf/private.conf에만 넣으면 됨).
+ * AWS 프리티어 사용량 + 일별 비용 + 계정 크레딧 잔액 조회.
+ *
+ * - Free Tier API(freetier:GetFreeTierUsage)와 STS(sts:GetCallerIdentity)는 무료라 매번 호출해도 된다.
+ * - Cost Explorer(ce:GetCostAndUsage)와 Billing Credits(billing:GetCredits)는 호출당 소액 과금되는
+ *   API라, 이 서비스를 직접 자주 부르지 말고 반드시 상위(AdminDashboardController)에서 캐시를 거쳐
+ *   호출 빈도를 낮춰야 한다.
+ * - 세 API 모두 us-east-1 리전에서만 제공돼 리전을 코드에 고정했다(EC2 리전과 무관).
+ * - 자격증명은 AWS SDK 기본 체인이 환경변수 AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY를 자동으로
+ *   읽으므로 이 클래스에서 별도로 자격증명을 다루지 않는다(conf/private.conf에만 넣으면 됨).
  */
 @Service
 public class AwsBillingService {
 
     private static final Logger log = LoggerFactory.getLogger(AwsBillingService.class);
     private static final DateTimeFormatter DATE_FMT = DateTimeFormatter.ISO_LOCAL_DATE;
-    private static final int FREE_TIER_TOTAL_DAYS = 365; // 클래식(12개월) 프리티어 기준. 계정 생성일 설정 시에만 사용.
 
-    @Value("${app.aws.account-created-date:}")
-    private String accountCreatedDate; // YYYY-MM-DD, 선택 입력(설정해야 잔여일수 계산 가능)
+    private volatile String cachedAccountId; // 세션 내내 안 바뀌는 값이라 한 번 조회 후 재사용
 
     public Map<String, Object> getFreeTierUsage() {
         Map<String, Object> result = new LinkedHashMap<>();
@@ -80,23 +85,87 @@ public class AwsBillingService {
             result.put("message", "Free Tier 사용량을 가져오지 못했습니다 (" + e.getMessage()
                     + ") — AWS_ACCESS_KEY_ID/SECRET이 conf/private.conf에 설정되어 있는지 확인하세요");
         }
-        addExpiryInfo(result);
         return result;
     }
 
-    private void addExpiryInfo(Map<String, Object> result) {
-        if (accountCreatedDate == null || accountCreatedDate.isBlank()) {
-            result.put("expiryNote", "계정 생성일이 설정되지 않아 프리티어 잔여일수를 계산할 수 없습니다 (환경변수 ACCOUNT_CREATED_DATE, 형식 YYYY-MM-DD)");
-            return;
-        }
+    /**
+     * 계정 크레딧 잔액 + 소진 예상일. AWS 콘솔 "남은 크레딧 / 남은 기간" 위젯과 같은 값을 보여준다.
+     * exhaustDate(현재 소비 속도로 계산한 잔액 0 도달 예상일)를 우선 쓰고, 없으면 endDate(크레딧
+     * 하드 만료일)로 대체한다 — 계정 생성일을 수동 입력해 계산하던 이전 방식(365일 고정)보다
+     * 정확하다(AWS가 실제 사용량 기반으로 계산한 값이라서).
+     */
+    public Map<String, Object> getCreditsSummary() {
+        Map<String, Object> result = new LinkedHashMap<>();
         try {
-            LocalDate created = LocalDate.parse(accountCreatedDate, DATE_FMT);
-            LocalDate expiry = created.plusDays(FREE_TIER_TOTAL_DAYS);
-            result.put("freeTierExpiryDate", expiry.toString());
-            result.put("daysRemaining", ChronoUnit.DAYS.between(LocalDate.now(), expiry));
+            String accountId = resolveAccountId();
+            long now = Instant.now().getEpochSecond();
+            long yearAgo = Instant.now().minus(364, ChronoUnit.DAYS).getEpochSecond();
+
+            try (BillingClient client = BillingClient.builder().region(Region.US_EAST_1).build()) {
+                GetCreditsRequest req = GetCreditsRequest.builder()
+                        .accountId(accountId)
+                        .startDate(yearAgo)
+                        .endDate(now)
+                        .build();
+                var res = client.getCredits(req);
+
+                double totalRemaining = 0;
+                String currency = "USD";
+                Long earliestExhaust = null;
+                Long earliestEnd = null;
+                List<Map<String, Object>> credits = new ArrayList<>();
+
+                for (CreditData c : res.credits()) {
+                    if (c.creditStatusAsString() != null && !"ACTIVE".equalsIgnoreCase(c.creditStatusAsString())) continue;
+                    if (c.estimatedAmount() != null) {
+                        totalRemaining += Double.parseDouble(c.estimatedAmount().currencyAmount());
+                        currency = c.estimatedAmount().currencyCode();
+                    }
+                    if (c.exhaustDate() != null && (earliestExhaust == null || c.exhaustDate() < earliestExhaust)) {
+                        earliestExhaust = c.exhaustDate();
+                    }
+                    if (c.endDate() != null && (earliestEnd == null || c.endDate() < earliestEnd)) {
+                        earliestEnd = c.endDate();
+                    }
+                    Map<String, Object> m = new LinkedHashMap<>();
+                    m.put("description", c.description());
+                    m.put("remaining", c.estimatedAmount() != null ? c.estimatedAmount().currencyAmount() : null);
+                    m.put("endDate", c.endDate() != null ? epochToDate(c.endDate()) : null);
+                    m.put("exhaustDate", c.exhaustDate() != null ? epochToDate(c.exhaustDate()) : null);
+                    credits.add(m);
+                }
+
+                Long targetEpoch = earliestExhaust != null ? earliestExhaust : earliestEnd;
+                result.put("available", true);
+                result.put("totalRemaining", Math.round(totalRemaining * 100.0) / 100.0);
+                result.put("currency", currency);
+                result.put("dateBasis", earliestExhaust != null ? "exhaust" : "expiry"); // 소진예상 vs 하드만료
+                if (targetEpoch != null) {
+                    LocalDate targetDate = epochToDate(targetEpoch);
+                    result.put("targetDate", targetDate.toString());
+                    result.put("daysRemaining", ChronoUnit.DAYS.between(LocalDate.now(), targetDate));
+                }
+                result.put("credits", credits);
+            }
         } catch (Exception e) {
-            result.put("expiryNote", "ACCOUNT_CREATED_DATE 형식이 올바르지 않습니다 (YYYY-MM-DD)");
+            log.warn("[admin-dashboard] 크레딧 조회 실패: {}", e.getMessage());
+            result.put("available", false);
+            result.put("message", "크레딧 정보를 가져오지 못했습니다 (" + e.getMessage()
+                    + ") — IAM 정책에 billing:GetCredits, sts:GetCallerIdentity가 있는지 확인하세요");
         }
+        return result;
+    }
+
+    private String resolveAccountId() {
+        if (cachedAccountId != null) return cachedAccountId;
+        try (StsClient sts = StsClient.builder().region(Region.US_EAST_1).build()) {
+            cachedAccountId = sts.getCallerIdentity().account();
+            return cachedAccountId;
+        }
+    }
+
+    private LocalDate epochToDate(long epochSeconds) {
+        return Instant.ofEpochSecond(epochSeconds).atZone(ZoneOffset.UTC).toLocalDate();
     }
 
     /** 최근 days일 일별 비용(USD). 호출당 과금되니 상위에서 반드시 캐시해서 호출할 것. */
