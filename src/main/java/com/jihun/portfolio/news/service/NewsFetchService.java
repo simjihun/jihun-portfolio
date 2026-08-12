@@ -17,9 +17,12 @@ import java.net.URI;
 import java.net.URLConnection;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * RSS 뉴스 수집 서비스 (스케줄러 데몬).
@@ -27,9 +30,12 @@ import java.util.Map;
  * 30분마다 카테고리별 RSS를 순회하며 새 기사를 수집한다.
  * 카테고리마다 여러 언론사 소스를 등록해 다양한 매체의 기사를 함께 모은다.
  * - 링크 기준 중복 제거
- * - 제목이 완전히 같은 기사는 언론사가 다르더라도 중복으로 보고 거르는다 (먼저 수집된 것 유지)
+ * - 제목을 정규화(공백 정리 + 특수 따옴표 통일)한 뒤 완전히 같은 기사는 언론사가 달라도 중복으로 보고 거른다(먼저 수집된 것 유지)
  * - 제목에 [속보]/[단독]가 포함되면 속보로 표시
  * - 3일 지난 기사는 자동 삭제 (테이블 관리)
+ * - 매 수집 주기마다 보존 기간 내 기사를 훑어 정규화 제목이 같은 중복을 추가로 정리(가장 먼저 수집된 것만 남김) —
+ *   등록 시점에는 정상적으로 걸러졌어도 원문 소스의 따옴표 표기가 미세하게 달라 정규화 전 문자열 비교로는
+ *   놓쳤던 중복까지 사후에 잡아낸다
  * - 소스 하나가 장애나도 나머지는 계속 수집 (소스 단위 장애 격리)
  */
 @Service
@@ -57,6 +63,9 @@ public class NewsFetchService {
                 new FeedSource("https://www.hankyung.com/feed/economy", "한국경제"),
                 new FeedSource("https://news.sbs.co.kr/news/SectionRssFeed.do?sectionId=02&plink=RSSREADER", "SBS"),
                 new FeedSource("https://rss.donga.com/economy.xml", "동아일보")
+        ));
+        put(NewsCategory.IT_SCIENCE, List.of(
+                new FeedSource("https://www.hankyung.com/feed/it", "한국경제")
         ));
         put(NewsCategory.SOCIETY, List.of(
                 new FeedSource("https://www.hankyung.com/feed/society", "한국경제"),
@@ -108,8 +117,10 @@ public class NewsFetchService {
         }
         // 보존 기간 지난 기사 정리
         long deleted = newsRepository.deleteByPublishedAtBefore(LocalDateTime.now().minusDays(RETENTION_DAYS));
+        // 정규화 제목 기준 잔여 중복 정리 (따옴표 표기 차이 등으로 등록 시점에 놓친 것)
+        int dupDeleted = cleanupDuplicateTitles();
         lastFetchAt = LocalDateTime.now();
-        log.info("[news] 수집 완료: 신규 {}건, 정리 {}건", totalNew, deleted);
+        log.info("[news] 수집 완료: 신규 {}건, 보존기간 정리 {}건, 중복 정리 {}건", totalNew, deleted, dupDeleted);
     }
 
     /** 피드 1개 수집 */
@@ -124,10 +135,11 @@ public class NewsFetchService {
         int added = 0;
         for (SyndEntry e : feed.getEntries()) {
             String link = trim(e.getLink(), 600);
-            String title = trim(e.getTitle(), 300);
-            if (link == null || title == null || title.isBlank()) continue;
+            String rawTitle = trim(e.getTitle(), 300);
+            if (link == null || rawTitle == null || rawTitle.isBlank()) continue;
+            String title = normalizeTitle(rawTitle);
             if (newsRepository.existsByLink(link)) continue;    // 링크 기준 중복 제거
-            if (newsRepository.existsByTitle(title)) continue;  // 언론사만 다른 동일 제목 중복 제거 (먼저 수집된 것 유지)
+            if (newsRepository.existsByTitle(title)) continue;  // 정규화한 제목 기준 중복 제거 (먼저 수집된 것 유지)
 
             LocalDateTime publishedAt = e.getPublishedDate() != null
                     ? LocalDateTime.ofInstant(e.getPublishedDate().toInstant(), ZoneId.of("Asia/Seoul"))
@@ -141,6 +153,38 @@ public class NewsFetchService {
             log.info("[news] {} ({}) 신규 {}건", category, source.press(), added);
         }
         return added;
+    }
+
+    /**
+     * 제목 정규화 — 스마트 따옴표(‘’“”)를 일반 따옴표('")로 통일하고 연속 공백을 하나로 줄인 뒤 양끝 공백을 제거한다.
+     * 언론사마다 RSS에 실리는 따옴표 문자 코드가 달라, 사람 눈에는 완전히 같은 제목인데도 바이트가
+     * 달라 중복 판정을 통과하는 경우가 있었다 — 저장 전에 정규화해 이 문제를 근본적으로 막는다.
+     */
+    private String normalizeTitle(String title) {
+        String s = title
+                .replaceAll("[\u2018\u2019\u201B\u2032]", "'")
+                .replaceAll("[\u201C\u201D\u201F\u2033]", "\"")
+                .replaceAll("\\s+", " ")
+                .strip();
+        return s.length() > 300 ? s.substring(0, 300) : s;
+    }
+
+    /**
+     * 보존 기간(3일) 내 기사를 오래된 순으로 훑어, 정규화 제목이 같은 기사가 여러 건이면
+     * 가장 먼저 수집된 것만 남기고 나머지를 삭제한다. fetchFeed()의 실시간 중복 체크를
+     * 통과해 이미 저장된(과거 실행분 포함) 중복도 여기서 함께 정리된다.
+     */
+    private int cleanupDuplicateTitles() {
+        List<NewsArticle> recent = newsRepository.findByPublishedAtAfterOrderByPublishedAtAsc(
+                LocalDateTime.now().minusDays(RETENTION_DAYS));
+        Set<String> seen = new HashSet<>();
+        List<Long> toDelete = new ArrayList<>();
+        for (NewsArticle a : recent) {
+            String key = a.getCategory() + "|" + normalizeTitle(a.getTitle());
+            if (!seen.add(key)) toDelete.add(a.getId());
+        }
+        if (!toDelete.isEmpty()) newsRepository.deleteAllById(toDelete);
+        return toDelete.size();
     }
 
     private String trim(String s, int max) {
