@@ -9,6 +9,9 @@ import software.amazon.awssdk.services.billing.model.CreditData;
 import software.amazon.awssdk.services.billing.model.GetCreditsRequest;
 import software.amazon.awssdk.services.costexplorer.CostExplorerClient;
 import software.amazon.awssdk.services.costexplorer.model.DateInterval;
+import software.amazon.awssdk.services.costexplorer.model.Dimension;
+import software.amazon.awssdk.services.costexplorer.model.DimensionValues;
+import software.amazon.awssdk.services.costexplorer.model.Expression;
 import software.amazon.awssdk.services.costexplorer.model.Granularity;
 import software.amazon.awssdk.services.costexplorer.model.GetCostAndUsageRequest;
 import software.amazon.awssdk.services.costexplorer.model.GetCostAndUsageResponse;
@@ -29,18 +32,17 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * AWS 프리티어 사용량 + 일별 비용 + 계정 크레딧 잔액 조회.
+ * AWS 프리티어 사용량 + 일별 크레딧 소모량 + 계정 크레딧 잔액 조회.
  *
  * - Free Tier API(freetier:GetFreeTierUsage)와 STS(sts:GetCallerIdentity)는 무료라 매번 호출해도 된다.
  * - Cost Explorer(ce:GetCostAndUsage)와 Billing Credits(billing:GetCredits)는 호출당 소액 과금되는
- *   API라, 이 서비스를 직접 자주 부르지 말고 반드시 상위(AdminDashboardController)에서 캐시를 거쳐
- *   호출 빈도를 낮춰야 한다.
+ *   API라, 이 서비스를 직접 자주 부르지 말고 반드시 상위(AwsBillingCacheService)가 하루 1회만 캐시해
+ *   호출 빈도를 낮춘다.
  * - 세 API 모두 us-east-1 리전에서만 제공돼 리전을 코드에 고정했다(EC2 리전과 무관).
  * - 자격증명은 AWS SDK 기본 체인이 환경변수 AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY를 자동으로
  *   읽으므로 이 클래스에서 별도로 자격증명을 다루지 않는다(conf/private.conf에만 넣으면 됨).
  * - billing:GetCredits의 startDate/endDate, CreditData의 endDate/exhaustDate는 API 문서상
- *   "Unix epoch seconds"라고 적혀있지만 실제 자바 SDK 모델은 java.time.Instant로 나온다
- *   (long이 아님 — 처음에 long으로 짜서 빌드가 깨졌던 부분).
+ *   "Unix epoch seconds"라고 적혀있지만 실제 자바 SDK 모델은 java.time.Instant로 나온다.
  */
 @Service
 public class AwsBillingService {
@@ -176,20 +178,29 @@ public class AwsBillingService {
     }
 
     /**
-     * 최근 days일 일별 비용. USD 원본과 원화 환산(고정 환율)을 함께 반환한다.
-     * 음수(부동소수점 반올림으로 생기는 -0.0000001 같은 잡음)는 0으로 클램프한다 — 이 지표에서
-     * 실제로 비용이 마이너스일 일은 없고, 그래프에서 기준선 아래로 삐져나와 보기만 불편해진다.
-     * 호출당 과금되니 상위에서 반드시 캐시해서 호출할 것.
+     * 최근 days일 일별 "크레딧 소모량". 일반 UnblendedCost(RECORD_TYPE 구분 없음)는 크레딧으로
+     * 상쇄된 뒤의 실질 비용이 아니라 발생한 사용 비용 그 자체라, 프리티어 한도 안에서만 쓰고 있으면
+     * 계속 $0으로 나와 무료 크레딧이 실제로 얼마나 빠지고 있는지 보여주지 못한다. 그래서
+     * RECORD_TYPE=Credit으로 필터링해서, 그날 청구서에 "크레딧"으로 잡힌 항목만 따로 뽑는다
+     * (크레딧 라인아이템은 원래 음수로 잡히므로 절댓값을 사용).
+     * 호출당 과금되니 상위(AwsBillingCacheService)에서 반드시 캐시해서 호출할 것.
      */
-    public Map<String, Object> getDailyCost(int days) {
+    public Map<String, Object> getDailyCreditUsage(int days) {
         Map<String, Object> result = new LinkedHashMap<>();
         try (CostExplorerClient client = CostExplorerClient.builder().region(Region.US_EAST_1).build()) {
             LocalDate end = LocalDate.now();
             LocalDate start = end.minusDays(days);
+            Expression creditFilter = Expression.builder()
+                    .dimensions(DimensionValues.builder()
+                            .key(Dimension.RECORD_TYPE)
+                            .values("Credit")
+                            .build())
+                    .build();
             GetCostAndUsageRequest req = GetCostAndUsageRequest.builder()
                     .timePeriod(DateInterval.builder().start(start.format(DATE_FMT)).end(end.format(DATE_FMT)).build())
                     .granularity(Granularity.DAILY)
                     .metrics("UnblendedCost")
+                    .filter(creditFilter)
                     .build();
             GetCostAndUsageResponse res = client.getCostAndUsage(req);
 
@@ -198,19 +209,17 @@ public class AwsBillingService {
                 Map<String, Object> p = new LinkedHashMap<>();
                 p.put("date", r.timePeriod().start());
                 var metric = r.total().get("UnblendedCost");
-                double usd = metric != null ? Double.parseDouble(metric.amount()) : 0.0;
-                usd = Math.max(0, usd);
+                double usd = metric != null ? Math.abs(Double.parseDouble(metric.amount())) : 0.0;
                 p.put("amountUsd", usd);
                 p.put("amountKrw", Math.round(usd * USD_TO_KRW * 100.0) / 100.0);
                 points.add(p);
             }
             result.put("available", true);
             result.put("points", points);
-            result.put("exchangeRate", USD_TO_KRW);
         } catch (Exception e) {
-            log.warn("[admin-dashboard] 비용 조회 실패: {}", e.getMessage());
+            log.warn("[admin-dashboard] 크레딧 소모량 조회 실패: {}", e.getMessage());
             result.put("available", false);
-            result.put("message", "비용 데이터를 가져오지 못했습니다 (" + e.getMessage()
+            result.put("message", "크레딧 소모량 데이터를 가져오지 못했습니다 (" + e.getMessage()
                     + ") — Cost Explorer를 청구서 콘솔에서 한 번 활성화했는지 확인하세요(최대 24시간 소요)");
         }
         return result;
