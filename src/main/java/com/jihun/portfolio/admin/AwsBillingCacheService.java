@@ -12,7 +12,7 @@ import java.util.Map;
  * 스케줄러. 두 API 모두 호출당 소액 과금되기도 하지만, 그보다 더 중요한 이유는 AWS 쪽 크레딧·비용
  * 집계 자체가 하루 단위로만 갱신된다는 점이다(당일 안에 여러 번 불러도 새 값이 안 나옴). 그래서
  * 일정 시간마다 다시 부르는 TTL 캐시 대신, 매일 자정(Asia/Seoul) 딱 한 번만 새로 조회해 메모리에
- * 담아두고 대시보드는 이 캐시를 그대로 반환한다.
+ * 담아두고 대시보드는 이 캐시를 그대로 반환한다. 환율(USD/KRW)도 같은 주기로 함께 갱신한다.
  */
 @Service
 public class AwsBillingCacheService {
@@ -42,11 +42,12 @@ public class AwsBillingCacheService {
     }
 
     private synchronized void refresh() {
-        log.info("[admin-dashboard] AWS 크레딧 소모량/잔액 일일 갱신 시작");
+        log.info("[admin-dashboard] AWS 크레딧 소모량/잔액/환율 일일 갱신 시작");
         try {
+            awsBillingService.refreshExchangeRate();
             creditUsageCache = awsBillingService.getDailyCreditUsage(COST_WINDOW_DAYS);
             creditsCache = awsBillingService.getCreditsSummary();
-            log.info("[admin-dashboard] AWS 크레딧 소모량/잔액 일일 갱신 완료");
+            log.info("[admin-dashboard] AWS 크레딧 소모량/잔액/환율 일일 갱신 완료");
         } catch (Exception e) {
             log.warn("[admin-dashboard] AWS 크레딧 소모량/잔액 갱신 실패: {}", e.getMessage());
         }
