@@ -39,7 +39,8 @@ public class WebConfig implements WebMvcConfigurer {
         // 비공개 회원 영역 — 공개 포트폴리오 nav에는 노출하지 않음(직접 URL로만 접근)
         registry.addViewController("/login").setViewName("forward:/login.html");
         registry.addViewController("/signup").setViewName("forward:/signup.html");
-        registry.addViewController("/mypage").setViewName("forward:/mypage.html");
+        registry.addViewController("/mypage").setViewName("forward:/mypage.html");              // 로그인 후 기본 랜딩 = 대시보드
+        registry.addViewController("/mypage/settings").setViewName("forward:/mypage-settings.html"); // 비밀번호 변경 등 계정 설정
         // 관리자 허브 + 하위 기능. 새 관리자 전용 기능을 추가할 때마다 /admin/<기능>[/<세부기능>]
         // 형태로 한 줄씩 추가한다 (예: /admin/instaviewer, /admin/instaviewer/photos 등).
         registry.addViewController("/admin").setViewName("forward:/admin.html");
