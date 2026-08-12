@@ -21,6 +21,10 @@ import java.util.Map;
  *   429 수신 시 Retry-After 헤더만큼(없으면 1.2초) 대기 후 1회 재시도한다.
  *   (토스 문서 권장: MARKET_INFO 그룹은 초당 3회뿐이라 버스트 호출 시 쉽게 429가 난다)
  * - 허용 IP에 EC2 공인 IP가 등록되어 있어야 한다(미등록 시 403).
+ * - 계좌/자산/주문 조회(계좌 목록 제외)는 시세 조회와 같은 client_id/secret으로 토큰을 받되,
+ *   X-Tossinvest-Account 헤더에 계좌의 accountSeq(GET /api/v1/accounts 응답값)를 추가로 실어야 한다
+ *   — get(path, accountSeq) 오버로드로 지원. 매수/매도(주문 생성) 엔드포인트는 이 프로젝트에서
+ *   의도적으로 구현하지 않는다(조회 전용, 실제 매매는 토스증권 앱에서 직접).
  */
 @Component
 public class TossApiClient {
@@ -64,9 +68,15 @@ public class TossApiClient {
         }
     }
 
-    /** GET 호출 후 JSON을 Map으로 반환. 실패 시 null. 401→토큰 재발급, 429→Retry-After 대기 후 재시도. */
-    @SuppressWarnings("unchecked")
+    /** 시세 등 계좌 무관 공개 데이터 조회 */
     public Map<String, Object> get(String pathAndQuery) {
+        return get(pathAndQuery, null);
+    }
+
+    /** GET 호출 후 JSON을 Map으로 반환. accountSeq가 있으면 X-Tossinvest-Account 헤더를 추가한다(계좌/자산/주문 조회용).
+     * 실패 시 null. 401→토큰 재발급, 429→Retry-After 대기 후 재시도. */
+    @SuppressWarnings("unchecked")
+    public Map<String, Object> get(String pathAndQuery, Long accountSeq) {
         if (!isConfigured()) return null;
         boolean forceRefresh = false;
         for (int attempt = 0; attempt < 3; attempt++) {
@@ -77,6 +87,7 @@ public class TossApiClient {
             try {
                 HttpHeaders headers = new HttpHeaders();
                 headers.setBearerAuth(token);
+                if (accountSeq != null) headers.set("X-Tossinvest-Account", String.valueOf(accountSeq));
                 ResponseEntity<String> res = rest.exchange(BASE + pathAndQuery, HttpMethod.GET, new HttpEntity<>(headers), String.class);
                 if (res.getBody() == null) return null;
                 return mapper.readValue(res.getBody(), Map.class);
