@@ -27,4 +27,7 @@ public interface NewsRepository extends JpaRepository<NewsArticle, Long> {
     long deleteByPublishedAtBefore(LocalDateTime before);
 
     long countByFetchedAtAfter(LocalDateTime after);
+
+    /** 정규화 기준 중복 제목 정리용 — 보존 기간 내 전체를 오래된 순으로 훑는다 */
+    List<NewsArticle> findByPublishedAtAfterOrderByPublishedAtAsc(LocalDateTime after);
 }
