@@ -2,7 +2,9 @@ package com.jihun.portfolio.admin;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestTemplate;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.billing.BillingClient;
 import software.amazon.awssdk.services.billing.model.CreditData;
@@ -50,11 +52,35 @@ public class AwsBillingService {
     private static final Logger log = LoggerFactory.getLogger(AwsBillingService.class);
     private static final DateTimeFormatter DATE_FMT = DateTimeFormatter.ISO_LOCAL_DATE;
 
-    // 대시보드 표시용 근사 환율(고정값). 정확한 회계용이 아니라 "대략 얼마 쓰고 있는지" 감을 잡기 위한
-    // 용도라 실시간 환율 API를 별도로 붙이지 않았다. 필요하면 이 상수만 주기적으로 갱신하면 된다.
-    private static final double USD_TO_KRW = 1380.0;
+    // 하루 1회만 조회하니 무료 공개 API(키 불필요)로 실시간 환율을 받아온다. 실패하면 직전 값(최초엔
+    // 이 폴백 상수)을 그대로 쓴다 — 대시보드가 환율 API 장애로 깨지면 안 되기 때문.
+    private volatile double usdToKrw = 1380.0;
+    private final RestTemplate rest;
 
     private volatile String cachedAccountId; // 세션 내내 안 바뀌는 값이라 한 번 조회 후 재사용
+
+    public AwsBillingService() {
+        SimpleClientHttpRequestFactory f = new SimpleClientHttpRequestFactory();
+        f.setConnectTimeout(5000);
+        f.setReadTimeout(5000);
+        this.rest = new RestTemplate(f);
+    }
+
+    /** 하루 1회(AwsBillingCacheService의 자정 갱신 시점) 실제 환율로 갱신한다. */
+    @SuppressWarnings("unchecked")
+    public void refreshExchangeRate() {
+        try {
+            Map<String, Object> body = rest.getForObject("https://open.er-api.com/v6/latest/USD", Map.class);
+            Map<String, Object> rates = (Map<String, Object>) body.get("rates");
+            Object krw = rates != null ? rates.get("KRW") : null;
+            if (krw != null) {
+                usdToKrw = Double.parseDouble(krw.toString());
+                log.info("[admin-dashboard] USD/KRW 환율 갱신: {}", usdToKrw);
+            }
+        } catch (Exception e) {
+            log.warn("[admin-dashboard] 환율 조회 실패, 이전 값 유지({}): {}", usdToKrw, e.getMessage());
+        }
+    }
 
     public Map<String, Object> getFreeTierUsage() {
         Map<String, Object> result = new LinkedHashMap<>();
@@ -146,7 +172,7 @@ public class AwsBillingService {
                 Instant target = earliestExhaust != null ? earliestExhaust : earliestEnd;
                 result.put("available", true);
                 result.put("totalRemaining", Math.round(totalRemaining * 100.0) / 100.0);
-                result.put("totalRemainingKrw", Math.round(totalRemaining * USD_TO_KRW));
+                result.put("totalRemainingKrw", Math.round(totalRemaining * usdToKrw));
                 result.put("currency", currency);
                 result.put("dateBasis", earliestExhaust != null ? "exhaust" : "expiry"); // 소진예상 vs 하드만료
                 if (target != null) {
@@ -211,11 +237,12 @@ public class AwsBillingService {
                 var metric = r.total().get("UnblendedCost");
                 double usd = metric != null ? Math.abs(Double.parseDouble(metric.amount())) : 0.0;
                 p.put("amountUsd", usd);
-                p.put("amountKrw", Math.round(usd * USD_TO_KRW * 100.0) / 100.0);
+                p.put("amountKrw", Math.round(usd * usdToKrw * 100.0) / 100.0);
                 points.add(p);
             }
             result.put("available", true);
             result.put("points", points);
+            result.put("exchangeRate", usdToKrw);
         } catch (Exception e) {
             log.warn("[admin-dashboard] 크레딧 소모량 조회 실패: {}", e.getMessage());
             result.put("available", false);
