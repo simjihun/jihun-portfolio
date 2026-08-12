@@ -103,3 +103,29 @@ td.txt{font-family:var(--sans);font-size:13px;max-width:220px;overflow:hidden;te
 
 /* ===== 그리드 내부 컨텐츠 오버플로우로 인한 모바일 잘림 방지(공통 그리드 자식 요소) ===== */
 .two-col>*,.map-area>*,.stat-grid>*{min-width:0}
+
+/* =========================================
+   비공개 회원 영역 공통 네비게이션 (private-nav.js가 #private-nav에 주입)
+   /login, /signup은 별도 레이아웃(auth-card)이라 여기 대상 아님 —
+   /mypage, /admin, /admin/* 페이지에서 공통으로 사용.
+   ========================================= */
+.priv-header{display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border-bottom:1px solid var(--line);background:var(--panel-2);flex-wrap:wrap;gap:10px}
+.priv-left{display:flex;align-items:center;gap:4px;flex-wrap:wrap}
+.priv-brand{font-weight:700;font-size:14px;margin-right:10px;white-space:nowrap}
+.priv-link{padding:7px 12px;border-radius:8px;color:var(--mut);font-size:13px;font-weight:500}
+.priv-link:hover{color:var(--ink);background:rgba(255,255,255,.05)}
+.priv-link.on{color:var(--amber);background:rgba(242,169,59,.1);font-weight:600}
+.priv-right{display:flex;align-items:center;gap:12px}
+.priv-who{font-size:12.5px;color:var(--mut)}
+.priv-logout{background:none;border:1px solid var(--line);color:var(--mut);padding:6px 12px;border-radius:8px;font-size:12px;cursor:pointer}
+.priv-logout:hover{color:var(--ink);border-color:var(--mut)}
+
+/* 관리자 허브 메뉴 카드 */
+.hub-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px}
+.hub-card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:20px;display:block;transition:border-color .15s}
+.hub-card:hover{border-color:var(--amber)}
+.hub-card .icon{font-size:24px;margin-bottom:10px}
+.hub-card .title{font-size:15px;font-weight:700;margin-bottom:5px}
+.hub-card .desc{font-size:12.5px;color:var(--mut);line-height:1.6}
+.hub-card.soon{opacity:.45;cursor:default}
+.hub-card.soon:hover{border-color:var(--line)}
