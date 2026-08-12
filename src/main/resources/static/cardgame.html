@@ -12,7 +12,9 @@
 .mode-tab{padding:8px 18px;border-radius:7px;border:0;background:transparent;color:var(--mut);font-size:13.5px;font-weight:600;cursor:pointer}
 .mode-tab.on{background:var(--amber);color:#131A2A}
 .mode-tab.disabled{opacity:.4;cursor:default}
-.game-desc{color:var(--mut);font-size:13.5px;line-height:1.8;margin-bottom:18px;max-width:660px}
+.game-desc{color:var(--mut);font-size:13px;line-height:1.7;margin-bottom:18px;max-width:600px;list-style:none;padding:0}
+.game-desc li{display:flex;gap:7px;margin-bottom:5px}
+.game-desc li::before{content:'—';color:var(--amber);flex:none}
 .game-desc b{color:var(--ink)}
 .choice-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:4px}
 .choice{padding:9px 16px;border-radius:8px;border:1px solid var(--line);background:var(--panel-2);color:var(--mut);font-size:13px;font-weight:600;cursor:pointer;text-align:left;line-height:1.5}
@@ -111,14 +113,14 @@
 
   <!-- ===== 프리셀 ===== -->
   <section id="panelFreecell">
-    <p class="game-desc">
-      52장을 8개 컬럼에 모두 펼쳐놓고 시작하는 프리셀입니다. 오픈칸은 4개이고, 완성 칸에 안전하게 놓을 수
-      있는 카드는 자동으로 정리됩니다. 색이 번갈아 바뀌며 1씩 내려가는 뭉치는 통째로 옮길 수 있고, 각
-      무늬를 A부터 K까지 순서대로 완성 칸에 쌓으면 승리입니다. 카드나 뭉치를 클릭해 선택한 뒤 옮길 곳을
-      다시 클릭하면 이동하고, <b>카드를 더블클릭하면 완성 칸으로(안 되면 빈 오픈칸으로) 자동으로</b>
-      옮겨집니다. <b>실행취소는 무제한</b>이며, 더 이상 둘 곳이 없어지면 이 판을 다시 시도하거나 새 판을
-      시작할 수 있습니다.
-    </p>
+    <ul class="game-desc">
+      <li>52장, 8개 컬럼, 오픈칸 4개</li>
+      <li>완성 칸에 놓을 수 있는 카드는 자동 정리</li>
+      <li>색이 번갈아 바뀌며 1씩 내려가는 뭉치는 통째로 이동</li>
+      <li>더블클릭: 완성 칸(안 되면 빈 오픈칸)으로 자동 이동</li>
+      <li>실행취소 무제한</li>
+      <li>각 무늬 A→K 완성 시 승리</li>
+    </ul>
 
     <div class="two-col" id="fcOuter">
       <div style="min-width:0">
@@ -182,14 +184,15 @@
 
   <!-- ===== 클론다이크 ===== -->
   <section id="panelKlondike" style="display:none">
-    <p class="game-desc">
-      7개 컬럼에 카드를 계단식으로 펼쳐놓고 시작하는 고전 솔리테어입니다. 각 컬럼의 맨 위 카드만 앞면이고
-      나머지는 뒷면인 채로 시작하며, 카드를 옮겨 뒷면 카드가 드러나면 자동으로 뒤집힙니다. 색이 번갈아
-      바뀌며 1씩 내려가는 뭉치는 통째로 옮길 수 있고, 빈 컬럼에는 <b>K(킹)만</b> 놓을 수 있습니다. 카드
-      더미를 클릭하면 정해진 장수만큼 패가 넘어가고, <b>다 넘기면 다시 섞어서 몇 번이든 계속 볼 수
-      있습니다</b>. 완성 칸의 카드는 다시 줄로 되돌릴 수도 있습니다(한 번에 1장). 각 무늬를 A부터 K까지
-      순서대로 완성 칸에 쌓으면 승리입니다. 카드를 더블클릭하면 완성 칸으로 자동으로 옮겨집니다.
-    </p>
+    <ul class="game-desc">
+      <li>7개 컬럼 계단식 배치, 맨 위 카드만 앞면</li>
+      <li>뒷면 카드가 드러나면 자동으로 뒤집힘</li>
+      <li>색이 번갈아 바뀌며 1씩 내려가는 뭉치는 통째로 이동, 빈 컬럼엔 <b>K만</b> 가능</li>
+      <li>스톡 클릭 시 정해진 장수만큼 넘김, 다 넘기면 다시 섞어서 무제한 반복</li>
+      <li>완성 칸의 카드는 줄로 되돌리기 가능(1장씩)</li>
+      <li>더블클릭: 완성 칸으로 자동 이동</li>
+      <li>각 무늬 A→K 완성 시 승리</li>
+    </ul>
 
     <div class="two-col" id="kdOuter">
       <div style="min-width:0">
@@ -257,14 +260,15 @@
 
   <!-- ===== 스파이더 ===== -->
   <section id="panelSpider" style="display:none">
-    <p class="game-desc">
-      10개 컬럼에 104장(2벌)을 펼쳐놓고 시작하는 솔리테어입니다. 각 컬럼의 맨 위 카드만 앞면이고 나머지는
-      뒷면이며, 카드를 옮겨 뒷면 카드가 드러나면 자동으로 뒤집힙니다. 무늬에 상관없이 1씩 내려가는 카드
-      위에 놓을 수 있지만, <b>같은 무늬로 이어진 뭉치만 통째로</b> 옮길 수 있습니다. 빈 컬럼에는 아무
-      카드나 놓을 수 있습니다. 카드 더미를 클릭하면 모든 컬럼에 한 장씩 새 카드가 깔립니다(단, 빈 컬럼이
-      있으면 낼 수 없습니다). 한 무늬로 K부터 A까지 순서대로 이어지면 자동으로 완성되어 치워지고, 8세트를
-      모두 완성하면 승리입니다.
-    </p>
+    <ul class="game-desc">
+      <li>104장(2벌), 10개 컬럼</li>
+      <li>맨 위 카드만 앞면, 뒷면 카드가 드러나면 자동으로 뒤집힘</li>
+      <li>무늬 무관 1씩 내려가는 카드 위에 배치 가능</li>
+      <li>단, <b>같은 무늬로 이어진 뭉치만</b> 통째로 이동 가능</li>
+      <li>빈 컬럼에는 아무 카드나 가능</li>
+      <li>스톡 클릭 시 전 컬럼에 한 장씩 배분(빈 컬럼 있으면 배분 불가)</li>
+      <li>K→A 같은 무늬 13장 연결 시 자동 완성, 8세트 완성 시 승리</li>
+    </ul>
 
     <div class="two-col" id="spOuter">
       <div style="min-width:0">
