@@ -108,17 +108,26 @@ td.txt{font-family:var(--sans);font-size:13px;max-width:220px;overflow:hidden;te
    비공개 회원 영역 공통 네비게이션 (private-nav.js가 #private-nav에 주입)
    /login, /signup은 별도 레이아웃(auth-card)이라 여기 대상 아님 —
    /mypage, /admin, /admin/* 페이지에서 공통으로 사용.
+   왼쪽(priv-left) = 브랜드 + 실제 기능 메뉴, 오른쪽(priv-right) = 이름 드롭다운(계정설정/관리자/로그아웃).
    ========================================= */
-.priv-header{display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border-bottom:1px solid var(--line);background:var(--panel-2);flex-wrap:wrap;gap:10px}
+.priv-header{display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border-bottom:1px solid var(--line);background:var(--panel-2);flex-wrap:wrap;gap:10px;position:relative}
 .priv-left{display:flex;align-items:center;gap:4px;flex-wrap:wrap}
 .priv-brand{font-weight:700;font-size:14px;margin-right:10px;white-space:nowrap}
 .priv-link{padding:7px 12px;border-radius:8px;color:var(--mut);font-size:13px;font-weight:500}
 .priv-link:hover{color:var(--ink);background:rgba(255,255,255,.05)}
 .priv-link.on{color:var(--amber);background:rgba(242,169,59,.1);font-weight:600}
-.priv-right{display:flex;align-items:center;gap:12px}
-.priv-who{font-size:12.5px;color:var(--mut)}
-.priv-logout{background:none;border:1px solid var(--line);color:var(--mut);padding:6px 12px;border-radius:8px;font-size:12px;cursor:pointer}
-.priv-logout:hover{color:var(--ink);border-color:var(--mut)}
+.priv-right{display:flex;align-items:center;gap:12px;position:relative}
+
+.priv-dropdown{position:relative}
+.priv-dropdown-btn{display:flex;align-items:center;gap:6px;background:none;border:1px solid var(--line);color:var(--ink);padding:7px 12px;border-radius:8px;font-size:13px;cursor:pointer}
+.priv-dropdown-btn:hover{border-color:var(--mut)}
+.priv-dropdown-btn .caret{font-size:10px;color:var(--mut);transition:transform .15s}
+.priv-dropdown.open .caret{transform:rotate(180deg)}
+.priv-dropdown-menu{display:none;position:absolute;top:calc(100% + 6px);right:0;background:var(--panel);border:1px solid var(--line);border-radius:10px;min-width:170px;padding:6px;box-shadow:0 10px 30px rgba(0,0,0,.4);z-index:50}
+.priv-dropdown.open .priv-dropdown-menu{display:block}
+.priv-dropdown-item{display:block;width:100%;text-align:left;padding:9px 10px;border-radius:7px;color:var(--mut);font-size:13px;background:none;border:0;cursor:pointer;font-family:var(--sans)}
+.priv-dropdown-item:hover{color:var(--ink);background:rgba(255,255,255,.05)}
+.priv-dropdown-divider{height:1px;background:var(--line);margin:5px 2px}
 
 /* 관리자 허브 메뉴 카드 */
 .hub-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px}
@@ -129,3 +138,13 @@ td.txt{font-family:var(--sans);font-size:13px;max-width:220px;overflow:hidden;te
 .hub-card .desc{font-size:12.5px;color:var(--mut);line-height:1.6}
 .hub-card.soon{opacity:.45;cursor:default}
 .hub-card.soon:hover{border-color:var(--line)}
+
+/* 대시보드(AWS/DB 정보) */
+.dash-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px}
+@media (max-width:800px){ .dash-grid{grid-template-columns:1fr} }
+.dash-kv{display:flex;flex-direction:column;gap:8px}
+.dash-kv-row{display:flex;justify-content:space-between;gap:10px;font-size:13px;padding:7px 0;border-bottom:1px solid var(--line)}
+.dash-kv-row:last-child{border-bottom:0}
+.dash-kv-row .k{color:var(--mut)}
+.dash-kv-row .v{font-family:var(--mono);color:var(--ink);text-align:right;word-break:break-all}
+.dash-table-wrap{margin-top:8px}
