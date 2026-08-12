@@ -201,9 +201,10 @@ let country = 'KR', tab = 'amount';
    로컬 캐시 — 페이지에 다시 들어올 때마다 서버를 새로 부르지 않고,
    localStorage에 남아있는 값을 먼저 보여준 뒤, 그 항목의 캐시 유효기간이
    끝나는 시점에만 다시 불러온다(항목마다 유효기간이 다름: 지표/랭킹 60초,
-   브리핑 30분, 캘린더 12시간, 종목별 AI 요약 12시간 — 서버 TTL과 동일하게 맞춤).
+   브리핑 12시간(서버가 실패 시엔 10분 뒤 재시도하도록 별도 처리), 캘린더 12시간,
+   종목별 AI 요약 12시간 — 서버 TTL과 동일하게 맞춤).
    =================================================== */
-const TTL = { dashboard: 60_000, rank: 60_000, briefing: 30 * 60_000, calendar: 12 * 3600_000, insight: 12 * 3600_000 };
+const TTL = { dashboard: 60_000, rank: 60_000, briefing: 12 * 3600_000, calendar: 12 * 3600_000, insight: 12 * 3600_000 };
 function cacheGet(key){
   try{ const raw = localStorage.getItem(key); return raw ? JSON.parse(raw) : null; }catch(e){ return null; }
 }
@@ -352,11 +353,11 @@ async function loadCalendar(force){
   scheduleNext('calendar', TTL.calendar, loadCalendar);
 }
 
-/* ===== AI 브리핑 (서버 30분 캐시와 동일 주기) ===== */
+/* ===== AI 브리핑 (서버 12시간 캐시와 동일 주기 — 서버가 실패 시엔 10분 뒤 재시도하므로 그 경우엔 짧게 재요청) ===== */
 function applyBriefing(data){
   $('briefSummary').textContent = data.summary || '-';
   if (data.generatedAt) {
-    $('briefTime').textContent = '· ' + new Date(data.generatedAt).toLocaleTimeString('ko-KR', {hour:'2-digit',minute:'2-digit'}) + ' 생성 (30분 캐시)';
+    $('briefTime').textContent = '· ' + new Date(data.generatedAt).toLocaleTimeString('ko-KR', {hour:'2-digit',minute:'2-digit'}) + ' 생성 (12시간 캐시)';
   }
   const picks = data.picks || [];
   $('picksBox').innerHTML = !picks.length ? '<div class="empty-msg">-</div>' :
@@ -382,8 +383,16 @@ async function loadBriefing(force){
     }
   }
   const data = await fetch('/api/stock/briefing').then(r => r.json()).catch(() => null);
-  if (data) { applyBriefing(data); cacheSet(key, data, TTL.briefing); }
-  scheduleNext('briefing', TTL.briefing, loadBriefing);
+  if (data) {
+    applyBriefing(data);
+    // 서버가 실패 응답을 줬을 때는(GEMINI 한도 소진 등) 서버 쪽 재시도 주기(10분)와 맞춰 프론트도 짧게 다시 시도한다
+    const failed = !data.summary || /생성하지 못했|설정되지 않아/.test(data.summary);
+    const ttl = failed ? 10 * 60_000 : TTL.briefing;
+    cacheSet(key, data, ttl);
+    scheduleNext('briefing', ttl, loadBriefing);
+    return;
+  }
+  scheduleNext('briefing', 10 * 60_000, loadBriefing);
 }
 
 /* ===================================================
