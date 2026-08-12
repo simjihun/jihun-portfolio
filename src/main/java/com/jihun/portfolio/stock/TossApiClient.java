@@ -3,7 +3,6 @@ package com.jihun.portfolio.stock;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
@@ -16,6 +15,7 @@ import java.util.Map;
 
 /**
  * 토스증권 Open API 클라이언트.
+ * - client_id/secret은 conf/app.conf 대신 TossCredentialsService(관리자 계정에 암호화 저장)에서 가져온다.
  * - OAuth2 토큰 캐싱(만료 60초 전 재발급), 401 시 재발급 후 재시도.
  * - 레이트리밋 보호장치: 모든 호출을 전역 스로틀(호출 간 최소 300ms)로 직렬화하고,
  *   429 수신 시 Retry-After 헤더만큼(없으면 1.2초) 대기 후 1회 재시도한다.
@@ -37,16 +37,13 @@ public class TossApiClient {
     private final ObjectMapper mapper = new ObjectMapper();
     private final Object throttleLock = new Object();
     private long lastCallAt = 0;
-
-    @Value("${TOSS_CLIENT_ID:}")
-    private String clientId;
-    @Value("${TOSS_CLIENT_SECRET:}")
-    private String clientSecret;
+    private final TossCredentialsService credentials;
 
     private volatile String accessToken;
     private volatile long tokenExpiresAt;
 
-    public TossApiClient() {
+    public TossApiClient(TossCredentialsService credentials) {
+        this.credentials = credentials;
         SimpleClientHttpRequestFactory f = new SimpleClientHttpRequestFactory();
         f.setConnectTimeout(4000);
         f.setReadTimeout(6000);
@@ -54,7 +51,7 @@ public class TossApiClient {
     }
 
     public boolean isConfigured() {
-        return clientId != null && !clientId.isBlank() && clientSecret != null && !clientSecret.isBlank();
+        return credentials.isConfigured();
     }
 
     /** 호출 간격을 강제해 초당 그룹 한도를 넘지 않도록 한다. */
@@ -110,6 +107,12 @@ public class TossApiClient {
         return null;
     }
 
+    /** 관리자가 설정 화면에서 키를 새로 저장했을 때 강제로 다시 로그인하도록 토큰을 비운다. */
+    public void invalidateToken() {
+        accessToken = null;
+        tokenExpiresAt = 0;
+    }
+
     @SuppressWarnings("unchecked")
     private synchronized String currentToken(boolean forceRefresh) {
         long now = System.currentTimeMillis();
@@ -121,8 +124,8 @@ public class TossApiClient {
             headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
             MultiValueMap<String, String> form = new LinkedMultiValueMap<>();
             form.add("grant_type", "client_credentials");
-            form.add("client_id", clientId);
-            form.add("client_secret", clientSecret);
+            form.add("client_id", credentials.getClientId());
+            form.add("client_secret", credentials.getClientSecret());
             ResponseEntity<String> res = rest.postForEntity(BASE + "/oauth2/token", new HttpEntity<>(form, headers), String.class);
             Map<String, Object> body = mapper.readValue(res.getBody(), Map.class);
             Object token = body.get("access_token");
