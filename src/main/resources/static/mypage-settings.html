@@ -12,6 +12,9 @@ main{max-width:560px}
 .auth-msg.show{display:block}
 .auth-msg.err{background:rgba(241,96,99,.1);color:var(--red);border:1px solid rgba(241,96,99,.3)}
 .auth-msg.ok{background:rgba(62,207,142,.1);color:var(--green);border:1px solid rgba(62,207,142,.3)}
+.status-tag{display:inline-block;padding:2px 9px;border-radius:999px;font-size:11px;font-weight:600;margin-left:8px}
+.status-tag.on{background:rgba(62,207,142,.14);color:var(--green)}
+.status-tag.off{background:rgba(241,96,99,.14);color:var(--red)}
 </style>
 </head>
 <body style="padding-top:0">
@@ -20,7 +23,7 @@ main{max-width:560px}
 <main>
   <header class="page"><h1>계정 설정</h1></header>
 
-  <div class="panel">
+  <div class="panel" style="margin-bottom:16px">
     <h2>비밀번호 변경</h2>
     <div class="auth-msg err" id="pwErr"></div>
     <div class="auth-msg ok" id="pwOk"></div>
@@ -32,6 +35,18 @@ main{max-width:560px}
     <label>새 비밀번호 확인</label>
     <input type="password" id="newPw2">
     <button class="btn btn-amber" style="margin-top:14px" onclick="changePassword()">변경하기</button>
+  </div>
+
+  <div class="panel" id="tossPanel" style="display:none">
+    <h2>토스증권 API 키 <span class="status-tag" id="tossStatusTag"></span></h2>
+    <div style="font-size:11.5px;color:var(--dim);margin-bottom:12px">AI 주식·TOSS 주식 두 기능이 이 키를 공유합니다. 저장하면 암호화되어 이 계정에 귀속되고, 화면에 다시 보이지 않습니다.</div>
+    <div class="auth-msg err" id="tossErr"></div>
+    <div class="auth-msg ok" id="tossOk"></div>
+    <label>Client ID</label>
+    <input type="text" id="tossClientId" placeholder="비워두면 기존 값 유지">
+    <label>Client Secret</label>
+    <input type="password" id="tossClientSecret" placeholder="비워두면 기존 값 유지">
+    <button class="btn btn-amber" style="margin-top:14px" onclick="saveTossCredentials()">저장</button>
   </div>
 </main>
 
@@ -62,6 +77,45 @@ async function changePassword(){
   $('pwOk').classList.add('show');
   $('curPw').value = ''; $('newPw').value = ''; $('newPw2').value = '';
 }
+
+/* ===== 토스증권 API 키 — 관리자(simering)만 노출. 값 자체는 서버가 절대 응답에 담지 않고
+   "설정됨/안됨" 여부만 알려준다. ===== */
+async function initTossPanel(){
+  const me = await fetch('/api/auth/me').then(r => r.json()).catch(() => ({ authenticated: false }));
+  if (!(me.roles || []).includes('ROLE_ADMIN')) return;
+  $('tossPanel').style.display = 'block';
+  const status = await fetch('/api/admin/toss-credentials').then(r => r.json()).catch(() => null);
+  const tag = $('tossStatusTag');
+  if (status && status.configured) { tag.textContent = '설정됨'; tag.className = 'status-tag on'; }
+  else { tag.textContent = '미설정'; tag.className = 'status-tag off'; }
+}
+
+async function saveTossCredentials(){
+  $('tossErr').classList.remove('show');
+  $('tossOk').classList.remove('show');
+  const clientId = $('tossClientId').value.trim();
+  const clientSecret = $('tossClientSecret').value.trim();
+  if (!clientId && !clientSecret) {
+    $('tossErr').textContent = 'Client ID 또는 Secret 중 하나는 입력해주세요';
+    $('tossErr').classList.add('show');
+    return;
+  }
+  const res = await fetch('/api/admin/toss-credentials', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ clientId, clientSecret })
+  }).then(r => r.json()).catch(() => null);
+  if (!res || !res.success) {
+    $('tossErr').textContent = '저장에 실패했습니다';
+    $('tossErr').classList.add('show');
+    return;
+  }
+  $('tossOk').textContent = '저장되었습니다';
+  $('tossOk').classList.add('show');
+  $('tossClientId').value = ''; $('tossClientSecret').value = '';
+  initTossPanel();
+}
+
+initTossPanel();
 </script>
 </body>
 </html>
