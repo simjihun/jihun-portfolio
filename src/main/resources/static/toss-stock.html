@@ -12,49 +12,83 @@
 <style>
 .up{color:#f04452}
 .down{color:#3182f6}
-.summary-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
-@media (max-width:800px){ .summary-grid{grid-template-columns:repeat(2,1fr)} }
-.summary-cell{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
-.summary-cell .k{font-size:11.5px;color:var(--mut);margin-bottom:6px}
-.summary-cell .v{font-family:var(--mono);font-size:18px;font-weight:700}
-.holding-row{cursor:pointer}
-.holding-row:hover td{background:rgba(255,255,255,.03)}
-.holding-row.selected td{background:rgba(242,169,59,.07)}
-.holding-row .name{font-weight:600;color:var(--ink)}
-.holding-row .sym{display:block;font-size:11px;color:var(--dim);font-family:var(--mono)}
-.tabs{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap}
-.tab{padding:7px 16px;border-radius:999px;border:1px solid var(--line);background:transparent;color:var(--mut);font-size:13px;cursor:pointer}
-.tab.on{background:rgba(242,169,59,.12);border-color:var(--amber);color:var(--amber);font-weight:600}
-.badge-side{padding:2px 8px;border-radius:6px;font-size:11px;font-weight:700}
-.badge-side.BUY{background:rgba(240,68,82,.12);color:var(--red)}
-.badge-side.SELL{background:rgba(49,130,246,.12);color:var(--blue)}
-.badge-status{padding:1px 7px;border-radius:6px;font-size:10.5px;font-weight:600}
-.badge-status.FILLED{background:rgba(62,207,142,.14);color:var(--green)}
-.badge-status.CANCELED,.badge-status.CANCEL_REJECTED{background:rgba(126,141,169,.14);color:var(--mut)}
-.badge-status.REJECTED,.badge-status.REPLACE_REJECTED{background:rgba(241,96,99,.14);color:var(--red)}
-.badge-status.PENDING,.badge-status.PARTIAL_FILLED,.badge-status.PENDING_CANCEL,.badge-status.PENDING_REPLACE{background:rgba(242,169,59,.14);color:var(--amber)}
+main{max-width:1400px}
 
-/* ===== 종목 상세 분할 화면 ===== */
-.detail-overlay{position:fixed;inset:0;background:rgba(5,8,15,.75);z-index:250;display:flex;justify-content:flex-end}
-.detail-panel{width:min(980px,100%);height:100%;background:var(--bg);border-left:1px solid var(--line);overflow-y:auto;padding:20px 22px 60px}
-.detail-head{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px}
-.detail-head h2{font-size:19px;margin-bottom:2px}
+/* ===== 상단 요약 2분할 (토스 스타일: 큰 금액 + 아래 손익) ===== */
+.summary-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px}
+@media (max-width:700px){ .summary-grid{grid-template-columns:1fr} }
+.summary-cell{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px 18px}
+.summary-cell .k{font-size:12px;color:var(--mut);margin-bottom:6px}
+.summary-cell .v{font-family:var(--mono);font-size:24px;font-weight:700}
+.summary-cell .sub{font-family:var(--mono);font-size:13px;margin-top:4px}
+
+/* ===== 좌우 2분할 메인 레이아웃 ===== */
+.main-split{display:grid;grid-template-columns:1fr 380px;gap:14px;align-items:start}
+@media (max-width:1000px){ .main-split{grid-template-columns:1fr} }
+
+/* 좌측: 종목 상세 */
+.detail-head{display:flex;align-items:baseline;gap:10px;margin-bottom:2px;flex-wrap:wrap}
+.detail-head h2{font-size:18px}
 .detail-head .sym{font-family:var(--mono);font-size:12px;color:var(--dim)}
-.detail-close{background:none;border:1px solid var(--line);color:var(--mut);width:32px;height:32px;border-radius:8px;cursor:pointer;font-size:15px}
-.detail-price{font-family:var(--mono);font-size:26px;font-weight:700;margin:4px 0}
-.detail-split{display:grid;grid-template-columns:1fr 260px;gap:14px;margin-bottom:16px}
-@media (max-width:800px){ .detail-split{grid-template-columns:1fr} }
-.chart-wrap-lg{height:260px}
+.detail-price{font-family:var(--mono);font-size:24px;font-weight:700;margin:4px 0 12px}
+.interval-tabs{display:flex;gap:6px;margin-bottom:10px}
+.interval-tab{padding:5px 12px;border-radius:7px;border:1px solid var(--line);background:transparent;color:var(--mut);font-size:12.5px;cursor:pointer}
+.interval-tab.on{background:rgba(242,169,59,.12);border-color:var(--amber);color:var(--amber);font-weight:600}
+.chart-orderbook-split{display:grid;grid-template-columns:1fr 220px;gap:14px;margin-bottom:14px}
+@media (max-width:700px){ .chart-orderbook-split{grid-template-columns:1fr} }
+.chart-wrap-lg{height:280px}
 .orderbook-row{display:grid;grid-template-columns:1fr 1fr;gap:4px;font-family:var(--mono);font-size:12px;padding:2px 0}
 .orderbook-row .ask{color:var(--blue);text-align:right;padding-right:6px}
 .orderbook-row .bid{color:var(--red);padding-left:6px}
 .orderbook-row .vol{color:var(--dim);font-size:10.5px}
-.holding-mini{background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:10px;font-size:12.5px}
-.holding-mini .row{display:flex;justify-content:space-between;padding:3px 0}
+.refresh-mini{padding:4px 10px;border-radius:6px;border:1px solid var(--line);background:transparent;color:var(--mut);font-size:11px;cursor:pointer}
+.refresh-mini:hover{color:var(--amber);border-color:var(--amber)}
 .trading-table{font-size:12px}
 .trading-table th,.trading-table td{padding:6px 8px}
-.filter-row{display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap}
-.filter-row select{width:auto;padding:6px 10px;font-size:12.5px}
+.empty-hint{color:var(--dim);font-size:13px;padding:60px 20px;text-align:center;border:1px dashed var(--line);border-radius:10px}
+
+/* 우측: 보유종목 + 주문내역 */
+.holding-item{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:11px 13px;margin-bottom:8px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:8px}
+.holding-item:hover{border-color:var(--mut)}
+.holding-item.selected{border-color:var(--amber);background:rgba(242,169,59,.06)}
+.holding-item .name{font-weight:600;font-size:13.5px}
+.holding-item .sym{display:block;font-size:10.5px;color:var(--dim);font-family:var(--mono)}
+.holding-item .right{text-align:right}
+.holding-item .mv{font-family:var(--mono);font-size:13px;font-weight:600}
+.holding-item .pl{font-family:var(--mono);font-size:11.5px}
+.calc-btn{width:26px;height:26px;border-radius:7px;border:1px solid var(--line);background:var(--panel-2);color:var(--mut);font-size:13px;cursor:pointer;flex:none}
+.calc-btn:hover{color:var(--amber);border-color:var(--amber)}
+
+.order-filter{display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap}
+.order-filter .tab{padding:5px 12px;border-radius:999px;border:1px solid var(--line);background:transparent;color:var(--mut);font-size:12px;cursor:pointer}
+.order-filter .tab.on{background:rgba(242,169,59,.12);border-color:var(--amber);color:var(--amber);font-weight:600}
+.status-check-row{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px;font-size:12px;color:var(--mut)}
+.status-check-row label{display:flex;align-items:center;gap:4px;cursor:pointer}
+.status-check-row input{width:auto}
+.order-mini{display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--line);font-size:12px}
+.order-mini:last-child{border-bottom:0}
+.order-mini .side{font-weight:700;flex:none;width:32px}
+.order-mini .side.BUY{color:var(--red)}
+.order-mini .side.SELL{color:var(--blue)}
+.order-mini .mid{flex:1;padding:0 8px;color:var(--mut)}
+.order-mini .st{font-size:11px;color:var(--dim)}
+
+/* ===== 계산기 모달 ===== */
+.modal-bg{position:fixed;inset:0;background:rgba(5,8,15,.75);z-index:300;display:none;place-items:center;padding:20px}
+.modal-bg.show{display:grid}
+.calc-modal{background:var(--panel);border:1px solid var(--line);border-radius:14px;max-width:460px;width:100%;padding:22px;max-height:88vh;overflow-y:auto}
+.calc-modal h3{font-size:16px;margin-bottom:4px}
+.calc-modal .sym{font-family:var(--mono);font-size:11.5px;color:var(--dim);margin-bottom:16px}
+.modal-close{float:right;background:none;border:1px solid var(--line);color:var(--mut);width:28px;height:28px;border-radius:8px;cursor:pointer}
+.calc-section{margin-bottom:18px}
+.calc-section h4{font-size:13px;color:var(--amber);margin-bottom:10px}
+.mode-toggle{display:flex;gap:6px;margin-bottom:10px}
+.mode-toggle button{flex:1;padding:6px;border-radius:7px;border:1px solid var(--line);background:transparent;color:var(--mut);font-size:12px;cursor:pointer}
+.mode-toggle button.on{background:rgba(242,169,59,.12);border-color:var(--amber);color:var(--amber)}
+.calc-result-box{background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin-top:10px}
+.calc-result-box .row{display:flex;justify-content:space-between;padding:5px 0;font-size:13px;border-bottom:1px solid var(--line)}
+.calc-result-box .row:last-child{border-bottom:0}
+.calc-result-box .row span:last-child{font-family:var(--mono);font-weight:600}
 </style>
 </head>
 <body style="padding-top:0">
@@ -67,126 +101,55 @@
   </div>
 
   <div id="app">
-    <div class="panel" style="margin-bottom:16px">
-      <h2>보유 종목 <span style="font-weight:400;color:var(--dim);font-size:11.5px">— 클릭하면 차트·호가·수급을 볼 수 있어요</span></h2>
-      <div class="summary-grid">
-        <div class="summary-cell"><div class="k">투자원금</div><div class="v">{{ fmtMoney(holdings.totalPurchaseAmount, 'KRW') }}</div></div>
-        <div class="summary-cell"><div class="k">평가금액</div><div class="v">{{ fmtMoney(holdings.totalMarketValue, 'KRW') }}</div></div>
-        <div class="summary-cell"><div class="k">평가손익</div><div class="v">{{ fmtMoney(holdings.totalProfitLossAmount, 'KRW') }}</div></div>
-        <div class="summary-cell"><div class="k">수익률</div><div class="v" v-html="fmtRate(holdings.totalProfitLossRate)"></div></div>
+    <div class="summary-grid">
+      <div class="summary-cell">
+        <div class="k">투자원금</div>
+        <div class="v">{{ fmtMoney(holdings.totalPurchaseAmount, 'KRW') }}</div>
       </div>
-      <div class="table-scroll">
-        <table>
-          <thead><tr><th>종목</th><th>수량</th><th>평단가</th><th>현재가</th><th>평가금액</th><th>손익</th></tr></thead>
-          <tbody>
-            <tr v-if="!holdingsLoaded"><td colspan="6"><div class="empty">불러오는 중...</div></td></tr>
-            <tr v-else-if="!holdings.items || !holdings.items.length"><td colspan="6"><div class="empty">{{ holdings.message || '보유 중인 종목이 없습니다.' }}</div></td></tr>
-            <tr v-for="it in holdings.items" :key="it.symbol" class="holding-row" :class="{selected: selected && selected.symbol===it.symbol}" @click="openDetail(it)">
-              <td><span class="name">{{ it.name }}</span><span class="sym">{{ it.symbol }} · {{ it.marketCountry }}</span></td>
-              <td>{{ it.quantity }}</td>
-              <td>{{ fmtMoney(it.averagePurchasePrice, it.currency) }}</td>
-              <td>{{ fmtMoney(it.lastPrice, it.currency) }}</td>
-              <td>{{ fmtMoney(it.marketValue, it.currency) }}</td>
-              <td>{{ fmtMoney(it.profitLossAmount, it.currency) }}<br><span v-html="fmtRate(it.profitLossRate)"></span></td>
-            </tr>
-          </tbody>
-        </table>
+      <div class="summary-cell">
+        <div class="k">평가금액</div>
+        <div class="v">{{ fmtMoney(holdings.totalMarketValue, 'KRW') }}</div>
+        <div class="sub" v-html="fmtPl(holdings.totalProfitLossAmount, holdings.totalProfitLossRate, 'KRW')"></div>
       </div>
     </div>
 
-    <div class="panel">
-      <h2>전체 주문 내역</h2>
-      <div class="filter-row">
-        <button class="tab" :class="{on: orderTab==='CLOSED'}" @click="orderTab='CLOSED'; loadOrders()">체결·종료</button>
-        <button class="tab" :class="{on: orderTab==='OPEN'}" @click="orderTab='OPEN'; loadOrders()">진행중</button>
-        <select v-model="orderStatusFilter" v-if="orderTab==='CLOSED'">
-          <option value="">전체 상태</option>
-          <option value="FILLED">체결완료만</option>
-          <option value="CANCELED">취소</option>
-          <option value="REJECTED">거부</option>
-        </select>
-      </div>
-      <div class="table-scroll">
-        <table>
-          <thead><tr><th>일시</th><th>종목</th><th>구분</th><th>가격</th><th>수량</th><th>상태</th></tr></thead>
-          <tbody>
-            <tr v-if="!ordersLoaded"><td colspan="6"><div class="empty">불러오는 중...</div></td></tr>
-            <tr v-else-if="!filteredOrders.length"><td colspan="6"><div class="empty">주문 내역이 없습니다.</div></td></tr>
-            <tr v-for="o in filteredOrders" :key="o.orderId">
-              <td>{{ fmtDate(o.orderedAt) }}</td>
-              <td>{{ o.symbol }}</td>
-              <td><span class="badge-side" :class="o.side">{{ o.side==='BUY' ? '매수' : '매도' }}</span></td>
-              <td>{{ o.price != null ? fmtMoney(o.price, o.currency) : '시장가' }}</td>
-              <td>{{ o.quantity }}<template v-if="o.filledQuantity">  (체결 {{ o.filledQuantity }})</template></td>
-              <td><span class="badge-status" :class="o.status">{{ o.status }}</span></td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-      <div class="session-note" style="font-size:11.5px;color:var(--dim);margin-top:10px">국내 주식은 KRX 정규장 외에 넥스트(NXT) 대체거래소 시간대가 별도로 있고, 미국 주식은 프리마켓·정규장·애프터마켓 3단계로 나뉩니다.</div>
-    </div>
-
-    <!-- ===== 종목 상세 분할 화면 ===== -->
-    <div class="detail-overlay" v-if="selected" @click.self="closeDetail">
-      <div class="detail-panel">
-        <div class="detail-head">
-          <div>
-            <h2>{{ selected.name }} <span class="sym">{{ selected.symbol }} · {{ selected.marketCountry }}</span></h2>
-            <div class="detail-price">{{ fmtMoney(selected.lastPrice, selected.currency) }}</div>
+    <div class="main-split">
+      <!-- 좌측: 선택한 종목 상세 -->
+      <div class="panel">
+        <template v-if="selected">
+          <div class="detail-head">
+            <h2>{{ selected.name }}</h2>
+            <span class="sym">{{ selected.symbol }} · {{ selected.marketCountry }}</span>
+            <button class="refresh-mini" style="margin-left:auto" @click="refreshAll">↻ 갱신</button>
           </div>
-          <button class="detail-close" @click="closeDetail">✕</button>
-        </div>
+          <div class="detail-price">{{ fmtMoney(selected.lastPrice, selected.currency) }}</div>
 
-        <div class="holding-mini">
-          <div class="row"><span>보유 수량</span><span>{{ selected.quantity }}주</span></div>
-          <div class="row"><span>평단가</span><span>{{ fmtMoney(selected.averagePurchasePrice, selected.currency) }}</span></div>
-          <div class="row"><span>평가손익</span><span v-html="fmtRate(selected.profitLossRate)"></span></div>
-        </div>
-
-        <div class="detail-split">
-          <div class="panel">
-            <h2>차트(최근 90일 종가)</h2>
-            <div class="chart-wrap-lg"><canvas ref="detailChartCanvas"></canvas></div>
+          <div class="interval-tabs">
+            <button class="interval-tab" :class="{on: chartInterval==='1m'}" @click="setInterval_('1m')">1분봉</button>
+            <button class="interval-tab" :class="{on: chartInterval==='1d'}" @click="setInterval_('1d')">1일봉</button>
+            <button class="interval-tab" :class="{on: chartInterval==='1mo'}" @click="setInterval_('1mo')">1달봉</button>
           </div>
-          <div class="panel">
-            <h2>호가</h2>
-            <div v-if="!orderbook"><div class="empty">불러오는 중...</div></div>
-            <div v-else>
-              <div class="orderbook-row" v-for="a in [...orderbook.asks].reverse().slice(-8)" :key="'a'+a.price">
-                <span class="ask">{{ fmtNum(a.price) }}</span><span class="vol">{{ fmtNum(a.volume) }}</span>
-              </div>
-              <div style="border-top:1px solid var(--line);border-bottom:1px solid var(--line);margin:6px 0"></div>
-              <div class="orderbook-row" v-for="b in orderbook.bids.slice(0,8)" :key="'b'+b.price">
-                <span class="bid">{{ fmtNum(b.price) }}</span><span class="vol">{{ fmtNum(b.volume) }}</span>
-              </div>
-            </div>
-          </div>
-        </div>
 
-        <div class="panel" style="margin-bottom:14px">
-          <h2>물타기 계산기</h2>
-          <div class="calc-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+          <div class="chart-orderbook-split">
+            <div class="chart-wrap-lg"><canvas ref="chartCanvas"></canvas></div>
             <div>
-              <label>추가 매수 수량</label>
-              <input type="number" v-model.number="calc.addQty" min="0" step="any">
-              <label>추가 매수 가격</label>
-              <input type="number" v-model.number="calc.addPrice" min="0" step="any">
-            </div>
-            <div>
-              <label style="margin-top:0">결과 (보유 {{ selected.quantity }}주 · 평단 {{ fmtMoney(selected.averagePurchasePrice, selected.currency) }} 기준)</label>
-              <div class="calc-result" style="background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:12px 14px">
-                <div class="row" style="display:flex;justify-content:space-between;padding:5px 0;font-size:13px"><span>총 보유 수량</span><span style="font-family:var(--mono)">{{ calcResult.totalQty }}주</span></div>
-                <div class="row" style="display:flex;justify-content:space-between;padding:5px 0;font-size:13px"><span>새 평단가</span><span style="font-family:var(--mono)">{{ fmtMoney(calcResult.newAvg, selected.currency) }}</span></div>
-                <div class="row" style="display:flex;justify-content:space-between;padding:5px 0;font-size:13px"><span>평단가 변화</span><span style="font-family:var(--mono)" v-html="fmtRate(calcResult.changeRate)"></span></div>
+              <div style="font-size:11.5px;color:var(--dim);margin-bottom:6px">호가</div>
+              <div v-if="!orderbook"><div class="empty">불러오는 중...</div></div>
+              <div v-else>
+                <div class="orderbook-row" v-for="a in [...orderbook.asks].reverse().slice(-7)" :key="'a'+a.price">
+                  <span class="ask">{{ fmtNum(a.price) }}</span><span class="vol">{{ fmtNum(a.volume) }}</span>
+                </div>
+                <div style="border-top:1px solid var(--line);border-bottom:1px solid var(--line);margin:6px 0"></div>
+                <div class="orderbook-row" v-for="b in orderbook.bids.slice(0,7)" :key="'b'+b.price">
+                  <span class="bid">{{ fmtNum(b.price) }}</span><span class="vol">{{ fmtNum(b.volume) }}</span>
+                </div>
               </div>
             </div>
           </div>
-        </div>
 
-        <div class="panel" style="margin-bottom:14px">
           <h2>수급 · 투자자별 매매동향</h2>
-          <div v-if="!investorTrading || !investorTrading.length"><div class="empty">데이터가 없습니다.</div></div>
-          <div class="table-scroll" v-else>
+          <div v-if="!investorTrading.length" style="margin-bottom:16px"><div class="empty">데이터가 없습니다.</div></div>
+          <div class="table-scroll" v-else style="margin-bottom:16px">
             <table class="trading-table">
               <thead><tr><th>일자</th><th>개인</th><th>외국인</th><th>기관</th></tr></thead>
               <tbody>
@@ -199,11 +162,9 @@
               </tbody>
             </table>
           </div>
-        </div>
 
-        <div class="panel" style="margin-bottom:14px">
           <h2>공매도 동향</h2>
-          <div v-if="!shortSelling || !shortSelling.length"><div class="empty">데이터가 없습니다.</div></div>
+          <div v-if="!shortSelling.length"><div class="empty">데이터가 없습니다.</div></div>
           <div class="table-scroll" v-else>
             <table class="trading-table">
               <thead><tr><th>일자</th><th>공매도량</th><th>거래대비 비중</th></tr></thead>
@@ -216,28 +177,98 @@
               </tbody>
             </table>
           </div>
+        </template>
+        <div v-else class="empty-hint">오른쪽 보유 종목에서 하나를 선택하면<br>차트·호가·수급 정보가 여기 표시됩니다.</div>
+      </div>
+
+      <!-- 우측: 보유 종목 + 선택 종목 주문내역 -->
+      <div>
+        <div class="panel" style="margin-bottom:14px">
+          <h2>보유 종목</h2>
+          <div v-if="!holdingsLoaded"><div class="empty">불러오는 중...</div></div>
+          <div v-else-if="!holdings.items || !holdings.items.length"><div class="empty">{{ holdings.message || '보유 중인 종목이 없습니다.' }}</div></div>
+          <div v-for="it in holdings.items" :key="it.symbol" class="holding-item" :class="{selected: selected && selected.symbol===it.symbol}" @click="selectStock(it)">
+            <div>
+              <span class="name">{{ it.name }}</span>
+              <span class="sym">{{ it.symbol }} · {{ it.quantity }}주</span>
+            </div>
+            <div class="right">
+              <div class="mv">{{ fmtMoney(it.marketValue, it.currency) }}</div>
+              <div class="pl" v-html="fmtPl(it.profitLossAmount, it.profitLossRate, it.currency)"></div>
+            </div>
+            <button class="calc-btn" title="계산기" @click.stop="openCalc(it)">🧮</button>
+          </div>
         </div>
 
         <div class="panel">
-          <h2>이 종목 주문 내역</h2>
-          <div class="filter-row">
-            <button class="tab" :class="{on: detailOrderTab==='CLOSED'}" @click="detailOrderTab='CLOSED'; loadDetailOrders()">체결·종료</button>
-            <button class="tab" :class="{on: detailOrderTab==='OPEN'}" @click="detailOrderTab='OPEN'; loadDetailOrders()">진행중</button>
+          <h2>주문 내역</h2>
+          <template v-if="selected">
+            <div class="order-filter">
+              <button class="tab" :class="{on: orderTab==='CLOSED'}" @click="orderTab='CLOSED'; loadOrders()">종료</button>
+              <button class="tab" :class="{on: orderTab==='OPEN'}" @click="orderTab='OPEN'; loadOrders()">진행중</button>
+            </div>
+            <div class="status-check-row" v-if="orderTab==='CLOSED'">
+              <label><input type="checkbox" v-model="statusFilter.FILLED"> 체결</label>
+              <label><input type="checkbox" v-model="statusFilter.CANCELED"> 취소</label>
+              <label><input type="checkbox" v-model="statusFilter.REJECTED"> 거절</label>
+              <label><input type="checkbox" v-model="statusFilter.ETC"> 기타</label>
+            </div>
+            <div v-if="!ordersLoaded"><div class="empty">불러오는 중...</div></div>
+            <div v-else-if="!filteredOrders.length"><div class="empty">주문 내역이 없습니다.</div></div>
+            <div v-else>
+              <div class="order-mini" v-for="o in filteredOrders" :key="o.orderId">
+                <span class="side" :class="o.side">{{ o.side==='BUY' ? '매수' : '매도' }}</span>
+                <span class="mid">{{ fmtDate(o.orderedAt) }} · {{ o.price != null ? fmtMoney(o.price, o.currency) : '시장가' }} · {{ o.quantity }}주</span>
+                <span class="st">{{ statusLabel(o.status) }}</span>
+              </div>
+            </div>
+          </template>
+          <div v-else class="empty">종목을 선택하면 주문 내역이 표시됩니다.</div>
+        </div>
+      </div>
+    </div>
+
+    <div style="font-size:11.5px;color:var(--dim);margin-top:14px">국내 주식은 KRX 정규장 외에 넥스트(NXT) 대체거래소 시간대가 별도로 있고, 미국 주식은 프리마켓·정규장·애프터마켓 3단계로 나뉩니다. 가격·호가는 30초마다 자동 갱신됩니다(토스 API 초당 호출 한도 대비 여유 있게 설정).</div>
+
+    <!-- ===== 계산기 모달 ===== -->
+    <div class="modal-bg" :class="{show: calcTarget}" @click.self="calcTarget=null">
+      <div class="calc-modal" v-if="calcTarget">
+        <button class="modal-close" @click="calcTarget=null">✕</button>
+        <h3>{{ calcTarget.name }}</h3>
+        <div class="sym">{{ calcTarget.symbol }} · 보유 {{ calcTarget.quantity }}주 · 평단 {{ fmtMoney(calcTarget.averagePurchasePrice, calcTarget.currency) }}</div>
+
+        <div class="calc-section">
+          <h4>물타기 계산기</h4>
+          <div class="mode-toggle">
+            <button :class="{on: calcMode==='qty'}" @click="calcMode='qty'">수량으로 입력</button>
+            <button :class="{on: calcMode==='amount'}" @click="calcMode='amount'">금액으로 입력</button>
           </div>
-          <div class="table-scroll">
-            <table>
-              <thead><tr><th>일시</th><th>구분</th><th>가격</th><th>수량</th><th>상태</th></tr></thead>
-              <tbody>
-                <tr v-if="!detailOrders.length"><td colspan="5"><div class="empty">주문 내역이 없습니다.</div></td></tr>
-                <tr v-for="o in detailOrders" :key="o.orderId">
-                  <td>{{ fmtDate(o.orderedAt) }}</td>
-                  <td><span class="badge-side" :class="o.side">{{ o.side==='BUY' ? '매수' : '매도' }}</span></td>
-                  <td>{{ o.price != null ? fmtMoney(o.price, o.currency) : '시장가' }}</td>
-                  <td>{{ o.quantity }}</td>
-                  <td><span class="badge-status" :class="o.status">{{ o.status }}</span></td>
-                </tr>
-              </tbody>
-            </table>
+          <label>추가 매수 가격</label>
+          <input type="number" v-model.number="calc.addPrice" min="0" step="any">
+          <template v-if="calcMode==='qty'">
+            <label>추가 매수 수량</label>
+            <input type="number" v-model.number="calc.addQty" min="0" step="any">
+          </template>
+          <template v-else>
+            <label>추가 매수 금액</label>
+            <input type="number" v-model.number="calc.addAmount" min="0" step="any" placeholder="예: 1000000">
+          </template>
+          <div class="calc-result-box">
+            <div class="row"><span>추가 매수 수량</span><span>{{ calcResult.effectiveQty.toFixed(2) }}주</span></div>
+            <div class="row"><span>총 보유 수량</span><span>{{ calcResult.totalQty.toFixed(2) }}주</span></div>
+            <div class="row"><span>새 평단가</span><span>{{ fmtMoney(calcResult.newAvg, calcTarget.currency) }}</span></div>
+            <div class="row"><span>평단가 변화</span><span v-html="fmtRate(calcResult.changeRate)"></span></div>
+          </div>
+        </div>
+
+        <div class="calc-section">
+          <h4>예상 수익 계산기 (현재 보유 {{ calcTarget.quantity }}주 기준)</h4>
+          <label>목표가</label>
+          <input type="number" v-model.number="profitCalc.targetPrice" min="0" step="any">
+          <div class="calc-result-box">
+            <div class="row"><span>예상 평가금액</span><span>{{ fmtMoney(profitResult.marketValue, calcTarget.currency) }}</span></div>
+            <div class="row"><span>예상 손익금액</span><span>{{ fmtMoney(profitResult.plAmount, calcTarget.currency) }}</span></div>
+            <div class="row"><span>예상 수익률</span><span v-html="fmtRate(profitResult.plRate)"></span></div>
           </div>
         </div>
       </div>
@@ -247,26 +278,38 @@
 
 <script src="/js/private-nav.js"></script>
 <script>
-const { createApp, ref, reactive, computed, watch, nextTick } = Vue;
+const { createApp, ref, reactive, computed, watch, nextTick, onMounted, onUnmounted } = Vue;
+
+const STATUS_LABELS = {
+  FILLED: '체결', CANCELED: '취소', REJECTED: '거절', PENDING: '대기',
+  PARTIAL_FILLED: '부분체결', PENDING_CANCEL: '취소대기', PENDING_REPLACE: '정정대기',
+  REPLACED: '정정됨', CANCEL_REJECTED: '취소거부', REPLACE_REJECTED: '정정거부'
+};
 
 createApp({
   setup(){
     const holdings = ref({ items: [] });
     const holdingsLoaded = ref(false);
-    const orders = ref([]);
-    const ordersLoaded = ref(false);
-    const orderTab = ref('CLOSED');
-    const orderStatusFilter = ref('');
     const selected = ref(null);
+    const chartInterval = ref('1d');
+    const dailyCandlesCache = ref([]); // 1일봉을 캐시해두고 1달봉은 여기서 집계
     const orderbook = ref(null);
     const investorTrading = ref([]);
     const shortSelling = ref([]);
-    const detailOrders = ref([]);
-    const detailOrderTab = ref('CLOSED');
-    const detailChartCanvas = ref(null);
+    const orders = ref([]);
+    const ordersLoaded = ref(false);
+    const orderTab = ref('CLOSED');
+    const statusFilter = reactive({ FILLED: true, CANCELED: false, REJECTED: false, ETC: false });
+    const chartCanvas = ref(null);
     let chartInstance = null;
-    const calc = reactive({ addQty: 0, addPrice: 0 });
+    let autoRefreshTimer = null;
 
+    const calcTarget = ref(null);
+    const calcMode = ref('qty');
+    const calc = reactive({ addPrice: 0, addQty: 0, addAmount: 0 });
+    const profitCalc = reactive({ targetPrice: 0 });
+
+    function statusLabel(s){ return STATUS_LABELS[s] || s; }
     function fmtMoney(v, currency){
       if (v == null) return '-';
       const symbol = currency === 'USD' ? '$' : '';
@@ -280,6 +323,13 @@ createApp({
       const sign = v > 0 ? '+' : '';
       return `<span class="${cls}">${sign}${v.toFixed(2)}%</span>`;
     }
+    function fmtPl(amount, rate, currency){
+      if (amount == null) return '-';
+      const cls = amount > 0 ? 'up' : amount < 0 ? 'down' : '';
+      const sign = amount > 0 ? '+' : '';
+      const rateTxt = rate != null ? ` (${rate >= 0 ? '+' : ''}${rate.toFixed(2)}%)` : '';
+      return `<span class="${cls}">${sign}${fmtMoney(Math.abs(amount), currency).replace('-','')}${rateTxt}</span>`;
+    }
     function fmtSigned(vol){
       if (!vol) return '-';
       const v = vol.netVolume ?? vol.netAmount ?? vol.volume ?? vol.amount;
@@ -288,98 +338,180 @@ createApp({
       const sign = v > 0 ? '+' : '';
       return `<span class="${cls}">${sign}${Number(v).toLocaleString('ko-KR')}</span>`;
     }
-    function fmtDate(t){ return t ? t.toString().replace('T',' ').substring(0,16) : '-'; }
+    function fmtDate(t){ return t ? t.toString().replace('T',' ').substring(5,16) : '-'; }
 
     async function loadHoldings(){
       const data = await fetch('/api/admin/portfolio/holdings').then(r => r.json()).catch(() => null);
       holdings.value = data || { available: false, message: '불러오지 못했습니다.' };
       holdingsLoaded.value = true;
+      if (!selected.value && data && data.items && data.items.length) {
+        selectStock(data.items[0]);
+      }
     }
 
-    async function loadOrders(){
-      ordersLoaded.value = false;
-      const data = await fetch(`/api/admin/portfolio/orders?status=${orderTab.value}`).then(r => r.json()).catch(() => null);
-      orders.value = (data && data.orders) || [];
-      ordersLoaded.value = true;
-    }
-    const filteredOrders = computed(() => {
-      if (orderTab.value === 'OPEN' || !orderStatusFilter.value) return orders.value;
-      return orders.value.filter(o => o.status === orderStatusFilter.value);
-    });
-
-    function calcAverage(){
-      const qty = selected.value ? selected.value.quantity : 0;
-      const avg = selected.value ? selected.value.averagePurchasePrice : 0;
-      const addQty = calc.addQty || 0;
-      const addPrice = calc.addPrice || 0;
-      const totalQty = qty + addQty;
-      if (totalQty <= 0) return { totalQty: 0, newAvg: 0, changeRate: 0 };
-      const newAvg = (qty * avg + addQty * addPrice) / totalQty;
-      const changeRate = avg > 0 ? ((newAvg - avg) / avg) * 100 : 0;
-      return { totalQty, newAvg, changeRate };
-    }
-    const calcResult = computed(calcAverage);
-
-    async function openDetail(item){
+    function selectStock(item){
       selected.value = item;
+      loadDetail();
+    }
+
+    async function loadDetail(){
+      if (!selected.value) return;
+      const sym = selected.value.symbol;
       orderbook.value = null;
       investorTrading.value = [];
       shortSelling.value = [];
-      detailOrders.value = [];
-      detailOrderTab.value = 'CLOSED';
-      calc.addQty = 0; calc.addPrice = 0;
+      dailyCandlesCache.value = [];
 
       const [chartRes, obRes, itRes, ssRes] = await Promise.all([
-        fetch(`/api/admin/portfolio/stock/${item.symbol}/chart?count=90`).then(r => r.json()).catch(() => null),
-        fetch(`/api/admin/portfolio/stock/${item.symbol}/orderbook`).then(r => r.json()).catch(() => null),
-        fetch(`/api/admin/portfolio/stock/${item.symbol}/investor-trading`).then(r => r.json()).catch(() => null),
-        fetch(`/api/admin/portfolio/stock/${item.symbol}/short-selling`).then(r => r.json()).catch(() => null),
+        fetch(`/api/admin/portfolio/stock/${sym}/chart?count=200`).then(r => r.json()).catch(() => null),
+        fetch(`/api/admin/portfolio/stock/${sym}/orderbook`).then(r => r.json()).catch(() => null),
+        fetch(`/api/admin/portfolio/stock/${sym}/investor-trading`).then(r => r.json()).catch(() => null),
+        fetch(`/api/admin/portfolio/stock/${sym}/short-selling`).then(r => r.json()).catch(() => null),
       ]);
       if (obRes && obRes.available) orderbook.value = obRes;
       if (itRes && itRes.available) investorTrading.value = itRes.records || [];
       if (ssRes && ssRes.available) shortSelling.value = ssRes.records || [];
-      loadDetailOrders();
-
+      if (chartRes && chartRes.available) dailyCandlesCache.value = chartRes.candles || [];
+      chartInterval.value = '1d';
       await nextTick();
-      drawChart(chartRes && chartRes.available ? chartRes.candles : []);
+      drawChart();
+      loadOrders();
     }
 
-    function drawChart(candles){
+    async function setInterval_(iv){
+      chartInterval.value = iv;
+      if (iv === '1m' && selected.value) {
+        const res = await fetch(`/api/admin/portfolio/stock/${selected.value.symbol}/chart?count=200`).then(r => r.json()).catch(() => null);
+        // 참고: 1분봉은 최대 200개(약 3시간 남짓)까지만 조회됨(토스 API 자체 제약) — 1시간봉은
+        // API가 아예 제공하지 않아(1m/1d만 지원) 별도 집계로도 의미 있는 기간을 만들 수 없어 제외했다.
+        minuteCandlesTemp = (res && res.available) ? res.candles : [];
+      }
+      await nextTick();
+      drawChart();
+    }
+    let minuteCandlesTemp = [];
+
+    function monthlyCandles(){
+      const map = new Map();
+      for (const c of [...dailyCandlesCache.value].reverse()) { // 시간순
+        const ym = (c.timestamp || '').substring(0, 7);
+        map.set(ym, c); // 그 달의 마지막 봉으로 계속 덮어씀
+      }
+      return [...map.entries()].map(([ym, c]) => ({ timestamp: ym, closePrice: c.closePrice }));
+    }
+
+    function drawChart(){
       if (chartInstance) { chartInstance.destroy(); chartInstance = null; }
-      if (!detailChartCanvas.value || !candles || !candles.length) return;
-      const labels = candles.map(c => (c.timestamp || '').toString().substring(5, 10)).reverse();
-      const closes = candles.map(c => c.closePrice).reverse();
+      if (!chartCanvas.value) return;
+      let labels, closes;
+      if (chartInterval.value === '1m') {
+        const c = minuteCandlesTemp || [];
+        labels = c.map(x => (x.timestamp||'').substring(11,16)).reverse();
+        closes = c.map(x => x.closePrice).reverse();
+      } else if (chartInterval.value === '1mo') {
+        const m = monthlyCandles();
+        labels = m.map(x => x.timestamp);
+        closes = m.map(x => x.closePrice);
+      } else {
+        const c = dailyCandlesCache.value || [];
+        labels = c.map(x => (x.timestamp||'').substring(5,10)).reverse();
+        closes = c.map(x => x.closePrice).reverse();
+      }
+      if (!closes.length) return;
       Chart.defaults.color = '#7E8DA9';
       Chart.defaults.borderColor = '#243149';
       Chart.defaults.font.family = "'JetBrains Mono',monospace";
       Chart.defaults.font.size = 10;
-      chartInstance = new Chart(detailChartCanvas.value, {
+      chartInstance = new Chart(chartCanvas.value, {
         type: 'line',
         data: { labels, datasets: [{ data: closes, borderColor: '#F2A93B', backgroundColor: 'rgba(242,169,59,.12)', fill: true, pointRadius: 0, borderWidth: 1.5, tension: .15 }] },
         options: { responsive: true, maintainAspectRatio: false, animation: false, plugins: { legend: { display: false } }, scales: { x: { ticks: { maxTicksLimit: 8 } } } }
       });
     }
 
-    async function loadDetailOrders(){
+    async function loadOrders(){
       if (!selected.value) return;
-      const data = await fetch(`/api/admin/portfolio/orders?status=${detailOrderTab.value}&symbol=${selected.value.symbol}`).then(r => r.json()).catch(() => null);
-      detailOrders.value = (data && data.orders) || [];
+      ordersLoaded.value = false;
+      const data = await fetch(`/api/admin/portfolio/orders?status=${orderTab.value}&symbol=${selected.value.symbol}`).then(r => r.json()).catch(() => null);
+      orders.value = (data && data.orders) || [];
+      ordersLoaded.value = true;
+    }
+    const filteredOrders = computed(() => {
+      if (orderTab.value === 'OPEN') return orders.value;
+      return orders.value.filter(o => {
+        if (o.status === 'FILLED') return statusFilter.FILLED;
+        if (o.status === 'CANCELED' || o.status === 'CANCEL_REJECTED') return statusFilter.CANCELED;
+        if (o.status === 'REJECTED' || o.status === 'REPLACE_REJECTED') return statusFilter.REJECTED;
+        return statusFilter.ETC;
+      });
+    });
+
+    async function refreshAll(){
+      await loadHoldingsSilent();
+      await loadDetail();
+    }
+    async function loadHoldingsSilent(){
+      const data = await fetch('/api/admin/portfolio/holdings').then(r => r.json()).catch(() => null);
+      if (data && data.items) {
+        holdings.value = data;
+        if (selected.value) {
+          const fresh = data.items.find(x => x.symbol === selected.value.symbol);
+          if (fresh) selected.value = fresh;
+        }
+      }
     }
 
-    function closeDetail(){
-      selected.value = null;
-      if (chartInstance) { chartInstance.destroy(); chartInstance = null; }
+    /* ===== 계산기 ===== */
+    function openCalc(item){
+      calcTarget.value = item;
+      calcMode.value = 'qty';
+      calc.addPrice = item.lastPrice || 0; // 요청사항: 기본값을 0이 아니라 현재가로
+      calc.addQty = 0;
+      calc.addAmount = 0;
+      profitCalc.targetPrice = item.lastPrice || 0;
     }
+    const calcResult = computed(() => {
+      if (!calcTarget.value) return { effectiveQty: 0, totalQty: 0, newAvg: 0, changeRate: 0 };
+      const qty = calcTarget.value.quantity || 0;
+      const avg = calcTarget.value.averagePurchasePrice || 0;
+      const price = calc.addPrice || 0;
+      const effectiveQty = calcMode.value === 'qty' ? (calc.addQty || 0) : (price > 0 ? (calc.addAmount || 0) / price : 0);
+      const totalQty = qty + effectiveQty;
+      const newAvg = totalQty > 0 ? (qty * avg + effectiveQty * price) / totalQty : avg;
+      const changeRate = avg > 0 ? ((newAvg - avg) / avg) * 100 : 0;
+      return { effectiveQty, totalQty, newAvg, changeRate };
+    });
+    const profitResult = computed(() => {
+      if (!calcTarget.value) return { marketValue: 0, plAmount: 0, plRate: 0 };
+      const qty = calcTarget.value.quantity || 0;
+      const avg = calcTarget.value.averagePurchasePrice || 0;
+      const target = profitCalc.targetPrice || 0;
+      const marketValue = qty * target;
+      const plAmount = (target - avg) * qty;
+      const plRate = avg > 0 ? ((target - avg) / avg) * 100 : 0;
+      return { marketValue, plAmount, plRate };
+    });
 
-    loadHoldings();
-    loadOrders();
-    watch(orderTab, loadOrders);
+    onMounted(() => {
+      loadHoldings();
+      // 가격·호가는 30초마다 자동 갱신(초당 호출 한도 대비 여유), 그 외(차트·수급·공매도)는
+      // 수동 갱신 버튼으로만 — 자주 안 바뀌는 데이터까지 매번 다시 부를 필요가 없어서.
+      autoRefreshTimer = setInterval(async () => {
+        await loadHoldingsSilent();
+        if (selected.value) {
+          const ob = await fetch(`/api/admin/portfolio/stock/${selected.value.symbol}/orderbook`).then(r => r.json()).catch(() => null);
+          if (ob && ob.available) orderbook.value = ob;
+        }
+      }, 30_000);
+    });
+    onUnmounted(() => { if (autoRefreshTimer) clearInterval(autoRefreshTimer); });
 
     return {
-      holdings, holdingsLoaded, orders, ordersLoaded, orderTab, orderStatusFilter, filteredOrders,
-      selected, orderbook, investorTrading, shortSelling, detailOrders, detailOrderTab, detailChartCanvas,
-      calc, calcResult, fmtMoney, fmtNum, fmtRate, fmtSigned, fmtDate,
-      loadOrders, openDetail, closeDetail, loadDetailOrders
+      holdings, holdingsLoaded, selected, chartInterval, orderbook, investorTrading, shortSelling,
+      orders, ordersLoaded, orderTab, statusFilter, filteredOrders, chartCanvas,
+      calcTarget, calcMode, calc, profitCalc, calcResult, profitResult,
+      fmtMoney, fmtNum, fmtRate, fmtPl, fmtSigned, fmtDate, statusLabel,
+      selectStock, setInterval_, loadOrders, refreshAll, openCalc
     };
   }
 }).mount('#app');
