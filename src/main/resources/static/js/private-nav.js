@@ -3,7 +3,7 @@
  * #private-nav 엘리먼트가 있는 페이지(/mypage, /admin, /admin/*)에서 공통으로 사용한다.
  * /api/auth/me로 로그인 상태를 확인해 비로그인 시 /login으로 리다이렉트한다.
  *
- * 왼쪽(priv-left) = 브랜드 + 실제 기능 메뉴(대시보드 + PRIVATE_NAV_ITEMS).
+ * 왼쪽(priv-left) = 로고(클릭 시 /mypage 대시보드로 이동) + PRIVATE_NAV_ITEMS(실제 기능 메뉴).
  * 오른쪽(priv-right) = "{이름}님" 드롭다운 — 계정설정/관리자 페이지(관리자만)/로그아웃.
  *
  * 새 기능 페이지를 왼쪽 메뉴에 상시 노출하고 싶으면 PRIVATE_NAV_ITEMS 배열에 한 줄만 추가하면
@@ -31,12 +31,9 @@ const PRIVATE_NAV_ITEMS = [
 
     const isAdmin = (me.roles || []).includes('ROLE_ADMIN');
     const path = location.pathname;
-    const isOn = (p) => path === p || (p !== '/mypage' && path.startsWith(p));
+    const isOn = (p) => path === p || path.startsWith(p);
 
-    const leftLinks = [
-      { label: '대시보드', path: '/mypage' },
-      ...PRIVATE_NAV_ITEMS.filter(item => !item.adminOnly || isAdmin)
-    ];
+    const leftLinks = PRIVATE_NAV_ITEMS.filter(item => !item.adminOnly || isAdmin);
     const leftHtml = leftLinks.map(l =>
       `<a class="priv-link ${isOn(l.path) ? 'on' : ''}" href="${l.path}">${l.label}</a>`
     ).join('');
@@ -44,7 +41,7 @@ const PRIVATE_NAV_ITEMS = [
     el.innerHTML = `
       <div class="priv-header">
         <div class="priv-left">
-          <span class="priv-brand">🔒 hunit Private</span>
+          <a class="priv-brand" href="/mypage" title="대시보드로 이동">🔒 hunit Private</a>
           ${leftHtml}
         </div>
         <div class="priv-right">
