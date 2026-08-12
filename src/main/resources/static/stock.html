@@ -314,28 +314,29 @@ async function loadDashboard(force){
   scheduleNext('dashboard', TTL.dashboard, loadDashboard);
 }
 
-/* ===== 주요 일정 (서버 12시간 캐시와 동일하게 프론트도 12시간마다만 재요청) ===== */
+/* ===== 주요 일정 — 토스 캘린더 API가 실제로 주는 만큼(전일/당일/익일 3영업일)을 그대로 보여준다.
+   개장일도 포함해 각 날짜의 상태를 표시하고, API가 데이터를 아예 안 주면 안내 문구만 띄운다.
+   (서버 12시간 캐시와 동일하게 프론트도 12시간마다만 재요청) ===== */
 function applyCalendar(cal){
   const today = new Date(); today.setHours(0,0,0,0);
-  const week = new Date(today.getTime() + 7 * 86400000);
   const rows = [];
   const scan = (days, flag) => (days || []).forEach(d => {
     const dateStr = d.date || d.tradingDate || d.dt;
     if (!dateStr) return;
     const dt = new Date(dateStr);
-    if (isNaN(dt) || dt < today || dt > week) return;
+    if (isNaN(dt)) return;
+    dt.setHours(0,0,0,0);
     const isOpen = d.open ?? d.isOpen ?? d.marketOpen;
     const name = d.holidayName || d.name || d.description || '';
-    if (isOpen === false || name) {
-      const dLabel = dt.getTime() === today.getTime() ? '오늘' : (dt.getDate() + '일');
-      rows.push({ dt, text: `${flag} ${name || '휴장'}`, dLabel });
-    }
+    const statusTxt = isOpen === false ? ('휴장' + (name ? ' · ' + name : '')) : '개장';
+    const dLabel = dt.getTime() === today.getTime() ? '오늘' : `${dt.getMonth() + 1}/${dt.getDate()}`;
+    rows.push({ dt, text: `${flag} ${statusTxt}`, dLabel });
   });
   scan(cal.kr, '🇰🇷'); scan(cal.us, '🇺🇸');
   rows.sort((a, b) => a.dt - b.dt);
   window._calMarket = rows.map(r =>
     `<div class="cal-row"><span class="d">${r.dLabel}</span><span class="t">${esc(r.text)}</span></div>`);
-  $('calList').innerHTML = window._calMarket.join('') || '<div class="cal-row"><span class="t">향후 7일간 국내·미국 모두 정상 개장 예정입니다.</span></div>';
+  $('calList').innerHTML = window._calMarket.join('') || '<div class="cal-row"><span class="t">향후 7일간 주요일정이 없습니다.</span></div>';
 }
 
 async function loadCalendar(force){
