@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>계정 설정 · hunit</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
+<link rel="stylesheet" href="/css/base.css">
+<style>
+main{max-width:560px}
+.auth-msg{font-size:12.5px;border-radius:8px;padding:9px 12px;margin-bottom:14px;display:none}
+.auth-msg.show{display:block}
+.auth-msg.err{background:rgba(241,96,99,.1);color:var(--red);border:1px solid rgba(241,96,99,.3)}
+.auth-msg.ok{background:rgba(62,207,142,.1);color:var(--green);border:1px solid rgba(62,207,142,.3)}
+</style>
+</head>
+<body style="padding-top:0">
+<div id="private-nav"></div>
+
+<main>
+  <header class="page"><h1>계정 설정</h1></header>
+
+  <div class="panel">
+    <h2>비밀번호 변경</h2>
+    <div class="auth-msg err" id="pwErr"></div>
+    <div class="auth-msg ok" id="pwOk"></div>
+    <label>현재 비밀번호</label>
+    <input type="password" id="curPw">
+    <label>새 비밀번호</label>
+    <input type="password" id="newPw">
+    <div style="font-size:11px;color:var(--dim);margin-top:4px">8자 이상</div>
+    <label>새 비밀번호 확인</label>
+    <input type="password" id="newPw2">
+    <button class="btn btn-amber" style="margin-top:14px" onclick="changePassword()">변경하기</button>
+  </div>
+</main>
+
+<script src="/js/private-nav.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+
+async function changePassword(){
+  $('pwErr').classList.remove('show');
+  $('pwOk').classList.remove('show');
+  const currentPassword = $('curPw').value;
+  const newPassword = $('newPw').value;
+  if (newPassword !== $('newPw2').value) {
+    $('pwErr').textContent = '새 비밀번호가 서로 일치하지 않습니다';
+    $('pwErr').classList.add('show');
+    return;
+  }
+  const res = await fetch('/api/auth/password/change', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ currentPassword, newPassword })
+  }).then(r => r.json());
+  if (!res.success) {
+    $('pwErr').textContent = res.message;
+    $('pwErr').classList.add('show');
+    return;
+  }
+  $('pwOk').textContent = res.message;
+  $('pwOk').classList.add('show');
+  $('curPw').value = ''; $('newPw').value = ''; $('newPw2').value = '';
+}
+</script>
+</body>
+</html>
