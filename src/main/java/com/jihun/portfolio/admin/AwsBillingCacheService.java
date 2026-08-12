@@ -1,0 +1,62 @@
+package com.jihun.portfolio.admin;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.stereotype.Service;
+
+import java.util.Map;
+
+/**
+ * AWS Cost Explorer(ce:GetCostAndUsage)/Billing Credits(billing:GetCredits) 결과를 캐시하는
+ * 스케줄러. 두 API 모두 호출당 소액 과금되기도 하지만, 그보다 더 중요한 이유는 AWS 쪽 크레딧·비용
+ * 집계 자체가 하루 단위로만 갱신된다는 점이다(당일 안에 여러 번 불러도 새 값이 안 나옴). 그래서
+ * 일정 시간마다 다시 부르는 TTL 캐시 대신, 매일 자정(Asia/Seoul) 딱 한 번만 새로 조회해 메모리에
+ * 담아두고 대시보드는 이 캐시를 그대로 반환한다.
+ */
+@Service
+public class AwsBillingCacheService {
+
+    private static final Logger log = LoggerFactory.getLogger(AwsBillingCacheService.class);
+    private static final int COST_WINDOW_DAYS = 7;
+
+    private final AwsBillingService awsBillingService;
+
+    private volatile Map<String, Object> costCache;
+    private volatile Map<String, Object> creditsCache;
+
+    public AwsBillingCacheService(AwsBillingService awsBillingService) {
+        this.awsBillingService = awsBillingService;
+    }
+
+    /** 서버 시작 15초 후 1회 즉시 채워둔다 — 자정까지 기다리면 그 사이엔 빈 화면이 뜨기 때문. */
+    @Scheduled(initialDelay = 15_000, fixedDelay = Long.MAX_VALUE)
+    public void initialLoad() {
+        refresh();
+    }
+
+    /** 이후로는 매일 자정(Asia/Seoul) 1회만 AWS에 재조회한다. */
+    @Scheduled(cron = "0 0 0 * * *", zone = "Asia/Seoul")
+    public void dailyRefresh() {
+        refresh();
+    }
+
+    private synchronized void refresh() {
+        log.info("[admin-dashboard] AWS 비용/크레딧 일일 갱신 시작");
+        try {
+            costCache = awsBillingService.getDailyCost(COST_WINDOW_DAYS);
+            creditsCache = awsBillingService.getCreditsSummary();
+            log.info("[admin-dashboard] AWS 비용/크레딧 일일 갱신 완료");
+        } catch (Exception e) {
+            log.warn("[admin-dashboard] AWS 비용/크레딧 갱신 실패: {}", e.getMessage());
+        }
+    }
+
+    public Map<String, Object> getCost() {
+        return costCache != null ? costCache : awsBillingService.getDailyCost(COST_WINDOW_DAYS);
+    }
+
+    public Map<String, Object> getCredits() {
+        return creditsCache != null ? creditsCache : awsBillingService.getCreditsSummary();
+    }
+}
