@@ -1,6 +1,7 @@
 package com.jihun.portfolio.admin;
 
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -9,7 +10,7 @@ import java.util.Map;
 /**
  * 관리자 대시보드용 시스템 정보 API. SecurityConfig의 "/api/admin/**" 규칙으로 ROLE_ADMIN만 접근 가능.
  *
- * cost/credits는 AwsBillingCacheService가 매일 자정 1회만 갱신해둔 캐시를 그대로 반환한다
+ * credit-usage/credits는 AwsBillingCacheService가 매일 자정 1회만 갱신해둔 캐시를 그대로 반환한다
  * (AWS 집계 자체가 일단위 갱신이라 더 자주 조회해도 새 값이 안 나옴 + 호출당 과금 방지).
  * aws/database/free-tier는 무료이거나 이미 있는 자격증명만 쓰는 조회라 매번 최신값을 가져온다.
  */
@@ -48,15 +49,22 @@ public class AdminDashboardController {
         return awsBillingService.getFreeTierUsage();
     }
 
-    /** 매일 자정 갱신된 캐시 반환 */
-    @GetMapping("/cost")
-    public Map<String, Object> cost() {
-        return awsBillingCacheService.getCost();
+    /** 매일 자정 갱신된 캐시 반환 — 일별 크레딧 소모량 */
+    @GetMapping("/credit-usage")
+    public Map<String, Object> creditUsage() {
+        return awsBillingCacheService.getCreditUsage();
     }
 
     /** 매일 자정 갱신된 캐시 반환 — 남은 크레딧·소진 예상일 */
     @GetMapping("/credits")
     public Map<String, Object> credits() {
         return awsBillingCacheService.getCredits();
+    }
+
+    /** IAM 결제 접근을 새로 켠 직후처럼, 자정까지 기다리지 않고 지금 바로 재조회하고 싶을 때 사용 */
+    @PostMapping("/refresh-billing")
+    public Map<String, Object> refreshBilling() {
+        awsBillingCacheService.forceRefresh();
+        return Map.of("success", true);
     }
 }
