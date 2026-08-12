@@ -3,71 +3,98 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>마이페이지 · hunit</title>
+<title>대시보드 · hunit</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
 <link rel="stylesheet" href="/css/base.css">
 <style>
-main{max-width:640px}
-.auth-msg{font-size:12.5px;border-radius:8px;padding:9px 12px;margin-bottom:14px;display:none}
-.auth-msg.show{display:block}
-.auth-msg.err{background:rgba(241,96,99,.1);color:var(--red);border:1px solid rgba(241,96,99,.3)}
-.auth-msg.ok{background:rgba(62,207,142,.1);color:var(--green);border:1px solid rgba(62,207,142,.3)}
 .sandbox-note{color:var(--dim);font-size:12.5px;padding:20px;text-align:center;border:1px dashed var(--line);border-radius:10px}
+.dash-note{font-size:11.5px;color:var(--dim);margin-top:10px;line-height:1.6}
 </style>
 </head>
 <body style="padding-top:0">
 <div id="private-nav"></div>
 
 <main>
-  <header class="page"><h1>마이페이지</h1></header>
+  <header class="page"><h1>대시보드</h1></header>
 
-  <div class="panel" style="margin-bottom:16px">
-    <h2>비밀번호 변경</h2>
-    <div class="auth-msg err" id="pwErr"></div>
-    <div class="auth-msg ok" id="pwOk"></div>
-    <label>현재 비밀번호</label>
-    <input type="password" id="curPw">
-    <label>새 비밀번호</label>
-    <input type="password" id="newPw">
-    <div style="font-size:11px;color:var(--dim);margin-top:4px">8자 이상</div>
-    <label>새 비밀번호 확인</label>
-    <input type="password" id="newPw2">
-    <button class="btn btn-amber" style="margin-top:14px" onclick="changePassword()">변경하기</button>
+  <div id="adminPanels" style="display:none">
+    <div class="dash-grid">
+      <div class="panel">
+        <h2>☁️ AWS 인스턴스</h2>
+        <div class="dash-kv" id="awsInfo"><div class="empty">불러오는 중...</div></div>
+      </div>
+      <div class="panel">
+        <h2>🗄️ DB 정보</h2>
+        <div class="dash-kv" id="dbInfo"><div class="empty">불러오는 중...</div></div>
+        <div class="dash-table-wrap table-scroll">
+          <table>
+            <thead><tr><th>테이블</th><th>행 수(추정)</th><th>용량(MB)</th></tr></thead>
+            <tbody id="dbTables"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
   </div>
 
   <div class="panel">
-    <h2>테스트 기능 모음</h2>
-    <div class="sandbox-note">여기에 앞으로 테스트해보고 싶은 기능들을 하나씩 추가할 예정입니다.</div>
+    <h2>기능 모음</h2>
+    <div class="sandbox-note">여기에 앞으로 개발할 기능들이 하나씩 추가될 예정입니다.</div>
   </div>
 </main>
 
 <script src="/js/private-nav.js"></script>
 <script>
 const $ = id => document.getElementById(id);
+const esc = s => (s ?? '').toString().replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 
-async function changePassword(){
-  $('pwErr').classList.remove('show');
-  $('pwOk').classList.remove('show');
-  const currentPassword = $('curPw').value;
-  const newPassword = $('newPw').value;
-  if (newPassword !== $('newPw2').value) {
-    $('pwErr').textContent = '새 비밀번호가 서로 일치하지 않습니다';
-    $('pwErr').classList.add('show');
-    return;
-  }
-  const res = await fetch('/api/auth/password/change', {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ currentPassword, newPassword })
-  }).then(r => r.json());
-  if (!res.success) {
-    $('pwErr').textContent = res.message;
-    $('pwErr').classList.add('show');
-    return;
-  }
-  $('pwOk').textContent = res.message;
-  $('pwOk').classList.add('show');
-  $('curPw').value = ''; $('newPw').value = ''; $('newPw2').value = '';
+async function initDashboard(){
+  const me = await fetch('/api/auth/me').then(r => r.json()).catch(() => ({ authenticated: false }));
+  if (!me.authenticated) return; // private-nav.js가 /login으로 이미 보냄
+  const isAdmin = (me.roles || []).includes('ROLE_ADMIN');
+  if (!isAdmin) return;
+  $('adminPanels').style.display = 'block';
+  loadAws();
+  loadDb();
 }
+
+function kvRow(k, v){
+  return `<div class="dash-kv-row"><span class="k">${esc(k)}</span><span class="v">${esc(v ?? '-')}</span></div>`;
+}
+
+async function loadAws(){
+  const data = await fetch('/api/admin/dashboard/aws').then(r => r.json()).catch(() => null);
+  if (!data) { $('awsInfo').innerHTML = '<div class="empty">불러오지 못했습니다.</div>'; return; }
+  if (!data.available) {
+    $('awsInfo').innerHTML = `<div class="empty">${esc(data.message)}</div>`;
+    return;
+  }
+  $('awsInfo').innerHTML = [
+    kvRow('인스턴스 ID', data.instanceId),
+    kvRow('인스턴스 타입', data.instanceType),
+    kvRow('리전', data.region),
+    kvRow('가용영역', data.availabilityZone),
+    kvRow('퍼블릭 IP', data.publicIp),
+    kvRow('프라이빗 IP', data.privateIp),
+    kvRow('AMI ID', data.amiId)
+  ].join('') + `<div class="dash-note">${esc(data.usageNote)}</div>`;
+}
+
+async function loadDb(){
+  const data = await fetch('/api/admin/dashboard/database').then(r => r.json()).catch(() => null);
+  if (!data) { $('dbInfo').innerHTML = '<div class="empty">불러오지 못했습니다.</div>'; return; }
+  $('dbInfo').innerHTML = [
+    kvRow('호스트', data.host),
+    kvRow('포트', data.port),
+    kvRow('DB명', data.database)
+  ].join('') + (data.connected === false ? `<div class="dash-note">${esc(data.message)}</div>` : '');
+
+  const tables = data.tables || [];
+  $('dbTables').innerHTML = !tables.length
+    ? '<tr><td colspan="3" class="empty">테이블 정보가 없습니다.</td></tr>'
+    : tables.map(t => `<tr><td>${esc(t.name)}</td><td>${(t.rows ?? 0).toLocaleString()}</td><td>${t.sizeMb ?? '-'}</td></tr>`).join('');
+}
+
+initDashboard();
 </script>
 </body>
 </html>
