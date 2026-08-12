@@ -132,9 +132,11 @@ hunit.kr 사이트(메인화면·기능 페이지·게임 설명) 전부**에 �
 - **가입 → 승인 → 로그인**: 가입 직후 상태는 `PENDING`이라 로그인 불가. 관리자가 `/admin`에서 승인(`APPROVED`)해야
   로그인 가능. `MemberDetailsService`가 PENDING을 disabled, REJECTED를 accountLocked로 매핑해 Spring Security가
   자동으로 막는다
-- **최초 관리자 계정**: 서버 시작 시 `MemberService.bootstrapAdmin()`이 `ADMIN_USERNAME`/`ADMIN_PASSWORD`
-  환경변수로 관리자 계정이 하나도 없을 때만 1회 생성(status=APPROVED로 바로 활성화). 이후 추가 관리자는 DB에서
-  role을 직접 바꾸거나 별도 기능으로 승격해야 함(현재 승격 UI는 없음)
+- **최초 관리자 계정은 코드에 고정값**: `MemberService`의 `BOOTSTRAP_ADMIN_USERNAME`/`BOOTSTRAP_ADMIN_PASSWORD`
+  상수(현재 `simering`/`admin`)로, 서버 시작 시 관리자 계정이 하나도 없을 때만 1회 생성(status=APPROVED로 바로
+  활성화). **최초 로그인 직후 반드시 마이페이지에서 비밀번호를 변경할 것** — 소스에 남는 값이라 깃 이력에서도
+  계속 보임. 이후 추가 관리자는 DB에서 role을 직접 바꾸거나 별도 승격 기능을 만들어야 함(현재 승격 UI 없음).
+  환경변수(ADMIN_USERNAME/ADMIN_PASSWORD)로 관리하던 이전 방식은 제거했음
 - **비밀번호 찾기 3단계**(`PasswordResetService`): 인증번호 요청 → 확인(성공 시 1회용 `resetToken` 발급) →
   `resetToken`으로만 실제 비밀번호 변경. 인증번호 자체는 비밀번호 변경에 직접 쓰이지 않음(토큰으로 한 단계 분리)
 - **이메일만 실동작**(`EmailService`, Gmail SMTP 등 `MAIL_USERNAME`/`MAIL_PASSWORD` 필요). **SMS는 UI·API 형태만
@@ -144,6 +146,27 @@ hunit.kr 사이트(메인화면·기능 페이지·게임 설명) 전부**에 �
   작업을 생략했다. 결제·금전 처리가 없는 개인 연습용 비공개 영역이라 우선순위를 낮췄음 — 나중에 강화하려면
   `/api/csrf-token` 같은 엔드포인트로 토큰을 내려주고 프론트에서 헤더에 실어 보내는 방식으로 다시 켤 수 있음
 - **로그아웃**은 `<form method="post" action="/logout">`로 처리(CSRF 비활성화라 별도 토큰 불필요)
+
+### 서버 환경변수 분리 — `conf/app.conf` vs `conf/private.conf`
+
+기존 기능(뉴스·주식·지도 등) API 키는 계속 `conf/app.conf`에 둔다. 회원 인증 관련 민감 정보
+(`APP_ENCRYPTION_KEY`, `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`)는 **`conf/private.conf`라는
+별도 파일로 분리해서 관리한다.** `Start.sh`·`conf/app.conf`·`conf/private.conf`는 레포에 포함되지 않고
+EC2 서버(`/home/jihun/`)에만 있어서, 이 분리 작업은 서버에 직접 접속해 다음을 해야 한다:
+
+1. `conf/private.conf` 파일을 새로 만들고 `app.conf`와 같은 포맷(`export KEY=value` 등)으로 아래 값을 넣는다.
+   ```
+   APP_ENCRYPTION_KEY=...
+   MAIL_HOST=smtp.gmail.com
+   MAIL_PORT=587
+   MAIL_USERNAME=...
+   MAIL_PASSWORD=...
+   ```
+2. `conf/app.conf`에서 위 5개 항목은 제거한다(있었다면).
+3. `Start.sh`가 `conf/app.conf`를 읽어들이는 부분 바로 다음(또는 같은 방식)에 `conf/private.conf`도 함께
+   읽도록 한 줄 추가한다. 예: `app.conf`를 `source conf/app.conf` 로 읽고 있다면 `source conf/private.conf`를
+   같은 방식으로 추가.
+4. `chmod 600 conf/private.conf`로 소유자만 읽게 권한을 좁혀둔다(app.conf도 이미 그렇다면 동일하게).
 
 ## 프론트 프레임워크 원칙
 
@@ -164,13 +187,16 @@ hunit.kr 사이트(메인화면·기능 페이지·게임 설명) 전부**에 �
 - 클론다이크 난이도는 "다시 섞기 횟수 제한"으로 어렵게 만들면 체감 난이도가 과도하게 튀어오름 — 다시 섞기는 무제한으로 두고 힌트/자동정리 유무로 난이도를 나누는 편이 나음
 - 뉴스 중복 제거는 완전일치만으로는 부족함(언론사마다 제목 표현이 미묘하게 다름) — 문자 2-그램 자카드 유사도로 근사중복까지 잡아야 실제로 걸러짐(임계값 0.40, `NewsFetchService`)
 - AI 브리핑류(Gemini 호출)는 짧은 주기로 재시도하면 무료 할당량이 다른 기능과 겹쳐 금방 소진됨 — 성공 시 길게(몇 시간) 캐시하고 실패 시에만 짧게 재시도하는 패턴을 기본으로 삼을 것
+- Start.sh/conf/*.conf는 레포에 없고 EC2에만 있음 — 이 파일들을 고치는 작업은 Claude가 직접 못 하고 항상 사용자에게 서버에서 할 단계를 안내해야 함
 - **새 페이지·기능을 추가할 때마다 "콘텐츠 작성 원칙" 절을 다시 확인할 것** — 특정 기업 어필성 문구나 주관적 형용사가 섞이지 않았는지, 게임 설명이 불릿 위주로 간결한지 체크
 
 ## 환경변수
 
-`SPRING_PROFILES_ACTIVE`, `DB_HOST/NAME/USER/PASSWORD`, `GEMINI_API_KEY`, `NAVER_MAP_CLIENT_ID/SECRET`, `KAKAO_API_KEY`, `REALESTATE_API_KEY`, `TOSS_CLIENT_ID`, `TOSS_CLIENT_SECRET`,
-`APP_ENCRYPTION_KEY`(회원 전화번호·이메일 암호화 키, 운영에서 반드시 별도 값 지정), `ADMIN_USERNAME`/`ADMIN_PASSWORD`(최초 관리자 계정 부트스트랩),
-`MAIL_HOST`/`MAIL_PORT`/`MAIL_USERNAME`/`MAIL_PASSWORD`(비밀번호 재설정 이메일 발송)
+**`conf/app.conf`**: `SPRING_PROFILES_ACTIVE`, `DB_HOST/NAME/USER/PASSWORD`, `GEMINI_API_KEY`, `NAVER_MAP_CLIENT_ID/SECRET`, `KAKAO_API_KEY`, `REALESTATE_API_KEY`, `TOSS_CLIENT_ID`, `TOSS_CLIENT_SECRET`
+
+**`conf/private.conf`**(회원 인증 관련, 분리 관리): `APP_ENCRYPTION_KEY`(회원 전화번호·이메일 암호화 키, 운영에서 반드시 별도 값 지정), `MAIL_HOST`/`MAIL_PORT`/`MAIL_USERNAME`/`MAIL_PASSWORD`(비밀번호 재설정 이메일 발송)
+
+최초 관리자 계정(`simering`/`admin`)은 환경변수가 아니라 `MemberService`에 고정값으로 들어있음 — 별도 설정 불필요, 로그인 후 즉시 비밀번호 변경.
 
 ## 코딩 컨벤션
 
