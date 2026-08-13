@@ -59,4 +59,14 @@ public class TossPortfolioController {
                                              @RequestParam(defaultValue = "7") int count) {
         return portfolioService.getShortSelling(symbol, count);
     }
+
+    @GetMapping("/stock/{symbol}/price-limit")
+    public Map<String, Object> priceLimit(@PathVariable String symbol) {
+        return portfolioService.getPriceLimit(symbol);
+    }
+
+    @GetMapping("/stock/{symbol}/warnings")
+    public Map<String, Object> warnings(@PathVariable String symbol) {
+        return portfolioService.getStockWarnings(symbol);
+    }
 }
