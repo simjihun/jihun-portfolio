@@ -24,6 +24,9 @@ main{max-width:1400px}
 .main-split{display:grid;grid-template-columns:1fr 380px;gap:14px;align-items:start}
 @media (max-width:1000px){ .main-split{grid-template-columns:1fr} }
 
+.chart-ob-grid{display:grid;grid-template-columns:1fr 280px;gap:14px;align-items:start;margin-bottom:14px}
+@media (max-width:800px){ .chart-ob-grid{grid-template-columns:1fr} }
+
 .detail-head{display:flex;align-items:baseline;gap:10px;margin-bottom:2px;flex-wrap:wrap}
 .detail-head h2{font-size:18px}
 .detail-head .sym{font-family:var(--mono);font-size:12px;color:var(--dim)}
@@ -37,8 +40,6 @@ main{max-width:1400px}
 .ma-legend i{width:10px;height:2px;display:inline-block}
 .line-toggle{padding:2px 9px;border-radius:999px;border:1px solid var(--line);background:transparent;color:var(--dim);font-size:11px;cursor:pointer;display:flex;align-items:center;gap:4px}
 .line-toggle.on{color:var(--mut);border-color:var(--mut)}
-.chart-orderbook-split{display:grid;grid-template-columns:1fr 220px;gap:14px;margin-bottom:14px}
-@media (max-width:700px){ .chart-orderbook-split{grid-template-columns:1fr} }
 .chart-wrap-lg{height:300px}
 
 /* ===== 호가창: 증권사 표준 레이아웃(가격 가운데, 매도잔량 왼쪽·파랑 / 매수잔량 오른쪽·빨강) ===== */
@@ -54,8 +55,9 @@ main{max-width:1400px}
 
 .refresh-mini{padding:4px 10px;border-radius:6px;border:1px solid var(--line);background:transparent;color:var(--mut);font-size:11px;cursor:pointer}
 .refresh-mini:hover{color:var(--amber);border-color:var(--amber)}
-.trading-table{font-size:12px}
-.trading-table th,.trading-table td{padding:6px 8px}
+.trading-table{font-size:12px;width:100%;table-layout:fixed}
+.trading-table th,.trading-table td{padding:6px 8px;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.trading-table th:first-child,.trading-table td:first-child{text-align:left}
 .empty-hint{color:var(--dim);font-size:13px;padding:60px 20px;text-align:center;border:1px dashed var(--line);border-radius:10px}
 
 .holding-item{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:11px 13px;margin-bottom:8px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:8px}
@@ -108,9 +110,6 @@ main{max-width:1400px}
 
 <main>
   <header class="page"><h1>📈 TOSS 주식</h1></header>
-  <div class="skill-row">
-    <span>Java</span><span>Vue.js 3</span><span>lightweight-charts</span><span>토스증권 Open API(계좌·자산·시세 조회)</span><span>조회 전용(매수·매도 미구현)</span>
-  </div>
 
   <div id="app">
     <div class="summary-grid">
@@ -126,41 +125,45 @@ main{max-width:1400px}
     </div>
 
     <div class="main-split">
-      <!-- 좌측: 선택한 종목 상세 -->
-      <div class="panel">
+      <!-- 좌측: 차트/호가/수급/공매도 — 각각 독립된 패널로 분리 -->
+      <div>
         <template v-if="selected">
-          <div class="detail-head">
-            <h2>{{ selected.name }}</h2>
-            <span class="sym">{{ selected.symbol }} · {{ selected.marketCountry }}</span>
-            <button class="refresh-mini" style="margin-left:auto" @click="refreshAll">↻ 갱신</button>
-          </div>
-          <div class="detail-price">{{ fmtMoney(selected.lastPrice, selected.currency) }}</div>
+          <div class="chart-ob-grid">
+            <!-- 종목/차트 패널 -->
+            <div class="panel">
+              <div class="detail-head">
+                <h2>{{ selected.name }}</h2>
+                <span class="sym">{{ selected.symbol }} · {{ selected.marketCountry }}</span>
+                <button class="refresh-mini" style="margin-left:auto" @click="refreshAll">↻ 갱신</button>
+              </div>
+              <div class="detail-price">{{ fmtMoney(selected.lastPrice, selected.currency) }}</div>
 
-          <div class="interval-tabs">
-            <button class="interval-tab" :class="{on: chartInterval==='1m'}" @click="setInterval_('1m')">분</button>
-            <select v-if="chartInterval==='1m'" class="minute-select" v-model.number="minuteUnit" @change="drawChart">
-              <option :value="1">1분봉</option>
-              <option :value="3">3분봉</option>
-              <option :value="5">5분봉</option>
-              <option :value="60">60분봉</option>
-            </select>
-            <button class="interval-tab" :class="{on: chartInterval==='1d'}" @click="setInterval_('1d')">일</button>
-            <button class="interval-tab" :class="{on: chartInterval==='1w'}" @click="setInterval_('1w')">주</button>
-            <button class="interval-tab" :class="{on: chartInterval==='1mo'}" @click="setInterval_('1mo')">월</button>
-            <button class="interval-tab" :class="{on: chartInterval==='1y'}" @click="setInterval_('1y')">년</button>
-          </div>
-          <div class="ma-legend">
-            <span><i style="background:#eee"></i>MA5</span>
-            <span><i style="background:#F2A93B"></i>MA20</span>
-            <span><i style="background:#8b5cf6"></i>MA60</span>
-            <span style="color:var(--mut)">점선: 현재가 · 내 평균단가</span>
-            <button class="line-toggle" :class="{on: showCurrentPriceLine}" @click="toggleCurrentPriceLine">현재가<span v-if="showCurrentPriceLine">✕</span></button>
-            <button class="line-toggle" :class="{on: showAvgPriceLine}" @click="toggleAvgPriceLine">내 평균<span v-if="showAvgPriceLine">✕</span></button>
-          </div>
+              <div class="interval-tabs">
+                <button class="interval-tab" :class="{on: chartInterval==='1m'}" @click="setInterval_('1m')">분</button>
+                <select v-if="chartInterval==='1m'" class="minute-select" v-model.number="minuteUnit" @change="drawChart">
+                  <option :value="1">1분봉</option>
+                  <option :value="3">3분봉</option>
+                  <option :value="5">5분봉</option>
+                  <option :value="60">60분봉</option>
+                </select>
+                <button class="interval-tab" :class="{on: chartInterval==='1d'}" @click="setInterval_('1d')">일</button>
+                <button class="interval-tab" :class="{on: chartInterval==='1w'}" @click="setInterval_('1w')">주</button>
+                <button class="interval-tab" :class="{on: chartInterval==='1mo'}" @click="setInterval_('1mo')">월</button>
+                <button class="interval-tab" :class="{on: chartInterval==='1y'}" @click="setInterval_('1y')">년</button>
+              </div>
+              <div class="ma-legend">
+                <span><i style="background:#eee"></i>MA5</span>
+                <span><i style="background:#F2A93B"></i>MA20</span>
+                <span><i style="background:#8b5cf6"></i>MA60</span>
+                <span style="color:var(--mut)">점선: 현재가 · 내 평균단가</span>
+                <button class="line-toggle" :class="{on: showAvgPriceLine}" @click="toggleAvgPriceLine">내 평균<span v-if="showAvgPriceLine">✕</span></button>
+              </div>
 
-          <div class="chart-orderbook-split">
-            <div class="chart-wrap-lg" ref="chartContainer"></div>
-            <div>
+              <div class="chart-wrap-lg" ref="chartContainer"></div>
+            </div>
+
+            <!-- 호가 패널 -->
+            <div class="panel">
               <div class="ob-title">호가</div>
               <div v-if="!orderbook"><div class="empty">불러오는 중...</div></div>
               <div v-else>
@@ -179,36 +182,42 @@ main{max-width:1400px}
             </div>
           </div>
 
-          <h2>수급 · 투자자별 매매동향</h2>
-          <div v-if="!investorTrading.length" style="margin-bottom:16px"><div class="empty">데이터가 없습니다.</div></div>
-          <div class="table-scroll" v-else style="margin-bottom:16px">
-            <table class="trading-table">
-              <thead><tr><th>일자</th><th>개인</th><th>외국인</th><th>기관</th></tr></thead>
-              <tbody>
-                <tr v-for="r in investorTrading.slice(0,7)" :key="r.date">
-                  <td>{{ fmtDateLabel(r.date) }}</td>
-                  <td v-html="fmtSigned(r.individual)"></td>
-                  <td v-html="fmtSigned(r.foreigner)"></td>
-                  <td v-html="fmtSigned(r.institution)"></td>
-                </tr>
-              </tbody>
-            </table>
+          <!-- 투자자별 매매동향 패널 -->
+          <div class="panel" style="margin-bottom:14px">
+            <h2>수급 · 투자자별 매매동향</h2>
+            <div v-if="!investorTrading.length"><div class="empty">데이터가 없습니다.</div></div>
+            <div class="table-scroll" v-else>
+              <table class="trading-table">
+                <thead><tr><th>일자</th><th>개인</th><th>외국인</th><th>기관</th></tr></thead>
+                <tbody>
+                  <tr v-for="r in investorTrading.slice(0,7)" :key="r.date">
+                    <td>{{ fmtDateLabel(r.date) }}</td>
+                    <td v-html="fmtSigned(r.individual)"></td>
+                    <td v-html="fmtSigned(r.foreigner)"></td>
+                    <td v-html="fmtSigned(r.institution)"></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
           </div>
 
-          <h2>공매도 동향</h2>
-          <div v-if="!shortSelling.length"><div class="empty">데이터가 없습니다.</div></div>
-          <div class="table-scroll" v-else>
-            <table class="trading-table">
-              <thead><tr><th>일자</th><th>거래대금대비 비율</th><th>공매도 수량</th><th>공매도금액</th></tr></thead>
-              <tbody>
-                <tr v-for="r in shortSelling.slice(0,7)" :key="r.date">
-                  <td>{{ fmtDateLabel(r.date) }}</td>
-                  <td>{{ r.shortSellingAmountRate != null ? (r.shortSellingAmountRate*100).toFixed(2)+'%' : '-' }}</td>
-                  <td>{{ fmtNum(r.shortSellingVolume) }}</td>
-                  <td>{{ fmtMoney(r.shortSellingAmount, 'KRW') }}</td>
-                </tr>
-              </tbody>
-            </table>
+          <!-- 공매도 동향 패널 -->
+          <div class="panel">
+            <h2>공매도 동향</h2>
+            <div v-if="!shortSelling.length"><div class="empty">데이터가 없습니다.</div></div>
+            <div class="table-scroll" v-else>
+              <table class="trading-table">
+                <thead><tr><th>일자</th><th>거래대금대비 비율</th><th>공매도 수량</th><th>공매도금액</th></tr></thead>
+                <tbody>
+                  <tr v-for="r in shortSelling.slice(0,7)" :key="r.date">
+                    <td>{{ fmtDateLabel(r.date) }}</td>
+                    <td>{{ r.shortSellingAmountRate != null ? (r.shortSellingAmountRate*100).toFixed(2)+'%' : '-' }}</td>
+                    <td>{{ fmtNum(r.shortSellingVolume) }}</td>
+                    <td>{{ fmtMoney(r.shortSellingAmount, 'KRW') }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
           </div>
         </template>
         <div v-else class="empty-hint">오른쪽 보유 종목에서 하나를 선택하면<br>차트·호가·수급 정보가 여기 표시됩니다.</div>
@@ -344,7 +353,6 @@ createApp({
     const chartInterval = ref('1d');
     const minuteUnit = ref(1); // 1/3/5/60분 — 서버는 1분봉만 주므로 3/5/60은 여기서 직접 집계
     const dailyCandlesCache = ref([]); // 1일봉 캐시 — 주/월/년봉은 전부 이걸 집계해서 만든다
-    const showCurrentPriceLine = ref(true);
     const showAvgPriceLine = ref(true);
     const orderbook = ref(null);
     const investorTrading = ref([]);
@@ -446,7 +454,6 @@ createApp({
       if (chartRes && chartRes.available) dailyCandlesCache.value = chartRes.candles || [];
       chartInterval.value = '1d';
       minuteUnit.value = 1;
-      showCurrentPriceLine.value = true;
       showAvgPriceLine.value = true;
       await nextTick();
       drawChart();
@@ -455,8 +462,7 @@ createApp({
 
     async function setInterval_(iv){
       chartInterval.value = iv;
-      // 요구사항: 인터벌을 옮길 때마다 현재가·내 평균단가 기준선은 항상 다시 켜진 상태로 시작한다.
-      showCurrentPriceLine.value = true;
+      // 요구사항: 인터벌을 옮길 때마다 내 평균단가 기준선은 항상 다시 켜진 상태로 시작한다.
       showAvgPriceLine.value = true;
       if (iv === '1m' && selected.value) {
         const res = await fetch(`/api/admin/portfolio/stock/${selected.value.symbol}/chart?interval=1m&count=200`).then(r => r.json()).catch(() => null);
@@ -468,7 +474,6 @@ createApp({
       drawChart();
     }
 
-    function toggleCurrentPriceLine(){ showCurrentPriceLine.value = !showCurrentPriceLine.value; drawChart(); }
     function toggleAvgPriceLine(){ showAvgPriceLine.value = !showAvgPriceLine.value; drawChart(); }
 
     /** 서버가 보내주는 값을 한 번 더 숫자로 확정한다. 캔들 값이 문자열("16850.0000")로 들어오면
@@ -643,10 +648,10 @@ createApp({
           maSeriesRefs.push(s);
         });
       }
-      // 현재가·내 평균단가 기준선 — 지금 이 종목이 차트 상 어디에 있는지 한눈에 보이게. 각자 옆의
-      // ✕ 버튼으로 끌 수 있고, 인터벌을 옮기면 다시 켜진 상태로 시작한다.
+      // 현재가 기준선(항상 표시) · 내 평균단가 기준선(옆 ✕ 버튼으로 끌 수 있고, 인터벌을 옮기면
+      // 다시 켜진 상태로 시작) — 지금 이 종목이 차트 상 어디에 있는지 한눈에 보이게.
       if (selected.value) {
-        if (showCurrentPriceLine.value && selected.value.lastPrice != null) {
+        if (selected.value.lastPrice != null) {
           candleSeries.createPriceLine({
             price: selected.value.lastPrice, color: '#7E8DA9', lineWidth: 1,
             lineStyle: LightweightCharts.LineStyle.Dashed, axisLabelVisible: true, title: '현재가'
@@ -759,7 +764,7 @@ createApp({
     return {
       holdings, holdingsLoaded, selected, chartInterval, minuteUnit, orderbook, asksDisplay, bidsDisplay,
       investorTrading, shortSelling, orders, ordersLoaded, orderTab, statusFilter, filteredOrders, chartContainer,
-      showCurrentPriceLine, showAvgPriceLine, toggleCurrentPriceLine, toggleAvgPriceLine,
+      showAvgPriceLine, toggleAvgPriceLine,
       calcTarget, calcMode, calc, profitCalc, calcResult, profitResult,
       fmtMoney, fmtQty, fmtNum, fmtRate, fmtPl, fmtSigned, fmtDate, fmtDateLabel, statusLabel,
       selectStock, setInterval_, drawChart, loadOrders, refreshAll, openCalc
