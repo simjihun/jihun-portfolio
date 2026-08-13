@@ -3,7 +3,9 @@ package com.jihun.portfolio.stock;
 import com.jihun.portfolio.portfolio.TossPortfolioService;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -54,6 +56,22 @@ public class StockController {
     public Map<String, Object> insight(@RequestParam String symbol,
                                        @RequestParam(defaultValue = "KR") String country) {
         return service.getStockInsight(symbol, country);
+    }
+
+    /** 종목명(또는 심볼) 부분 검색 — 예: "위메이드" → 위메이드/위메이드플레이/위메이드맥스. */
+    @GetMapping("/search")
+    public Map<String, Object> search(@RequestParam String q,
+                                      @RequestParam(defaultValue = "KR") String country) {
+        return service.searchStocks(q, country);
+    }
+
+    /** 즐겨찾기 화면용 시세 일괄 조회. 즐겨찾기 목록 자체는 로그인이 없어 브라우저(localStorage)가
+     *  들고 있고, 여기서는 넘겨받은 심볼들의 최신 시세만 채워 돌려준다. */
+    @GetMapping("/quotes")
+    public Map<String, Object> quotes(@RequestParam String symbols,
+                                      @RequestParam(defaultValue = "KR") String country) {
+        List<String> symbolList = Arrays.asList(symbols.split(","));
+        return service.getQuotes(symbolList, country);
     }
 
     /*
