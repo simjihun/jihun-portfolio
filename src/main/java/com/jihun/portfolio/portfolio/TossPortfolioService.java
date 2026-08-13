@@ -18,9 +18,14 @@ import java.util.*;
  * accountSeq는 자주 안 바뀌는 값이라 짧게 캐시해 /accounts 호출 빈도를 줄인다.
  *
  * 차트·호가·수급(투자자별 매매동향)·공매도는 계좌와 무관한 공개 시세 데이터라 X-Tossinvest-Account
- * 헤더 없이 조회한다(get(path)만 사용, accountSeq 불필요). 응답 스키마가 중첩이 깊어 굳이 자바
- * 타입으로 다 옮겨적지 않고, "result"만 벗겨서 프론트에 그대로 넘긴다 — 프론트에서 필요한 필드만
- * 안전하게 꺼내 쓰도록 한다(중첩 필드명을 서버에서 하나하나 틀리게 옮겨 적어 배포가 깨지는 위험을 줄임).
+ * 헤더 없이 조회한다(get(path)만 사용, accountSeq 불필요).
+ *
+ * [주의] 토스 API는 BigDecimal 필드(가격·거래량 등)를 JSON에서 "16850.0000" 같은 숫자 문자열로
+ * 내려준다(부동소수점 오차 방지 목적). 이걸 그대로 프론트에 넘기면 JS에서 문자열로 취급되어
+ * 산술 연산(특히 `+`)이 숫자 덧셈이 아니라 문자열 접합으로 동작해버린다 — 예: 이동평균 계산에서
+ * `sum += "16850.0000"`을 반복하면 숫자가 아니라 자릿수가 계속 늘어나는 문자열이 만들어지고,
+ * 이걸 나중에 나눗셈에서 다시 숫자로 바꾸면 1e+98 같은 말도 안 되는 값이 나온다. 그래서 여기서는
+ * 응답을 raw 그대로 넘기지 않고, 모든 수치 필드를 서버에서 Double로 확정해서 내려준다.
  *
  * [주의] 종목별(HoldingsItem) marketValue/profitLoss는 그 종목 통화 단일 금액(amount: BigDecimal)이지만,
  * 계좌 합계(HoldingsOverview)의 totalPurchaseAmount/marketValue/profitLoss는 원화·달러가 섞여있어서
@@ -62,10 +67,22 @@ public class TossPortfolioService {
         return List.of();
     }
 
+    /** 토스 API가 BigDecimal을 숫자 문자열("16850.0000")로 내려주는 경우까지 안전하게 Double로 변환한다. */
     private Double num(Object v) {
         if (v == null) return null;
         if (v instanceof Number n) return n.doubleValue();
-        try { return Double.parseDouble(v.toString()); } catch (Exception e) { return null; }
+        String s = v.toString().trim();
+        if (s.isEmpty()) return null;
+        try { return Double.parseDouble(s); } catch (Exception e) { return null; }
+    }
+
+    private String str(Object v) {
+        return v == null ? null : v.toString();
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> mapOf(Object v) {
+        return v instanceof Map ? (Map<String, Object>) v : null;
     }
 
     /** 첫 번째 계좌의 accountSeq를 반환(짧게 캐시). 계좌가 없거나 조회 실패 시 null. */
@@ -208,7 +225,16 @@ public class TossPortfolioService {
         return result;
     }
 
-    /** 캔들 차트. GET /api/v1/candles. interval: 1m 또는 1d(토스 API가 지원하는 값은 이 둘뿐). 최근 count개(최대 200). */
+    /**
+     * 캔들 차트. GET /api/v1/candles. interval: 1m 또는 1d(토스 API가 지원하는 값은 이 둘뿐).
+     * 최근 count개(최대 200). 분/일봉 외(주/월/년, N분봉)는 전부 프론트에서 이 원천 데이터를 집계한다.
+     *
+     * Candle의 openPrice/highPrice/lowPrice/closePrice/volume은 토스 API에서 BigDecimal을
+     * JSON 숫자 문자열("16850.0000")로 내려준다. raw 그대로 프론트에 넘기면 JS에서 문자열로
+     * 취급되어 차트 라이브러리 내부 연산이 깨지므로(이동평균 등에서 "+"가 숫자 덧셈이 아니라
+     * 문자열 접합으로 동작 → 1e+98 같은 값 발생), 여기서 전부 Double로 확정해서 내려준다.
+     */
+    @SuppressWarnings("unchecked")
     public Map<String, Object> getChart(String symbol, String interval, int count) {
         Map<String, Object> result = new LinkedHashMap<>();
         String iv = "1m".equals(interval) ? "1m" : "1d";
@@ -218,12 +244,31 @@ public class TossPortfolioService {
             result.put("message", "차트 데이터를 가져오지 못했습니다.");
             return result;
         }
+        List<Map<String, Object>> candles = new ArrayList<>();
+        for (Object o : (List<Object>) raw.getOrDefault("candles", List.of())) {
+            Map<String, Object> c = (Map<String, Object>) o;
+            Double open = num(c.get("openPrice"));
+            Double high = num(c.get("highPrice"));
+            Double low = num(c.get("lowPrice"));
+            Double close = num(c.get("closePrice"));
+            // 값이 하나라도 없거나 숫자로 못 바꾸면 그 봉은 통째로 버린다(차트 스케일을 깨뜨리는 원인).
+            if (open == null || high == null || low == null || close == null) continue;
+            Map<String, Object> n = new LinkedHashMap<>();
+            n.put("timestamp", str(c.get("timestamp")));
+            n.put("openPrice", open);
+            n.put("highPrice", high);
+            n.put("lowPrice", low);
+            n.put("closePrice", close);
+            n.put("volume", num(c.get("volume")));
+            candles.add(n);
+        }
         result.put("available", true);
-        result.put("candles", raw.getOrDefault("candles", List.of()));
+        result.put("candles", candles);
         return result;
     }
 
-    /** 호가. GET /api/v1/orderbook. asks(매도)/bids(매수) 그대로 전달. */
+    /** 호가. GET /api/v1/orderbook. asks(매도)/bids(매수)의 price/volume도 문자열일 수 있어 숫자로 확정해 넘긴다. */
+    @SuppressWarnings("unchecked")
     public Map<String, Object> getOrderbook(String symbol) {
         Map<String, Object> result = new LinkedHashMap<>();
         Map<String, Object> raw = unwrap(toss.get("/api/v1/orderbook?symbol=" + symbol));
@@ -233,36 +278,103 @@ public class TossPortfolioService {
             return result;
         }
         result.put("available", true);
-        result.put("asks", raw.getOrDefault("asks", List.of()));
-        result.put("bids", raw.getOrDefault("bids", List.of()));
+        result.put("asks", normalizeOrderbookSide((List<Object>) raw.getOrDefault("asks", List.of())));
+        result.put("bids", normalizeOrderbookSide((List<Object>) raw.getOrDefault("bids", List.of())));
         return result;
     }
 
-    /** 투자자별 매매동향(개인/외국인/기관). GET /api/v1/stocks/{symbol}/investor-trading. */
-    public Map<String, Object> getInvestorTrading(String symbol) {
+    @SuppressWarnings("unchecked")
+    private List<Map<String, Object>> normalizeOrderbookSide(List<Object> side) {
+        List<Map<String, Object>> out = new ArrayList<>();
+        for (Object o : side) {
+            Map<String, Object> it = (Map<String, Object>) o;
+            Map<String, Object> n = new LinkedHashMap<>();
+            n.put("price", num(it.get("price")));
+            n.put("volume", num(it.get("volume")));
+            out.add(n);
+        }
+        return out;
+    }
+
+    /**
+     * 투자자별 매매동향(개인/외국인/기관/기타법인). GET /api/v1/stocks/{symbol}/investor-trading.
+     * 실제 스키마(StockInvestorTradingRecord)는 date + {individual, foreigner, institution,
+     * otherCorporation}이고, 각 항목은 {buyVolume, sellVolume, netBuyVolume}이다(순매수는
+     * netBuyVolume 필드). 예전 코드는 buyAmount/sellAmount/netVolume 같은 존재하지 않는 필드명을
+     * 찾고 있어서 값이 하나도 안 뜨는 원인이었다. count는 최신순으로 필요한 일수만 요청한다(7일).
+     */
+    @SuppressWarnings("unchecked")
+    public Map<String, Object> getInvestorTrading(String symbol, int count) {
         Map<String, Object> result = new LinkedHashMap<>();
-        Map<String, Object> raw = unwrap(toss.get("/api/v1/stocks/" + symbol + "/investor-trading"));
+        int c = Math.max(1, Math.min(count, 100));
+        Map<String, Object> raw = unwrap(toss.get("/api/v1/stocks/" + symbol + "/investor-trading?count=" + c));
         if (raw == null) {
             result.put("available", false);
             result.put("message", "투자자별 매매동향을 가져오지 못했습니다.");
             return result;
         }
+        List<Map<String, Object>> records = new ArrayList<>();
+        for (Object o : (List<Object>) raw.getOrDefault("records", List.of())) {
+            Map<String, Object> rec = (Map<String, Object>) o;
+            Map<String, Object> n = new LinkedHashMap<>();
+            n.put("date", str(rec.get("date")));
+            n.put("individual", netBuyVolumeOf(mapOf(rec.get("individual"))));
+            n.put("foreigner", netBuyVolumeOf(mapOf(rec.get("foreigner"))));
+            n.put("institution", netBuyVolumeOf(mapOf(rec.get("institution"))));
+            n.put("otherCorporation", netBuyVolumeOf(mapOf(rec.get("otherCorporation"))));
+            records.add(n);
+        }
+        // 최신순(오늘이 맨 앞)으로 이미 내려오지만, 혹시 모를 순서 문제에 대비해 날짜 내림차순으로 한 번 더 정렬한다.
+        records.sort((a, b) -> {
+            String da = (String) a.get("date"), db = (String) b.get("date");
+            if (da == null || db == null) return 0;
+            return db.compareTo(da);
+        });
         result.put("available", true);
-        result.put("records", raw.getOrDefault("records", raw.getOrDefault("items", List.of())));
+        result.put("records", records);
         return result;
     }
 
-    /** 공매도 동향. GET /api/v1/stocks/{symbol}/short-selling. */
-    public Map<String, Object> getShortSelling(String symbol) {
+    private Double netBuyVolumeOf(Map<String, Object> investor) {
+        return investor == null ? null : num(investor.get("netBuyVolume"));
+    }
+
+    /**
+     * 공매도 동향. GET /api/v1/stocks/{symbol}/short-selling.
+     * 실제 스키마(ShortSellingRecord)는 date, shortSellingVolume(공매도 거래량),
+     * shortSellingAmount(공매도 거래대금), shortSellingVolumeRate(거래량 비중, 소수 비율),
+     * shortSellingAmountRate(거래대금 비중, 소수 비율)이다. 예전 코드는 volume/ratio라는
+     * 존재하지 않는 필드명을 찾고 있어서 수량은 우연히(shortSellingVolume 폴백) 나왔지만
+     * 비중은 항상 "-"로 보이던 원인이었다.
+     */
+    @SuppressWarnings("unchecked")
+    public Map<String, Object> getShortSelling(String symbol, int count) {
         Map<String, Object> result = new LinkedHashMap<>();
-        Map<String, Object> raw = unwrap(toss.get("/api/v1/stocks/" + symbol + "/short-selling"));
+        int c = Math.max(1, Math.min(count, 100));
+        Map<String, Object> raw = unwrap(toss.get("/api/v1/stocks/" + symbol + "/short-selling?count=" + c));
         if (raw == null) {
             result.put("available", false);
             result.put("message", "공매도 동향을 가져오지 못했습니다.");
             return result;
         }
+        List<Map<String, Object>> records = new ArrayList<>();
+        for (Object o : (List<Object>) raw.getOrDefault("records", List.of())) {
+            Map<String, Object> rec = (Map<String, Object>) o;
+            Map<String, Object> n = new LinkedHashMap<>();
+            n.put("date", str(rec.get("date")));
+            n.put("shortSellingVolume", num(rec.get("shortSellingVolume")));
+            n.put("shortSellingAmount", num(rec.get("shortSellingAmount")));
+            n.put("shortSellingVolumeRate", num(rec.get("shortSellingVolumeRate")));
+            n.put("shortSellingAmountRate", num(rec.get("shortSellingAmountRate")));
+            records.add(n);
+        }
+        records.sort((a, b) -> {
+            String da = (String) a.get("date"), db = (String) b.get("date");
+            if (da == null || db == null) return 0;
+            return db.compareTo(da);
+        });
         result.put("available", true);
-        result.put("records", raw.getOrDefault("records", raw.getOrDefault("items", List.of())));
+        result.put("records", records);
         return result;
     }
 }
