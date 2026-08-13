@@ -98,7 +98,7 @@
 .q-refresh:hover{color:var(--amber);border-color:var(--amber)}
 .q-chart-ob-grid{display:grid;grid-template-columns:1fr 260px;gap:14px;align-items:stretch;margin-bottom:14px}
 @media (max-width:720px){ .q-chart-ob-grid{grid-template-columns:1fr} }
-.q-chart-wrap{height:280px;background:var(--panel-2);border:1px solid var(--line);border-radius:10px}
+.q-chart-wrap{min-height:280px;background:var(--panel-2);border:1px solid var(--line);border-radius:10px}
 .q-ob-panel{background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:12px}
 .q-ob-title{font-size:11.5px;color:var(--dim);margin-bottom:6px}
 .q-ob-row{display:grid;grid-template-columns:1fr 64px 1fr;font-family:var(--mono);font-size:11.5px;padding:3px 0;align-items:center;border-bottom:1px solid var(--line)}
@@ -811,8 +811,7 @@ loadCalendar(false);
         if (chartHandle) return;
         if (!chartContainer.value) return;
         chartHandle = LightweightCharts.createChart(chartContainer.value, {
-          width: chartContainer.value.clientWidth,
-          height: 280,
+          autoSize: true,
           layout: { background: { color: 'transparent' }, textColor: '#7E8DA9', fontFamily: "'JetBrains Mono',monospace" },
           grid: { vertLines: { color: '#1a2233' }, horzLines: { color: '#1a2233' } },
           timeScale: { borderColor: '#243149' },
