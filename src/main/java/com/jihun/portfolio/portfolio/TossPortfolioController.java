@@ -34,9 +34,12 @@ public class TossPortfolioController {
         return portfolioService.getOrders(status, symbol);
     }
 
+    /** interval: 1m 또는 1d(토스 API가 지원하는 값은 이 둘뿐 — 주/월/년봉은 프론트에서 1d 데이터를 집계) */
     @GetMapping("/stock/{symbol}/chart")
-    public Map<String, Object> chart(@PathVariable String symbol, @RequestParam(defaultValue = "90") int count) {
-        return portfolioService.getChart(symbol, count);
+    public Map<String, Object> chart(@PathVariable String symbol,
+                                      @RequestParam(defaultValue = "1d") String interval,
+                                      @RequestParam(defaultValue = "200") int count) {
+        return portfolioService.getChart(symbol, interval, count);
     }
 
     @GetMapping("/stock/{symbol}/orderbook")
