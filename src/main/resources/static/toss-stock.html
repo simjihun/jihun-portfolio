@@ -24,7 +24,7 @@ main{max-width:1400px}
 .main-split{display:grid;grid-template-columns:1fr 380px;gap:14px;align-items:start}
 @media (max-width:1000px){ .main-split{grid-template-columns:1fr} }
 
-.chart-ob-grid{display:grid;grid-template-columns:1fr 280px;gap:14px;align-items:start;margin-bottom:14px}
+.chart-ob-grid{display:grid;grid-template-columns:1fr 280px;gap:14px;align-items:stretch;margin-bottom:14px}
 @media (max-width:800px){ .chart-ob-grid{grid-template-columns:1fr} }
 
 .detail-head{display:flex;align-items:baseline;gap:10px;margin-bottom:2px;flex-wrap:wrap}
@@ -50,7 +50,7 @@ main{max-width:1400px}
 
 /* ===== 호가창: 증권사 표준 레이아웃(가격 가운데, 매도잔량 왼쪽·파랑 / 매수잔량 오른쪽·빨강) ===== */
 .ob-title{font-size:11.5px;color:var(--dim);margin-bottom:6px}
-.ob-row{display:grid;grid-template-columns:1fr 64px 1fr;font-family:var(--mono);font-size:11.5px;padding:2px 0;align-items:center}
+.ob-row{display:grid;grid-template-columns:1fr 64px 1fr;font-family:var(--mono);font-size:11.5px;padding:3px 0;align-items:center;border-bottom:1px solid var(--line)}
 .ob-row .oq{color:var(--dim)}
 .ob-row .oq.ask{text-align:right;padding-right:8px;color:var(--blue)}
 .ob-row .oq.bid{text-align:left;padding-left:8px;color:var(--red)}
@@ -59,8 +59,9 @@ main{max-width:1400px}
 .ob-row .op.bid{color:var(--red)}
 .ob-sep{border-top:1px solid var(--line);border-bottom:1px solid var(--line);margin:5px 0}
 .ob-info{margin-top:8px}
-.ob-info-row{display:flex;justify-content:space-between;align-items:center;padding:6px 2px;border-top:1px solid var(--line);font-size:11.5px;color:var(--mut)}
-.ob-info-row span:last-child{color:#e8ecf3;font-family:var(--mono);font-weight:600}
+.ob-info-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:6px 0;border-top:1px solid var(--line)}
+.ob-info-cell{display:flex;justify-content:space-between;align-items:center;font-size:11.5px;color:var(--mut)}
+.ob-info-cell span:last-child{color:#e8ecf3;font-family:var(--mono);font-weight:600}
 
 .refresh-mini{padding:4px 10px;border-radius:6px;border:1px solid var(--line);background:transparent;color:var(--mut);font-size:11px;cursor:pointer}
 .refresh-mini:hover{color:var(--amber);border-color:var(--amber)}
@@ -194,14 +195,22 @@ main{max-width:1400px}
                 </div>
               </div>
               <div class="ob-info">
-                <div class="ob-info-row"><span>상한가</span><span class="up">{{ priceLimit.upperLimitPrice != null ? fmtNum(priceLimit.upperLimitPrice) : '-' }}</span></div>
-                <div class="ob-info-row"><span>하한가</span><span class="down">{{ priceLimit.lowerLimitPrice != null ? fmtNum(priceLimit.lowerLimitPrice) : '-' }}</span></div>
-                <div class="ob-info-row"><span>상승VI</span><span>{{ warnings.viUp ? '발동' : '-' }}</span></div>
-                <div class="ob-info-row"><span>하강VI</span><span>{{ warnings.viDown ? '발동' : '-' }}</span></div>
-                <div class="ob-info-row"><span>시작</span><span>{{ todayOpen != null ? fmtNum(todayOpen) : '-' }}</span></div>
-                <div class="ob-info-row"><span>최고</span><span>{{ todayHigh != null ? fmtNum(todayHigh) : '-' }}</span></div>
-                <div class="ob-info-row"><span>최저</span><span>{{ todayLow != null ? fmtNum(todayLow) : '-' }}</span></div>
-                <div class="ob-info-row"><span>거래량</span><span>{{ todayVolume != null ? fmtNum(todayVolume) : '-' }}</span></div>
+                <div class="ob-info-row">
+                  <div class="ob-info-cell"><span>상한가</span><span class="up">{{ priceLimit.upperLimitPrice != null ? fmtNum(priceLimit.upperLimitPrice) : '-' }}</span></div>
+                  <div class="ob-info-cell"><span>하한가</span><span class="down">{{ priceLimit.lowerLimitPrice != null ? fmtNum(priceLimit.lowerLimitPrice) : '-' }}</span></div>
+                </div>
+                <div class="ob-info-row">
+                  <div class="ob-info-cell"><span>상승VI</span><span>{{ warnings.viUp ? '발동' : '-' }}</span></div>
+                  <div class="ob-info-cell"><span>하강VI</span><span>{{ warnings.viDown ? '발동' : '-' }}</span></div>
+                </div>
+                <div class="ob-info-row">
+                  <div class="ob-info-cell"><span>시작</span><span>{{ todayOpen != null ? fmtNum(todayOpen) : '-' }}</span></div>
+                  <div class="ob-info-cell"><span>최고</span><span>{{ todayHigh != null ? fmtNum(todayHigh) : '-' }}</span></div>
+                </div>
+                <div class="ob-info-row">
+                  <div class="ob-info-cell"><span>최저</span><span>{{ todayLow != null ? fmtNum(todayLow) : '-' }}</span></div>
+                  <div class="ob-info-cell"><span>거래량</span><span>{{ todayVolume != null ? fmtNum(todayVolume) : '-' }}</span></div>
+                </div>
               </div>
             </div>
           </div>
