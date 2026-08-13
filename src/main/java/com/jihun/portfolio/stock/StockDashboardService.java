@@ -389,22 +389,33 @@ public class StockDashboardService {
      * 마켓별 전체 종목 목록(symbol+name). 종목명 자체는 거의 안 바뀌므로 24시간 캐시.
      * 토스 API에 이름 검색 엔드포인트가 따로 없어, 이 목록을 통째로 받아 서버 메모리에서
      * 부분 문자열로 직접 찾는 방식으로 검색을 구현한다.
+     *
+     * [주의] GET /api/v1/stocks/all은 marketCountry가 아니라 market 파라미터를 받고,
+     * 값도 KR/US가 아니라 거래소 단위(KOSPI/KOSDAQ/NYSE/NASDAQ/AMEX/KR_ETC/US_ETC)다
+     * (한 번에 하나의 시장만 조회 가능 — 나라 단위가 아님). 처음에 marketCountry=KR 같은
+     * 존재하지 않는 파라미터로 호출해서 매번 조용히 실패(빈 목록)했던 원인이었다 — 그 결과
+     * 검색이 항상 "결과 없음"만 반환했다. 이제 나라별로 관련 거래소를 모두 순회해 합친다.
      */
     @SuppressWarnings("unchecked")
     private List<Map<String, Object>> stockUniverse(String country) {
         String key = "universe:" + country;
         List<Map<String, Object>> result = cached(key, 24 * 3600_000, () -> {
-            Map<String, Object> raw = toss.get("/api/v1/stocks/all?marketCountry=" + country);
-            List<Map<String, Object>> list = listOf(raw, "stocks", "items", "list");
+            String[] markets = "US".equals(country)
+                    ? new String[]{"NYSE", "NASDAQ", "AMEX"}
+                    : new String[]{"KOSPI", "KOSDAQ"};
             List<Map<String, Object>> out = new ArrayList<>();
-            for (Map<String, Object> s : list) {
-                String sym = pickStr(s, "symbol");
-                String name = pickStr(s, "name");
-                if (sym == null || name == null) continue;
-                Map<String, Object> n = new HashMap<>();
-                n.put("symbol", sym);
-                n.put("name", name);
-                out.add(n);
+            for (String market : markets) {
+                Map<String, Object> raw = toss.get("/api/v1/stocks/all?market=" + market);
+                List<Map<String, Object>> list = listOf(raw, "stocks", "items", "list");
+                for (Map<String, Object> s : list) {
+                    String sym = pickStr(s, "symbol");
+                    String name = pickStr(s, "name");
+                    if (sym == null || name == null) continue;
+                    Map<String, Object> n = new HashMap<>();
+                    n.put("symbol", sym);
+                    n.put("name", name);
+                    out.add(n);
+                }
             }
             return out.isEmpty() ? null : out;
         });
