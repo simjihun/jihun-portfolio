@@ -22,9 +22,11 @@ main{max-width:1400px}
 .summary-cell .sub{font-family:var(--mono);font-size:13px;margin-top:4px}
 
 .main-split{display:grid;grid-template-columns:1fr 380px;gap:14px;align-items:start}
+.main-split>*{min-width:0}
 @media (max-width:1000px){ .main-split{grid-template-columns:1fr} }
 
 .chart-ob-grid{display:grid;grid-template-columns:1fr 280px;gap:14px;align-items:stretch;margin-bottom:14px}
+.chart-ob-grid>*{min-width:0}
 @media (max-width:800px){ .chart-ob-grid{grid-template-columns:1fr} }
 
 .detail-head{display:flex;align-items:baseline;gap:10px;margin-bottom:2px;flex-wrap:wrap}
@@ -48,9 +50,14 @@ main{max-width:1400px}
 .chart-wrap-lg{height:300px}
 .draw-hint{font-size:10.5px;color:var(--dim);margin-top:4px}
 
-/* ===== 호가창: 증권사 표준 레이아웃(가격 가운데, 매도잔량 왼쪽·파랑 / 매수잔량 오른쪽·빨강) ===== */
+/* ===== 호가창: 증권사 표준 레이아웃(가격 가운데, 매도잔량 왼쪽·파랑 / 매수잔량 오른쪽·빨강) =====
+   ob-row/ob-info-cell은 진짜 <table>이 아니라 grid/flex로 흉내낸 표라 .table-scroll 보호를 못 받는다.
+   숫자(가격·잔량)가 넓으면 grid/flex 아이템의 기본 min-width:auto 때문에 셀이 줄어들지 않고
+   패널 밖으로 그대로 삐져나가는데, body가 overflow-x:hidden이라 그 초과분이 화면 밖에서 그냥
+   잘려 보인다("상한가"는 보이는데 값은 안 보이는 식) — 그래서 min-width:0을 명시해 실제로 줄어들게 한다. */
 .ob-title{font-size:11.5px;color:var(--dim);margin-bottom:6px}
 .ob-row{display:grid;grid-template-columns:1fr 64px 1fr;font-family:var(--mono);font-size:11.5px;padding:3px 0;align-items:center;border-bottom:1px solid var(--line)}
+.ob-row>span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .ob-row .oq{color:var(--dim)}
 .ob-row .oq.ask{text-align:right;padding-right:8px;color:var(--blue)}
 .ob-row .oq.bid{text-align:left;padding-left:8px;color:var(--red)}
@@ -60,17 +67,22 @@ main{max-width:1400px}
 .ob-sep{border-top:1px solid var(--line);border-bottom:1px solid var(--line);margin:5px 0}
 .ob-info{margin-top:8px}
 .ob-info-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:6px 0;border-top:1px solid var(--line)}
-.ob-info-cell{display:flex;justify-content:space-between;align-items:center;font-size:11.5px;color:var(--mut)}
+.ob-info-row>*{min-width:0}
+.ob-info-cell{display:flex;justify-content:space-between;align-items:center;font-size:11.5px;color:var(--mut);min-width:0;gap:6px}
+.ob-info-cell span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .ob-info-cell span:last-child{color:#e8ecf3;font-family:var(--mono);font-weight:600}
 
 .refresh-mini{padding:4px 10px;border-radius:6px;border:1px solid var(--line);background:transparent;color:var(--mut);font-size:11px;cursor:pointer}
 .refresh-mini:hover{color:var(--amber);border-color:var(--amber)}
-.trading-table{font-size:12px;width:100%;table-layout:fixed}
+/* base.css의 전역 table{min-width:560px}이 table-layout:fixed와 같이 있으면 좁은 화면에서도 억지로
+   560px를 유지시켜 .table-scroll을 스와이프해야만 나머지 컬럼이 보이던 원인이었다. min-width:0으로
+   무효화해서 진짜로 컨테이너 폭(모바일 화면 전체)에 맞춰 줄어들게 한다. */
+.trading-table{font-size:12px;width:100%;table-layout:fixed;min-width:0}
 .trading-table th,.trading-table td{padding:6px 8px;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .trading-table th:first-child,.trading-table td:first-child{text-align:left}
 @media (max-width:480px){
-  .trading-table{font-size:11px}
-  .trading-table th,.trading-table td{padding:5px 3px}
+  .trading-table{font-size:10.5px}
+  .trading-table th,.trading-table td{padding:5px 2px}
 }
 .empty-hint{color:var(--dim);font-size:13px;padding:60px 20px;text-align:center;border:1px dashed var(--line);border-radius:10px}
 
