@@ -14,7 +14,6 @@
 .down{color:#3182f6}
 main{max-width:1400px}
 
-/* ===== 상단 요약 2분할 (토스 스타일: 큰 금액 + 아래 손익) ===== */
 .summary-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px}
 @media (max-width:700px){ .summary-grid{grid-template-columns:1fr} }
 .summary-cell{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px 18px}
@@ -22,11 +21,9 @@ main{max-width:1400px}
 .summary-cell .v{font-family:var(--mono);font-size:24px;font-weight:700}
 .summary-cell .sub{font-family:var(--mono);font-size:13px;margin-top:4px}
 
-/* ===== 좌우 2분할 메인 레이아웃 ===== */
 .main-split{display:grid;grid-template-columns:1fr 380px;gap:14px;align-items:start}
 @media (max-width:1000px){ .main-split{grid-template-columns:1fr} }
 
-/* 좌측: 종목 상세 */
 .detail-head{display:flex;align-items:baseline;gap:10px;margin-bottom:2px;flex-wrap:wrap}
 .detail-head h2{font-size:18px}
 .detail-head .sym{font-family:var(--mono);font-size:12px;color:var(--dim)}
@@ -34,20 +31,30 @@ main{max-width:1400px}
 .interval-tabs{display:flex;gap:6px;margin-bottom:10px}
 .interval-tab{padding:5px 12px;border-radius:7px;border:1px solid var(--line);background:transparent;color:var(--mut);font-size:12.5px;cursor:pointer}
 .interval-tab.on{background:rgba(242,169,59,.12);border-color:var(--amber);color:var(--amber);font-weight:600}
+.ma-legend{display:flex;gap:12px;font-size:11px;margin-bottom:6px;color:var(--dim)}
+.ma-legend span{display:flex;align-items:center;gap:4px}
+.ma-legend i{width:10px;height:2px;display:inline-block}
 .chart-orderbook-split{display:grid;grid-template-columns:1fr 220px;gap:14px;margin-bottom:14px}
 @media (max-width:700px){ .chart-orderbook-split{grid-template-columns:1fr} }
-.chart-wrap-lg{height:280px}
-.orderbook-row{display:grid;grid-template-columns:1fr 1fr;gap:4px;font-family:var(--mono);font-size:12px;padding:2px 0}
-.orderbook-row .ask{color:var(--blue);text-align:right;padding-right:6px}
-.orderbook-row .bid{color:var(--red);padding-left:6px}
-.orderbook-row .vol{color:var(--dim);font-size:10.5px}
+.chart-wrap-lg{height:300px}
+
+/* ===== 호가창: 증권사 표준 레이아웃(가격 가운데, 매도잔량 왼쪽·파랑 / 매수잔량 오른쪽·빨강) ===== */
+.ob-title{font-size:11.5px;color:var(--dim);margin-bottom:6px}
+.ob-row{display:grid;grid-template-columns:1fr 64px 1fr;font-family:var(--mono);font-size:11.5px;padding:2px 0;align-items:center}
+.ob-row .oq{color:var(--dim)}
+.ob-row .oq.ask{text-align:right;padding-right:8px;color:var(--blue)}
+.ob-row .oq.bid{text-align:left;padding-left:8px;color:var(--red)}
+.ob-row .op{text-align:center;font-weight:700}
+.ob-row .op.ask{color:var(--blue)}
+.ob-row .op.bid{color:var(--red)}
+.ob-sep{border-top:1px solid var(--line);border-bottom:1px solid var(--line);margin:5px 0}
+
 .refresh-mini{padding:4px 10px;border-radius:6px;border:1px solid var(--line);background:transparent;color:var(--mut);font-size:11px;cursor:pointer}
 .refresh-mini:hover{color:var(--amber);border-color:var(--amber)}
 .trading-table{font-size:12px}
 .trading-table th,.trading-table td{padding:6px 8px}
 .empty-hint{color:var(--dim);font-size:13px;padding:60px 20px;text-align:center;border:1px dashed var(--line);border-radius:10px}
 
-/* 우측: 보유종목 + 주문내역 */
 .holding-item{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:11px 13px;margin-bottom:8px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:8px}
 .holding-item:hover{border-color:var(--mut)}
 .holding-item.selected{border-color:var(--amber);background:rgba(242,169,59,.06)}
@@ -73,7 +80,6 @@ main{max-width:1400px}
 .order-mini .mid{flex:1;padding:0 8px;color:var(--mut)}
 .order-mini .st{font-size:11px;color:var(--dim)}
 
-/* ===== 계산기 모달 ===== */
 .modal-bg{position:fixed;inset:0;background:rgba(5,8,15,.75);z-index:300;display:none;place-items:center;padding:20px}
 .modal-bg.show{display:grid}
 .calc-modal{background:var(--panel);border:1px solid var(--line);border-radius:14px;max-width:560px;width:100%;padding:22px;max-height:88vh;overflow-y:auto}
@@ -85,13 +91,13 @@ main{max-width:1400px}
 .mode-toggle{display:flex;gap:6px;margin-bottom:10px}
 .mode-toggle button{flex:1;padding:6px;border-radius:7px;border:1px solid var(--line);background:transparent;color:var(--mut);font-size:12px;cursor:pointer}
 .mode-toggle button.on{background:rgba(242,169,59,.12);border-color:var(--amber);color:var(--amber)}
-/* 요청사항: 입력(왼쪽) / 결과(오른쪽) 2분할 */
 .calc-2col{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start}
 @media (max-width:460px){ .calc-2col{grid-template-columns:1fr} }
 .calc-result-box{background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:12px 14px;height:100%}
 .calc-result-box .row{display:flex;justify-content:space-between;padding:5px 0;font-size:13px;border-bottom:1px solid var(--line)}
 .calc-result-box .row:last-child{border-bottom:0}
 .calc-result-box .row span:last-child{font-family:var(--mono);font-weight:600;text-align:right}
+.calc-result-box .row.highlight{font-size:14px;padding:7px 0}
 </style>
 </head>
 <body style="padding-top:0">
@@ -100,7 +106,7 @@ main{max-width:1400px}
 <main>
   <header class="page"><h1>📈 TOSS 주식</h1></header>
   <div class="skill-row">
-    <span>Java</span><span>Vue.js 3</span><span>토스증권 Open API(계좌·자산·시세 조회)</span><span>조회 전용(매수·매도 미구현)</span>
+    <span>Java</span><span>Vue.js 3</span><span>lightweight-charts</span><span>토스증권 Open API(계좌·자산·시세 조회)</span><span>조회 전용(매수·매도 미구현)</span>
   </div>
 
   <div id="app">
@@ -128,23 +134,35 @@ main{max-width:1400px}
           <div class="detail-price">{{ fmtMoney(selected.lastPrice, selected.currency) }}</div>
 
           <div class="interval-tabs">
-            <button class="interval-tab" :class="{on: chartInterval==='1m'}" @click="setInterval_('1m')">1분봉</button>
-            <button class="interval-tab" :class="{on: chartInterval==='1d'}" @click="setInterval_('1d')">1일봉</button>
-            <button class="interval-tab" :class="{on: chartInterval==='1mo'}" @click="setInterval_('1mo')">1달봉</button>
+            <button class="interval-tab" :class="{on: chartInterval==='1m'}" @click="setInterval_('1m')">분</button>
+            <button class="interval-tab" :class="{on: chartInterval==='1d'}" @click="setInterval_('1d')">일</button>
+            <button class="interval-tab" :class="{on: chartInterval==='1w'}" @click="setInterval_('1w')">주</button>
+            <button class="interval-tab" :class="{on: chartInterval==='1mo'}" @click="setInterval_('1mo')">월</button>
+            <button class="interval-tab" :class="{on: chartInterval==='1y'}" @click="setInterval_('1y')">년</button>
+          </div>
+          <div class="ma-legend">
+            <span><i style="background:#eee"></i>MA5</span>
+            <span><i style="background:#F2A93B"></i>MA20</span>
+            <span><i style="background:#8b5cf6"></i>MA60</span>
+            <span style="color:var(--mut)">점선: 현재가 · 내 평균단가</span>
           </div>
 
           <div class="chart-orderbook-split">
             <div class="chart-wrap-lg" ref="chartContainer"></div>
             <div>
-              <div style="font-size:11.5px;color:var(--dim);margin-bottom:6px">호가</div>
+              <div class="ob-title">호가</div>
               <div v-if="!orderbook"><div class="empty">불러오는 중...</div></div>
               <div v-else>
-                <div class="orderbook-row" v-for="a in [...orderbook.asks].reverse().slice(-7)" :key="'a'+a.price">
-                  <span class="ask">{{ fmtNum(a.price) }}</span><span class="vol">{{ fmtNum(a.volume) }}</span>
+                <div class="ob-row" v-for="a in asksDisplay" :key="'a'+a.price">
+                  <span class="oq ask">{{ fmtNum(a.volume) }}</span>
+                  <span class="op ask">{{ fmtNum(a.price) }}</span>
+                  <span class="oq"></span>
                 </div>
-                <div style="border-top:1px solid var(--line);border-bottom:1px solid var(--line);margin:6px 0"></div>
-                <div class="orderbook-row" v-for="b in orderbook.bids.slice(0,7)" :key="'b'+b.price">
-                  <span class="bid">{{ fmtNum(b.price) }}</span><span class="vol">{{ fmtNum(b.volume) }}</span>
+                <div class="ob-sep"></div>
+                <div class="ob-row" v-for="b in bidsDisplay" :key="'b'+b.price">
+                  <span class="oq"></span>
+                  <span class="op bid">{{ fmtNum(b.price) }}</span>
+                  <span class="oq bid">{{ fmtNum(b.volume) }}</span>
                 </div>
               </div>
             </div>
@@ -239,14 +257,14 @@ main{max-width:1400px}
       </div>
     </div>
 
-    <div style="font-size:11.5px;color:var(--dim);margin-top:14px">국내 주식은 KRX 정규장 외에 넥스트(NXT) 대체거래소 시간대가 별도로 있고, 미국 주식은 프리마켓·정규장·애프터마켓 3단계로 나뉩니다. 가격·호가는 30초마다 자동 갱신됩니다(토스 API 초당 호출 한도 대비 여유 있게 설정).</div>
+    <div style="font-size:11.5px;color:var(--dim);margin-top:14px">국내 주식은 KRX 정규장 외에 넥스트(NXT) 대체거래소 시간대가 별도로 있고, 미국 주식은 프리마켓·정규장·애프터마켓 3단계로 나뉩니다. 가격·호가는 30초마다 자동 갱신됩니다(토스 API 초당 호출 한도 대비 여유 있게 설정). 주/월/년봉은 토스 API가 제공하는 일봉(최근 200개)을 직접 집계한 값이라, 그 이상 과거는 표시되지 않습니다.</div>
 
-    <!-- ===== 계산기 모달 — X버튼/ESC로만 닫힘(바깥 클릭으로는 안 닫힘: 드래그로 값 수정하다 실수로 닫히는 것 방지) ===== -->
+    <!-- ===== 계산기 모달 — X버튼/ESC로만 닫힘 ===== -->
     <div class="modal-bg" :class="{show: calcTarget}">
       <div class="calc-modal" v-if="calcTarget">
         <button class="modal-close" @click="calcTarget=null">✕</button>
         <h3>{{ calcTarget.name }}</h3>
-        <div class="sym">{{ calcTarget.symbol }} · 보유 {{ fmtQty(calcTarget.quantity) }}주 · 평단 {{ fmtMoney(calcTarget.averagePurchasePrice, calcTarget.currency) }}</div>
+        <div class="sym">{{ calcTarget.symbol }} · 보유 {{ fmtQty(calcTarget.quantity) }}주 · 평단 {{ fmtMoney(calcTarget.averagePurchasePrice, calcTarget.currency) }} · 현재가 {{ fmtMoney(calcTarget.lastPrice, calcTarget.currency) }}</div>
 
         <div class="calc-section">
           <h4>물타기 계산기</h4>
@@ -268,12 +286,13 @@ main{max-width:1400px}
               </template>
             </div>
             <div class="calc-result-box">
+              <div class="row highlight"><span>평가손익률 (현재가 기준)</span><span v-html="fmtRate(calcResult.plRateAtCurrentPrice)"></span></div>
               <div class="row"><span>추가 매수 수량</span><span>{{ fmtQty(calcResult.effectiveQty) }}주</span></div>
-              <div class="row"><span>평단가</span><span>{{ fmtMoney(calcResult.newAvg, calcTarget.currency) }}</span></div>
-              <div class="row"><span>평단가 변화</span><span v-html="fmtRate(calcResult.changeRate)"></span></div>
+              <div class="row"><span>새 평단가</span><span>{{ fmtMoney(calcResult.newAvg, calcTarget.currency) }}</span></div>
               <div class="row"><span>총 보유 수량</span><span>{{ fmtQty(calcResult.totalQty) }}주</span></div>
             </div>
           </div>
+          <div style="font-size:11px;color:var(--dim);margin-top:8px">아무것도 입력하지 않으면 지금 상태 그대로의 평가손익률(-13% 같은 현재 손익)이 표시되고, 추가 매수를 입력할수록 그 수치가 어떻게 개선되는지 바로 보여줍니다.</div>
         </div>
 
         <div class="calc-section">
@@ -285,7 +304,7 @@ main{max-width:1400px}
             </div>
             <div class="calc-result-box">
               <div class="row"><span>예상 평가금액</span><span>{{ fmtMoney(profitResult.marketValue, calcTarget.currency) }}</span></div>
-              <div class="row"><span>예상 손익</span><span v-html="fmtPl(profitResult.plAmount, profitResult.plRate, calcTarget.currency)"></span></div>
+              <div class="row highlight"><span>예상 손익</span><span v-html="fmtPl(profitResult.plAmount, profitResult.plRate, calcTarget.currency)"></span></div>
             </div>
           </div>
         </div>
@@ -303,6 +322,7 @@ const STATUS_LABELS = {
   PARTIAL_FILLED: '부분체결', PENDING_CANCEL: '취소대기', PENDING_REPLACE: '정정대기',
   REPLACED: '정정됨', CANCEL_REJECTED: '취소거부', REPLACE_REJECTED: '정정거부'
 };
+const MA_COLORS = { 5: '#eeeeee', 20: '#F2A93B', 60: '#8b5cf6' };
 
 createApp({
   setup(){
@@ -310,7 +330,7 @@ createApp({
     const holdingsLoaded = ref(false);
     const selected = ref(null);
     const chartInterval = ref('1d');
-    const dailyCandlesCache = ref([]); // 1일봉을 캐시해두고 1달봉은 여기서 집계
+    const dailyCandlesCache = ref([]); // 1일봉 캐시 — 주/월/년봉은 전부 이걸 집계해서 만든다
     const orderbook = ref(null);
     const investorTrading = ref([]);
     const shortSelling = ref([]);
@@ -319,8 +339,10 @@ createApp({
     const orderTab = ref('CLOSED');
     const statusFilter = reactive({ FILLED: true, CANCELED: false, REJECTED: false, ETC: false });
     const chartContainer = ref(null);
-    let chartHandle = null; // lightweight-charts 인스턴스
+    let chartHandle = null;
     let candleSeries = null;
+    let maSeriesRefs = [];
+    let priceLineRefs = [];
     let minuteCandlesTemp = [];
     let autoRefreshTimer = null;
 
@@ -334,9 +356,9 @@ createApp({
       if (v == null) return '-';
       const symbol = currency === 'USD' ? '$' : '';
       const suffix = currency === 'USD' ? '' : '원';
-      return symbol + Math.round(v).toLocaleString('ko-KR') + suffix;
+      const num = currency === 'USD' ? v.toFixed(2) : Math.round(v).toLocaleString('ko-KR');
+      return symbol + num + suffix;
     }
-    // 요청사항: 주식 수량은 소수점 없이 정수로만 표시(1주 단위 거래)
     function fmtQty(v){ return v == null ? '-' : Math.round(v).toLocaleString('ko-KR'); }
     function fmtNum(v){ return v == null ? '-' : Number(v).toLocaleString('ko-KR'); }
     function fmtRate(v){
@@ -385,7 +407,7 @@ createApp({
       dailyCandlesCache.value = [];
 
       const [chartRes, obRes, itRes, ssRes] = await Promise.all([
-        fetch(`/api/admin/portfolio/stock/${sym}/chart?count=200`).then(r => r.json()).catch(() => null),
+        fetch(`/api/admin/portfolio/stock/${sym}/chart?interval=1d&count=200`).then(r => r.json()).catch(() => null),
         fetch(`/api/admin/portfolio/stock/${sym}/orderbook`).then(r => r.json()).catch(() => null),
         fetch(`/api/admin/portfolio/stock/${sym}/investor-trading`).then(r => r.json()).catch(() => null),
         fetch(`/api/admin/portfolio/stock/${sym}/short-selling`).then(r => r.json()).catch(() => null),
@@ -403,30 +425,35 @@ createApp({
     async function setInterval_(iv){
       chartInterval.value = iv;
       if (iv === '1m' && selected.value) {
-        const res = await fetch(`/api/admin/portfolio/stock/${selected.value.symbol}/chart?count=200`).then(r => r.json()).catch(() => null);
-        // 참고: 1분봉은 최대 200개(약 3시간 남짓)까지만 조회됨(토스 API 자체 제약) — 1시간봉은
-        // API가 아예 제공하지 않아(1m/1d만 지원) 별도 집계로도 의미 있는 기간을 만들 수 없어 제외했다.
+        const res = await fetch(`/api/admin/portfolio/stock/${selected.value.symbol}/chart?interval=1m&count=200`).then(r => r.json()).catch(() => null);
+        // 1분봉은 최대 200개(약 3시간 남짓)까지만 조회됨(토스 API 자체 제약)
         minuteCandlesTemp = (res && res.available) ? res.candles : [];
       }
       await nextTick();
       drawChart();
     }
 
-    /** 1일봉 캐시를 월 단위로 집계해 진짜 OHLC 월봉을 만든다(시가=그달 첫날 시가, 고가/저가=그달 최고/최저, 종가=그달 마지막날 종가). */
-    function monthlyCandlesOHLC(){
+    /** 1일봉 캐시를 주/월/년 단위로 집계해 진짜 OHLC를 만든다(토스 API가 1m/1d만 지원하므로 그 이상은 직접 집계). */
+    function aggregateDaily(keyFn){
       const map = new Map();
       for (const c of [...dailyCandlesCache.value].reverse()) { // 오래된 날짜부터
-        const ym = (c.timestamp || '').substring(0, 7);
-        if (!map.has(ym)) {
-          map.set(ym, { time: ym + '-01', open: c.openPrice, high: c.highPrice, low: c.lowPrice, close: c.closePrice });
+        const key = keyFn(c.timestamp);
+        if (!map.has(key)) {
+          map.set(key, { time: key, open: c.openPrice, high: c.highPrice, low: c.lowPrice, close: c.closePrice });
         } else {
-          const e = map.get(ym);
+          const e = map.get(key);
           e.high = Math.max(e.high, c.highPrice);
           e.low = Math.min(e.low, c.lowPrice);
-          e.close = c.closePrice; // 시간순으로 덮어써서 마지막 값이 그달 마지막 종가가 됨
+          e.close = c.closePrice;
         }
       }
       return [...map.values()];
+    }
+    function weekKey(ts){
+      const d = new Date((ts || '').substring(0, 10) + 'T00:00:00');
+      const dow = (d.getDay() + 6) % 7; // 월=0
+      d.setDate(d.getDate() - dow);
+      return d.toISOString().substring(0, 10);
     }
 
     function toCandleSeriesData(candles, intraday){
@@ -441,7 +468,7 @@ createApp({
       if (!chartContainer.value) return;
       chartHandle = LightweightCharts.createChart(chartContainer.value, {
         width: chartContainer.value.clientWidth,
-        height: 280,
+        height: 300,
         layout: { background: { color: 'transparent' }, textColor: '#7E8DA9', fontFamily: "'JetBrains Mono',monospace" },
         grid: { vertLines: { color: '#1a2233' }, horzLines: { color: '#1a2233' } },
         timeScale: { borderColor: '#243149' },
@@ -457,21 +484,79 @@ createApp({
       });
     }
 
+    function computeSMA(data, period){
+      const out = [];
+      for (let i = period - 1; i < data.length; i++) {
+        let sum = 0;
+        for (let j = i - period + 1; j <= i; j++) sum += data[j].close;
+        out.push({ time: data[i].time, value: sum / period });
+      }
+      return out;
+    }
+
+    function clearOverlays(){
+      maSeriesRefs.forEach(s => chartHandle.removeSeries(s));
+      maSeriesRefs = [];
+      priceLineRefs.forEach(l => candleSeries.removePriceLine(l));
+      priceLineRefs = [];
+    }
+
     function drawChart(){
       ensureChart();
       if (!candleSeries) return;
       let data;
       if (chartInterval.value === '1m') {
         data = toCandleSeriesData(minuteCandlesTemp || [], true);
+      } else if (chartInterval.value === '1w') {
+        data = aggregateDaily(weekKey);
       } else if (chartInterval.value === '1mo') {
-        data = monthlyCandlesOHLC();
+        data = aggregateDaily(ts => (ts || '').substring(0, 7) + '-01');
+      } else if (chartInterval.value === '1y') {
+        data = aggregateDaily(ts => (ts || '').substring(0, 4) + '-01-01');
       } else {
         data = toCandleSeriesData(dailyCandlesCache.value || [], false);
       }
       if (!data.length) return;
+
+      const isUsd = selected.value && selected.value.currency === 'USD';
+      candleSeries.applyOptions({ priceFormat: { type: 'price', precision: isUsd ? 2 : 0, minMove: isUsd ? 0.01 : 1 } });
+
       candleSeries.setData(data);
+      clearOverlays();
+
+      // 이동평균선(분봉 제외 — 분봉은 캔들 수가 적어 이평선이 큰 의미가 없음)
+      if (chartInterval.value !== '1m') {
+        [5, 20, 60].forEach(period => {
+          if (data.length < period) return;
+          const s = chartHandle.addLineSeries({ color: MA_COLORS[period], lineWidth: 1, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false });
+          s.setData(computeSMA(data, period));
+          maSeriesRefs.push(s);
+        });
+      }
+      // 현재가·내 평균단가 기준선 — 지금 이 종목이 차트 상 어디에 있는지 한눈에 보이게
+      if (selected.value) {
+        if (selected.value.lastPrice != null) {
+          priceLineRefs.push(candleSeries.createPriceLine({
+            price: selected.value.lastPrice, color: '#7E8DA9', lineWidth: 1,
+            lineStyle: LightweightCharts.LineStyle.Dashed, axisLabelVisible: true, title: '현재가'
+          }));
+        }
+        if (selected.value.averagePurchasePrice != null) {
+          priceLineRefs.push(candleSeries.createPriceLine({
+            price: selected.value.averagePurchasePrice, color: '#F2A93B', lineWidth: 1,
+            lineStyle: LightweightCharts.LineStyle.Dashed, axisLabelVisible: true, title: '내 평균'
+          }));
+        }
+      }
       chartHandle.timeScale().fitContent();
     }
+
+    /* ===== 호가창 — 증권사 표준 배치: 가격 가운데, 매도(파랑) 잔량 왼쪽, 매수(빨강) 잔량 오른쪽.
+       asks는 오름차순(낮은 가격=현재가에 가까운 매도호가가 배열 앞쪽)이라, 그 중 상위 8개를 뽑아
+       "높은 가격이 위, 현재가에 가까운 가격이 아래(스프레드 바로 위)"가 되도록 뒤집는다.
+       bids는 내림차순(높은 가격=현재가에 가까운 매수호가가 배열 앞쪽)이라 그대로 상위 8개만 쓴다. ===== */
+    const asksDisplay = computed(() => orderbook.value ? [...orderbook.value.asks].slice(0, 8).reverse() : []);
+    const bidsDisplay = computed(() => orderbook.value ? [...orderbook.value.bids].slice(0, 8) : []);
 
     async function loadOrders(){
       if (!selected.value) return;
@@ -505,11 +590,11 @@ createApp({
       }
     }
 
-    /* ===== 계산기 — X 버튼 또는 ESC 키로만 닫힌다(바깥 클릭 닫기는 없음: 값 드래그 수정 중 실수로 닫히는 것 방지) ===== */
+    /* ===== 계산기 — X 버튼 또는 ESC 키로만 닫힌다 ===== */
     function openCalc(item){
       calcTarget.value = item;
       calcMode.value = 'qty';
-      calc.addPrice = item.lastPrice || 0; // 요청사항: 기본값을 0이 아니라 현재가로
+      calc.addPrice = item.lastPrice || 0;
       calc.addQty = 0;
       calc.addAmount = 0;
       profitCalc.targetPrice = item.lastPrice || 0;
@@ -518,15 +603,19 @@ createApp({
       if (e.key === 'Escape' && calcTarget.value) calcTarget.value = null;
     }
     const calcResult = computed(() => {
-      if (!calcTarget.value) return { effectiveQty: 0, totalQty: 0, newAvg: 0, changeRate: 0 };
+      if (!calcTarget.value) return { effectiveQty: 0, totalQty: 0, newAvg: 0, plRateAtCurrentPrice: null };
       const qty = calcTarget.value.quantity || 0;
       const avg = calcTarget.value.averagePurchasePrice || 0;
+      const currentPrice = calcTarget.value.lastPrice || 0;
       const price = calc.addPrice || 0;
       const effectiveQty = calcMode.value === 'qty' ? (calc.addQty || 0) : (price > 0 ? (calc.addAmount || 0) / price : 0);
       const totalQty = qty + effectiveQty;
       const newAvg = totalQty > 0 ? (qty * avg + effectiveQty * price) / totalQty : avg;
-      const changeRate = avg > 0 ? ((newAvg - avg) / avg) * 100 : 0;
-      return { effectiveQty, totalQty, newAvg, changeRate };
+      // 요청사항: "평단가 변화"가 아니라 "지금 이 순간 평가손익률이 몇 %인지"가 기준 —
+      // 아무것도 입력 안 하면 newAvg===avg라서 지금 실제 손익률(예: -13%)이 그대로 나오고,
+      // 물타기를 입력할수록 이 수치가 개선되는 걸 바로 보여준다.
+      const plRateAtCurrentPrice = newAvg > 0 ? ((currentPrice - newAvg) / newAvg) * 100 : null;
+      return { effectiveQty, totalQty, newAvg, plRateAtCurrentPrice };
     });
     const profitResult = computed(() => {
       if (!calcTarget.value) return { marketValue: 0, plAmount: 0, plRate: 0 };
@@ -542,8 +631,6 @@ createApp({
     onMounted(() => {
       loadHoldings();
       window.addEventListener('keydown', handleKeydown);
-      // 가격·호가는 30초마다 자동 갱신(초당 호출 한도 대비 여유), 그 외(차트·수급·공매도)는
-      // 수동 갱신 버튼으로만 — 자주 안 바뀌는 데이터까지 매번 다시 부를 필요가 없어서.
       autoRefreshTimer = setInterval(async () => {
         await loadHoldingsSilent();
         if (selected.value) {
@@ -558,8 +645,8 @@ createApp({
     });
 
     return {
-      holdings, holdingsLoaded, selected, chartInterval, orderbook, investorTrading, shortSelling,
-      orders, ordersLoaded, orderTab, statusFilter, filteredOrders, chartContainer,
+      holdings, holdingsLoaded, selected, chartInterval, orderbook, asksDisplay, bidsDisplay,
+      investorTrading, shortSelling, orders, ordersLoaded, orderTab, statusFilter, filteredOrders, chartContainer,
       calcTarget, calcMode, calc, profitCalc, calcResult, profitResult,
       fmtMoney, fmtQty, fmtNum, fmtRate, fmtPl, fmtSigned, fmtDate, statusLabel,
       selectStock, setInterval_, loadOrders, refreshAll, openCalc
