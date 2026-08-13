@@ -21,6 +21,12 @@ import java.util.*;
  * 헤더 없이 조회한다(get(path)만 사용, accountSeq 불필요). 응답 스키마가 중첩이 깊어 굳이 자바
  * 타입으로 다 옮겨적지 않고, "result"만 벗겨서 프론트에 그대로 넘긴다 — 프론트에서 필요한 필드만
  * 안전하게 꺼내 쓰도록 한다(중첩 필드명을 서버에서 하나하나 틀리게 옮겨 적어 배포가 깨지는 위험을 줄임).
+ *
+ * [주의] 종목별(HoldingsItem) marketValue/profitLoss는 그 종목 통화 단일 금액(amount: BigDecimal)이지만,
+ * 계좌 합계(HoldingsOverview)의 totalPurchaseAmount/marketValue/profitLoss는 원화·달러가 섞여있어서
+ * amount가 아니라 {krw, usd} 두 값으로 따로 내려온다(Price 타입) — 처음에 이 차이를 놓쳐서 합계가 계속
+ * "-"로 보이던 버그가 있었음. 여기서는 실시간 환율(GET /api/v1/exchange-rate)로 달러를 원화 환산해
+ * 하나의 원화 합계로 합쳐서 반환한다.
  */
 @Service
 public class TossPortfolioService {
@@ -74,9 +80,24 @@ public class TossPortfolioService {
         return cachedAccountSeq;
     }
 
+    /** USD→KRW 환율(매수 환율). 실패 시 null — 그 경우 달러 보유분은 합계에서 제외된다(0 취급 대신 아예 계산 생략은 과함이라, 최소한 원화분만이라도 보여줌). */
+    private Double fetchUsdToKrw() {
+        Map<String, Object> raw = unwrap(toss.get("/api/v1/exchange-rate?baseCurrency=USD&quoteCurrency=KRW"));
+        return raw != null ? num(raw.get("rate")) : null;
+    }
+
+    /** Price 타입({krw, usd}) 하나를 환율로 원화 환산해 합산한다. */
+    private double toKrwTotal(Map<String, Object> priceObj, Double usdToKrw) {
+        if (priceObj == null) return 0;
+        double krw = Optional.ofNullable(num(priceObj.get("krw"))).orElse(0.0);
+        Double usd = num(priceObj.get("usd"));
+        if (usd != null && usdToKrw != null) krw += usd * usdToKrw;
+        return krw;
+    }
+
     /**
-     * 보유 종목 + 계좌 전체 요약(투자원금/평가금액/손익). GET /api/v1/holdings.
-     * 손익률(rate)은 소수비율로 내려오므로 ×100 해서 % 단위로 정규화해 반환한다.
+     * 보유 종목 + 계좌 전체 요약(투자원금/평가금액/손익, 원화 환산 합계). GET /api/v1/holdings.
+     * 종목별 손익률(rate)은 소수비율로 내려오므로 ×100 해서 % 단위로 정규화해 반환한다.
      */
     @SuppressWarnings("unchecked")
     public Map<String, Object> getHoldings() {
@@ -94,9 +115,16 @@ public class TossPortfolioService {
             return result;
         }
 
-        Map<String, Object> totalProfitLoss = (Map<String, Object>) raw.get("profitLoss");
-        Map<String, Object> totalMarketValue = (Map<String, Object>) raw.get("marketValue");
-        Map<String, Object> totalPurchase = (Map<String, Object>) raw.get("totalPurchaseAmount");
+        Double usdToKrw = fetchUsdToKrw();
+
+        // 계좌 합계 — totalPurchaseAmount는 Price 그 자체, marketValue/profitLoss는 한 단계 더 감싸져
+        // {amount: Price, ...} 구조라 계좌합계용 파싱은 종목별 파싱과 다르게 짜야 한다.
+        Map<String, Object> totalPurchasePrice = (Map<String, Object>) raw.get("totalPurchaseAmount");
+        Map<String, Object> overviewMarketValue = (Map<String, Object>) raw.get("marketValue");
+        Map<String, Object> overviewProfitLoss = (Map<String, Object>) raw.get("profitLoss");
+        Map<String, Object> marketValuePrice = overviewMarketValue != null ? (Map<String, Object>) overviewMarketValue.get("amount") : null;
+        Map<String, Object> profitLossPrice = overviewProfitLoss != null ? (Map<String, Object>) overviewProfitLoss.get("amount") : null;
+        Double overviewRate = overviewProfitLoss != null ? num(overviewProfitLoss.get("rate")) : null;
 
         List<Map<String, Object>> items = new ArrayList<>();
         for (Object o : (List<Object>) raw.getOrDefault("items", List.of())) {
@@ -126,11 +154,10 @@ public class TossPortfolioService {
 
         result.put("available", true);
         result.put("accountNo", cachedAccountNo);
-        result.put("totalPurchaseAmount", totalPurchase != null ? num(totalPurchase.get("amount")) : null);
-        result.put("totalMarketValue", totalMarketValue != null ? num(totalMarketValue.get("amount")) : null);
-        result.put("totalProfitLossAmount", totalProfitLoss != null ? num(totalProfitLoss.get("amount")) : null);
-        Double totalRate = totalProfitLoss != null ? num(totalProfitLoss.get("rate")) : null;
-        result.put("totalProfitLossRate", totalRate != null ? Math.round(totalRate * 10000.0) / 100.0 : null);
+        result.put("totalPurchaseAmount", toKrwTotal(totalPurchasePrice, usdToKrw));
+        result.put("totalMarketValue", toKrwTotal(marketValuePrice, usdToKrw));
+        result.put("totalProfitLossAmount", toKrwTotal(profitLossPrice, usdToKrw));
+        result.put("totalProfitLossRate", overviewRate != null ? Math.round(overviewRate * 10000.0) / 100.0 : null);
         result.put("items", items);
         return result;
     }
@@ -181,10 +208,11 @@ public class TossPortfolioService {
         return result;
     }
 
-    /** 일봉 차트. GET /api/v1/candles. 최근 count개(최대 200). */
-    public Map<String, Object> getChart(String symbol, int count) {
+    /** 캔들 차트. GET /api/v1/candles. interval: 1m 또는 1d(토스 API가 지원하는 값은 이 둘뿐). 최근 count개(최대 200). */
+    public Map<String, Object> getChart(String symbol, String interval, int count) {
         Map<String, Object> result = new LinkedHashMap<>();
-        Map<String, Object> raw = unwrap(toss.get("/api/v1/candles?symbol=" + symbol + "&interval=1d&count=" + Math.min(count, 200)));
+        String iv = "1m".equals(interval) ? "1m" : "1d";
+        Map<String, Object> raw = unwrap(toss.get("/api/v1/candles?symbol=" + symbol + "&interval=" + iv + "&count=" + Math.min(count, 200)));
         if (raw == null) {
             result.put("available", false);
             result.put("message", "차트 데이터를 가져오지 못했습니다.");
