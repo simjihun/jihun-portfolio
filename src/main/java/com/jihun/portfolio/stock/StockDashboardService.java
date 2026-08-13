@@ -13,13 +13,14 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 
 /**
  * 주식 대시보드 서비스 — 토스증권 Open API + 업비트(BTC) + Gemini(AI 브리핑).
  *
  * 보호장치 3중:
  *  1) TossApiClient 전역 스로틀(300ms 간격) + 429 재시도
- *  2) TTL 캐시: 지표/랭킹 60초, 수급 10분, 캘린더 12시간(서버 재시작 시에도 새로 채워짐), AI 브리핑 12시간(실패 시 10분 후 재시도), 종목마스터 24시간, 종목별 AI 요약 12시간
+ *  2) TTL 캐시: 지표/랭킹 60초, 수급 10분, 캘린더 12시간(서버 재시작 시에도 새로 채워짐), AI 브리핑 12시간(실패 시 10분 후 재시도), 종목마스터 24시간, 종목별 AI 요약 12시간, 종목 전체 목록(검색용) 24시간
  *  3) 요청 병합: cached()가 동기화되어 같은 데이터를 동시에 중복 로드하지 않음
  *
  * 스키마(공식 문서 확인):
@@ -31,6 +32,8 @@ import java.util.concurrent.ConcurrentHashMap;
  *  - exchange-rate: baseCurrency=USD&quoteCurrency=KRW 필수. 등락률 필드가 없어 자체 수집 이력으로 당일 대비를 계산한다.
  *  - 캘린더는 전일/당일/익일 3영업일만 반환한다(토스 API 자체 제약) — 프론트가 향후 7일을 훑어도 실제로는
  *    최대 1영업일치 휴장 정보만 나올 수 있다. 더 긴 범위를 원하면 별도 공휴일 데이터가 필요하다.
+ *  - 종목명 검색: 토스 API에는 이름 기반 검색 엔드포인트가 따로 없어, 마켓별 전체 종목 목록
+ *    (GET /api/v1/stocks/all, symbol+name)을 24시간 캐시해두고 그 안에서 부분 문자열로 직접 찾는다.
  */
 @Service
 public class StockDashboardService {
@@ -373,6 +376,150 @@ public class StockDashboardService {
             result.put("updatedAt", System.currentTimeMillis());
             return result;
         });
+    }
+
+    /* ===================== 종목 검색 · 즐겨찾기 시세 조회 =====================
+     * 로그인 기능이 없는 공개 페이지라 즐겨찾기는 서버가 아니라 브라우저(localStorage)에 저장한다
+     * (IP나 쿠키로 사용자를 구분하는 건 오해의 소지가 크다 — IP는 같은 와이파이·사무실에서 겹치고,
+     * 쿠키도 결국 이 브라우저에서만 유효해 localStorage와 실질적 차이가 없다). 서버는 "이 심볼들의
+     * 최신 시세를 달라"는 조회만 담당한다.
+     */
+
+    /**
+     * 마켓별 전체 종목 목록(symbol+name). 종목명 자체는 거의 안 바뀌므로 24시간 캐시.
+     * 토스 API에 이름 검색 엔드포인트가 따로 없어, 이 목록을 통째로 받아 서버 메모리에서
+     * 부분 문자열로 직접 찾는 방식으로 검색을 구현한다.
+     */
+    @SuppressWarnings("unchecked")
+    private List<Map<String, Object>> stockUniverse(String country) {
+        String key = "universe:" + country;
+        List<Map<String, Object>> result = cached(key, 24 * 3600_000, () -> {
+            Map<String, Object> raw = toss.get("/api/v1/stocks/all?marketCountry=" + country);
+            List<Map<String, Object>> list = listOf(raw, "stocks", "items", "list");
+            List<Map<String, Object>> out = new ArrayList<>();
+            for (Map<String, Object> s : list) {
+                String sym = pickStr(s, "symbol");
+                String name = pickStr(s, "name");
+                if (sym == null || name == null) continue;
+                Map<String, Object> n = new HashMap<>();
+                n.put("symbol", sym);
+                n.put("name", name);
+                out.add(n);
+            }
+            return out.isEmpty() ? null : out;
+        });
+        return result == null ? List.of() : result;
+    }
+
+    /** 여러 심볼의 현재가를 한 번에 조회(배치 호출). */
+    private Map<String, Double> fetchPrices(List<String> symbols, String country) {
+        if (symbols.isEmpty()) return Map.of();
+        Map<String, Object> raw = toss.get("/api/v1/prices?symbols=" + String.join(",", symbols));
+        Map<String, Double> out = new HashMap<>();
+        for (Map<String, Object> p : listOf(raw, "prices", "items", "list")) {
+            String sym = pickStr(p, "symbol");
+            Double last = pickNum(p, "lastPrice", "close", "price");
+            if (sym != null) out.put(sym, last);
+        }
+        return out;
+    }
+
+    /** 일봉 2개(전일·당일)로 전일 대비 등락률을 계산 — PriceResponse엔 등락률 필드가 없어서(위 클래스 설명 참고)
+     *  검색·즐겨찾기처럼 종목 수가 적은 곳에서만 종목당 1회씩 호출한다(랭킹처럼 30개씩 매 60초 부르면 과함). */
+    private Double fetchDailyChangeRate(String symbol) {
+        List<Double> daily = closesOf(toss.get("/api/v1/candles?symbol=" + symbol + "&interval=1d&count=2"));
+        if (daily == null || daily.size() < 2) return null;
+        double last = daily.get(daily.size() - 1);
+        double prev = daily.get(daily.size() - 2);
+        if (prev == 0) return null;
+        return (last - prev) / prev * 100;
+    }
+
+    /** matched 종목 목록에 현재가·등락률·시가총액을 붙여 랭킹 행과 동일한 모양으로 만든다. */
+    private List<Map<String, Object>> enrichQuotes(List<Map<String, Object>> matched, String country) {
+        if (matched.isEmpty()) return List.of();
+        List<String> symbols = matched.stream().map(s -> (String) s.get("symbol")).toList();
+        Map<String, Double> prices = fetchPrices(symbols, country);
+        Map<String, Map<String, Object>> master = stockMaster(symbols);
+        if (master == null) master = Map.of();
+        String currency = "US".equals(country) ? "USD" : "KRW";
+
+        List<Map<String, Object>> results = new ArrayList<>();
+        for (Map<String, Object> s : matched) {
+            String sym = (String) s.get("symbol");
+            Double price = prices.get(sym);
+            Double changeRate = fetchDailyChangeRate(sym);
+            Map<String, Object> info = master.get(sym);
+            Double shares = info == null ? null : pickNum(info, "sharesOutstanding");
+            String name = (String) s.get("name");
+            if (name == null && info != null) name = pickStr(info, "name");
+
+            Map<String, Object> n = new HashMap<>();
+            n.put("symbol", sym);
+            n.put("name", name);
+            n.put("price", price);
+            n.put("changeRate", changeRate);
+            n.put("marketCap", (shares != null && price != null) ? shares * price : null);
+            n.put("currency", currency);
+            results.add(n);
+        }
+        return results;
+    }
+
+    /**
+     * 종목명(부분 문자열) 검색. 심볼로도 매칭한다. 결과가 많을 수 있어 이름이 검색어로 시작하는
+     * 항목을 우선하고 최대 10개만 시세를 붙여 반환한다(시세 조회가 종목당 API 호출을 유발하므로
+     * 너무 많이 붙이지 않는다).
+     */
+    public Map<String, Object> searchStocks(String query, String country) {
+        String c = "US".equalsIgnoreCase(country) ? "US" : "KR";
+        String q = query == null ? "" : query.trim();
+        Map<String, Object> empty = new HashMap<>();
+        empty.put("results", List.of());
+        if (q.isEmpty()) return empty;
+
+        String qLower = q.toLowerCase(Locale.ROOT);
+        List<Map<String, Object>> matched = stockUniverse(c).stream()
+                .filter(s -> {
+                    String name = (String) s.get("name");
+                    String sym = (String) s.get("symbol");
+                    return (name != null && name.toLowerCase(Locale.ROOT).contains(qLower))
+                            || (sym != null && sym.toLowerCase(Locale.ROOT).contains(qLower));
+                })
+                .sorted((a, b) -> {
+                    String an = String.valueOf(a.get("name"));
+                    String bn = String.valueOf(b.get("name"));
+                    boolean aStarts = an.toLowerCase(Locale.ROOT).startsWith(qLower);
+                    boolean bStarts = bn.toLowerCase(Locale.ROOT).startsWith(qLower);
+                    if (aStarts != bStarts) return aStarts ? -1 : 1;
+                    return Integer.compare(an.length(), bn.length()); // 더 짧은 이름(더 정확한 매치일 가능성)을 우선
+                })
+                .limit(10)
+                .collect(Collectors.toList());
+
+        if (matched.isEmpty()) return empty;
+        Map<String, Object> result = new HashMap<>();
+        result.put("results", enrichQuotes(matched, c));
+        return result;
+    }
+
+    /** 즐겨찾기 화면용 — 브라우저가 들고 있는 심볼 목록의 최신 시세를 한 번에 돌려준다. */
+    public Map<String, Object> getQuotes(List<String> symbols, String country) {
+        String c = "US".equalsIgnoreCase(country) ? "US" : "KR";
+        List<Map<String, Object>> matched = symbols.stream()
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .distinct()
+                .map(sym -> {
+                    Map<String, Object> m = new HashMap<>();
+                    m.put("symbol", sym);
+                    m.put("name", null);
+                    return m;
+                })
+                .collect(Collectors.toList());
+        Map<String, Object> result = new HashMap<>();
+        result.put("results", enrichQuotes(matched, c));
+        return result;
     }
 
     /* ===================== 종목별 AI 요약 (온디맨드) ===================== */
