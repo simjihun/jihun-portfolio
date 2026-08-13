@@ -7,7 +7,7 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/vue@3.4.21/dist/vue.global.prod.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js"></script>
 <link rel="stylesheet" href="/css/base.css">
 <style>
 .up{color:#f04452}
@@ -56,7 +56,7 @@ main{max-width:1400px}
 .holding-item .right{text-align:right}
 .holding-item .mv{font-family:var(--mono);font-size:13px;font-weight:600}
 .holding-item .pl{font-family:var(--mono);font-size:11.5px}
-.calc-btn{width:26px;height:26px;border-radius:7px;border:1px solid var(--line);background:var(--panel-2);color:var(--mut);font-size:13px;cursor:pointer;flex:none}
+.calc-btn{width:26px;height:26px;border-radius:7px;border:1px solid var(--line);background:var(--panel-2);color:var(--mut);cursor:pointer;flex:none;display:grid;place-items:center}
 .calc-btn:hover{color:var(--amber);border-color:var(--amber)}
 
 .order-filter{display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap}
@@ -76,7 +76,7 @@ main{max-width:1400px}
 /* ===== 계산기 모달 ===== */
 .modal-bg{position:fixed;inset:0;background:rgba(5,8,15,.75);z-index:300;display:none;place-items:center;padding:20px}
 .modal-bg.show{display:grid}
-.calc-modal{background:var(--panel);border:1px solid var(--line);border-radius:14px;max-width:460px;width:100%;padding:22px;max-height:88vh;overflow-y:auto}
+.calc-modal{background:var(--panel);border:1px solid var(--line);border-radius:14px;max-width:560px;width:100%;padding:22px;max-height:88vh;overflow-y:auto}
 .calc-modal h3{font-size:16px;margin-bottom:4px}
 .calc-modal .sym{font-family:var(--mono);font-size:11.5px;color:var(--dim);margin-bottom:16px}
 .modal-close{float:right;background:none;border:1px solid var(--line);color:var(--mut);width:28px;height:28px;border-radius:8px;cursor:pointer}
@@ -85,10 +85,13 @@ main{max-width:1400px}
 .mode-toggle{display:flex;gap:6px;margin-bottom:10px}
 .mode-toggle button{flex:1;padding:6px;border-radius:7px;border:1px solid var(--line);background:transparent;color:var(--mut);font-size:12px;cursor:pointer}
 .mode-toggle button.on{background:rgba(242,169,59,.12);border-color:var(--amber);color:var(--amber)}
-.calc-result-box{background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin-top:10px}
+/* 요청사항: 입력(왼쪽) / 결과(오른쪽) 2분할 */
+.calc-2col{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start}
+@media (max-width:460px){ .calc-2col{grid-template-columns:1fr} }
+.calc-result-box{background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:12px 14px;height:100%}
 .calc-result-box .row{display:flex;justify-content:space-between;padding:5px 0;font-size:13px;border-bottom:1px solid var(--line)}
 .calc-result-box .row:last-child{border-bottom:0}
-.calc-result-box .row span:last-child{font-family:var(--mono);font-weight:600}
+.calc-result-box .row span:last-child{font-family:var(--mono);font-weight:600;text-align:right}
 </style>
 </head>
 <body style="padding-top:0">
@@ -131,7 +134,7 @@ main{max-width:1400px}
           </div>
 
           <div class="chart-orderbook-split">
-            <div class="chart-wrap-lg"><canvas ref="chartCanvas"></canvas></div>
+            <div class="chart-wrap-lg" ref="chartContainer"></div>
             <div>
               <div style="font-size:11.5px;color:var(--dim);margin-bottom:6px">호가</div>
               <div v-if="!orderbook"><div class="empty">불러오는 중...</div></div>
@@ -196,7 +199,15 @@ main{max-width:1400px}
               <div class="mv">{{ fmtMoney(it.marketValue, it.currency) }}</div>
               <div class="pl" v-html="fmtPl(it.profitLossAmount, it.profitLossRate, it.currency)"></div>
             </div>
-            <button class="calc-btn" title="계산기" @click.stop="openCalc(it)">🧮</button>
+            <button class="calc-btn" title="계산기" @click.stop="openCalc(it)">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="4" y="2" width="16" height="20" rx="2"/>
+                <line x1="8" y1="6" x2="16" y2="6"/>
+                <line x1="8" y1="11" x2="8" y2="11"/><line x1="12" y1="11" x2="12" y2="11"/><line x1="16" y1="11" x2="16" y2="11"/>
+                <line x1="8" y1="15" x2="8" y2="15"/><line x1="12" y1="15" x2="12" y2="15"/><line x1="16" y1="15" x2="16" y2="15"/>
+                <line x1="8" y1="19" x2="8" y2="19"/><line x1="12" y1="19" x2="12" y2="19"/><line x1="16" y1="19" x2="16" y2="19"/>
+              </svg>
+            </button>
           </div>
         </div>
 
@@ -230,12 +241,12 @@ main{max-width:1400px}
 
     <div style="font-size:11.5px;color:var(--dim);margin-top:14px">국내 주식은 KRX 정규장 외에 넥스트(NXT) 대체거래소 시간대가 별도로 있고, 미국 주식은 프리마켓·정규장·애프터마켓 3단계로 나뉩니다. 가격·호가는 30초마다 자동 갱신됩니다(토스 API 초당 호출 한도 대비 여유 있게 설정).</div>
 
-    <!-- ===== 계산기 모달 ===== -->
-    <div class="modal-bg" :class="{show: calcTarget}" @click.self="calcTarget=null">
+    <!-- ===== 계산기 모달 — X버튼/ESC로만 닫힘(바깥 클릭으로는 안 닫힘: 드래그로 값 수정하다 실수로 닫히는 것 방지) ===== -->
+    <div class="modal-bg" :class="{show: calcTarget}">
       <div class="calc-modal" v-if="calcTarget">
         <button class="modal-close" @click="calcTarget=null">✕</button>
         <h3>{{ calcTarget.name }}</h3>
-        <div class="sym">{{ calcTarget.symbol }} · 보유 {{ calcTarget.quantity }}주 · 평단 {{ fmtMoney(calcTarget.averagePurchasePrice, calcTarget.currency) }}</div>
+        <div class="sym">{{ calcTarget.symbol }} · 보유 {{ fmtQty(calcTarget.quantity) }}주 · 평단 {{ fmtMoney(calcTarget.averagePurchasePrice, calcTarget.currency) }}</div>
 
         <div class="calc-section">
           <h4>물타기 계산기</h4>
@@ -243,32 +254,39 @@ main{max-width:1400px}
             <button :class="{on: calcMode==='qty'}" @click="calcMode='qty'">수량으로 입력</button>
             <button :class="{on: calcMode==='amount'}" @click="calcMode='amount'">금액으로 입력</button>
           </div>
-          <label>추가 매수 가격</label>
-          <input type="number" v-model.number="calc.addPrice" min="0" step="any">
-          <template v-if="calcMode==='qty'">
-            <label>추가 매수 수량</label>
-            <input type="number" v-model.number="calc.addQty" min="0" step="any">
-          </template>
-          <template v-else>
-            <label>추가 매수 금액</label>
-            <input type="number" v-model.number="calc.addAmount" min="0" step="any" placeholder="예: 1000000">
-          </template>
-          <div class="calc-result-box">
-            <div class="row"><span>추가 매수 수량</span><span>{{ calcResult.effectiveQty.toFixed(2) }}주</span></div>
-            <div class="row"><span>총 보유 수량</span><span>{{ calcResult.totalQty.toFixed(2) }}주</span></div>
-            <div class="row"><span>새 평단가</span><span>{{ fmtMoney(calcResult.newAvg, calcTarget.currency) }}</span></div>
-            <div class="row"><span>평단가 변화</span><span v-html="fmtRate(calcResult.changeRate)"></span></div>
+          <div class="calc-2col">
+            <div>
+              <label style="margin-top:0">추가 매수 가격</label>
+              <input type="number" v-model.number="calc.addPrice" min="0" step="any">
+              <template v-if="calcMode==='qty'">
+                <label>추가 매수 수량</label>
+                <input type="number" v-model.number="calc.addQty" min="0" step="1">
+              </template>
+              <template v-else>
+                <label>추가 매수 금액</label>
+                <input type="number" v-model.number="calc.addAmount" min="0" step="any" placeholder="예: 1000000">
+              </template>
+            </div>
+            <div class="calc-result-box">
+              <div class="row"><span>추가 매수 수량</span><span>{{ fmtQty(calcResult.effectiveQty) }}주</span></div>
+              <div class="row"><span>평단가</span><span>{{ fmtMoney(calcResult.newAvg, calcTarget.currency) }}</span></div>
+              <div class="row"><span>평단가 변화</span><span v-html="fmtRate(calcResult.changeRate)"></span></div>
+              <div class="row"><span>총 보유 수량</span><span>{{ fmtQty(calcResult.totalQty) }}주</span></div>
+            </div>
           </div>
         </div>
 
         <div class="calc-section">
-          <h4>예상 수익 계산기 (현재 보유 {{ calcTarget.quantity }}주 기준)</h4>
-          <label>목표가</label>
-          <input type="number" v-model.number="profitCalc.targetPrice" min="0" step="any">
-          <div class="calc-result-box">
-            <div class="row"><span>예상 평가금액</span><span>{{ fmtMoney(profitResult.marketValue, calcTarget.currency) }}</span></div>
-            <div class="row"><span>예상 손익금액</span><span>{{ fmtMoney(profitResult.plAmount, calcTarget.currency) }}</span></div>
-            <div class="row"><span>예상 수익률</span><span v-html="fmtRate(profitResult.plRate)"></span></div>
+          <h4>예상 수익 계산기 (현재 보유 {{ fmtQty(calcTarget.quantity) }}주 기준)</h4>
+          <div class="calc-2col">
+            <div>
+              <label style="margin-top:0">목표가</label>
+              <input type="number" v-model.number="profitCalc.targetPrice" min="0" step="any">
+            </div>
+            <div class="calc-result-box">
+              <div class="row"><span>예상 평가금액</span><span>{{ fmtMoney(profitResult.marketValue, calcTarget.currency) }}</span></div>
+              <div class="row"><span>예상 손익</span><span v-html="fmtPl(profitResult.plAmount, profitResult.plRate, calcTarget.currency)"></span></div>
+            </div>
           </div>
         </div>
       </div>
@@ -300,8 +318,10 @@ createApp({
     const ordersLoaded = ref(false);
     const orderTab = ref('CLOSED');
     const statusFilter = reactive({ FILLED: true, CANCELED: false, REJECTED: false, ETC: false });
-    const chartCanvas = ref(null);
-    let chartInstance = null;
+    const chartContainer = ref(null);
+    let chartHandle = null; // lightweight-charts 인스턴스
+    let candleSeries = null;
+    let minuteCandlesTemp = [];
     let autoRefreshTimer = null;
 
     const calcTarget = ref(null);
@@ -316,6 +336,8 @@ createApp({
       const suffix = currency === 'USD' ? '' : '원';
       return symbol + Math.round(v).toLocaleString('ko-KR') + suffix;
     }
+    // 요청사항: 주식 수량은 소수점 없이 정수로만 표시(1주 단위 거래)
+    function fmtQty(v){ return v == null ? '-' : Math.round(v).toLocaleString('ko-KR'); }
     function fmtNum(v){ return v == null ? '-' : Number(v).toLocaleString('ko-KR'); }
     function fmtRate(v){
       if (v == null) return '-';
@@ -389,44 +411,66 @@ createApp({
       await nextTick();
       drawChart();
     }
-    let minuteCandlesTemp = [];
 
-    function monthlyCandles(){
+    /** 1일봉 캐시를 월 단위로 집계해 진짜 OHLC 월봉을 만든다(시가=그달 첫날 시가, 고가/저가=그달 최고/최저, 종가=그달 마지막날 종가). */
+    function monthlyCandlesOHLC(){
       const map = new Map();
-      for (const c of [...dailyCandlesCache.value].reverse()) { // 시간순
+      for (const c of [...dailyCandlesCache.value].reverse()) { // 오래된 날짜부터
         const ym = (c.timestamp || '').substring(0, 7);
-        map.set(ym, c); // 그 달의 마지막 봉으로 계속 덮어씀
+        if (!map.has(ym)) {
+          map.set(ym, { time: ym + '-01', open: c.openPrice, high: c.highPrice, low: c.lowPrice, close: c.closePrice });
+        } else {
+          const e = map.get(ym);
+          e.high = Math.max(e.high, c.highPrice);
+          e.low = Math.min(e.low, c.lowPrice);
+          e.close = c.closePrice; // 시간순으로 덮어써서 마지막 값이 그달 마지막 종가가 됨
+        }
       }
-      return [...map.entries()].map(([ym, c]) => ({ timestamp: ym, closePrice: c.closePrice }));
+      return [...map.values()];
+    }
+
+    function toCandleSeriesData(candles, intraday){
+      return [...candles].reverse().map(c => ({
+        time: intraday ? Math.floor(new Date(c.timestamp).getTime() / 1000) : (c.timestamp || '').substring(0, 10),
+        open: c.openPrice, high: c.highPrice, low: c.lowPrice, close: c.closePrice
+      }));
+    }
+
+    function ensureChart(){
+      if (chartHandle) return;
+      if (!chartContainer.value) return;
+      chartHandle = LightweightCharts.createChart(chartContainer.value, {
+        width: chartContainer.value.clientWidth,
+        height: 280,
+        layout: { background: { color: 'transparent' }, textColor: '#7E8DA9', fontFamily: "'JetBrains Mono',monospace" },
+        grid: { vertLines: { color: '#1a2233' }, horzLines: { color: '#1a2233' } },
+        timeScale: { borderColor: '#243149' },
+        rightPriceScale: { borderColor: '#243149' },
+        crosshair: { mode: 0 }
+      });
+      candleSeries = chartHandle.addCandlestickSeries({
+        upColor: '#f04452', downColor: '#3182f6', borderVisible: false,
+        wickUpColor: '#f04452', wickDownColor: '#3182f6'
+      });
+      window.addEventListener('resize', () => {
+        if (chartHandle && chartContainer.value) chartHandle.applyOptions({ width: chartContainer.value.clientWidth });
+      });
     }
 
     function drawChart(){
-      if (chartInstance) { chartInstance.destroy(); chartInstance = null; }
-      if (!chartCanvas.value) return;
-      let labels, closes;
+      ensureChart();
+      if (!candleSeries) return;
+      let data;
       if (chartInterval.value === '1m') {
-        const c = minuteCandlesTemp || [];
-        labels = c.map(x => (x.timestamp||'').substring(11,16)).reverse();
-        closes = c.map(x => x.closePrice).reverse();
+        data = toCandleSeriesData(minuteCandlesTemp || [], true);
       } else if (chartInterval.value === '1mo') {
-        const m = monthlyCandles();
-        labels = m.map(x => x.timestamp);
-        closes = m.map(x => x.closePrice);
+        data = monthlyCandlesOHLC();
       } else {
-        const c = dailyCandlesCache.value || [];
-        labels = c.map(x => (x.timestamp||'').substring(5,10)).reverse();
-        closes = c.map(x => x.closePrice).reverse();
+        data = toCandleSeriesData(dailyCandlesCache.value || [], false);
       }
-      if (!closes.length) return;
-      Chart.defaults.color = '#7E8DA9';
-      Chart.defaults.borderColor = '#243149';
-      Chart.defaults.font.family = "'JetBrains Mono',monospace";
-      Chart.defaults.font.size = 10;
-      chartInstance = new Chart(chartCanvas.value, {
-        type: 'line',
-        data: { labels, datasets: [{ data: closes, borderColor: '#F2A93B', backgroundColor: 'rgba(242,169,59,.12)', fill: true, pointRadius: 0, borderWidth: 1.5, tension: .15 }] },
-        options: { responsive: true, maintainAspectRatio: false, animation: false, plugins: { legend: { display: false } }, scales: { x: { ticks: { maxTicksLimit: 8 } } } }
-      });
+      if (!data.length) return;
+      candleSeries.setData(data);
+      chartHandle.timeScale().fitContent();
     }
 
     async function loadOrders(){
@@ -461,7 +505,7 @@ createApp({
       }
     }
 
-    /* ===== 계산기 ===== */
+    /* ===== 계산기 — X 버튼 또는 ESC 키로만 닫힌다(바깥 클릭 닫기는 없음: 값 드래그 수정 중 실수로 닫히는 것 방지) ===== */
     function openCalc(item){
       calcTarget.value = item;
       calcMode.value = 'qty';
@@ -469,6 +513,9 @@ createApp({
       calc.addQty = 0;
       calc.addAmount = 0;
       profitCalc.targetPrice = item.lastPrice || 0;
+    }
+    function handleKeydown(e){
+      if (e.key === 'Escape' && calcTarget.value) calcTarget.value = null;
     }
     const calcResult = computed(() => {
       if (!calcTarget.value) return { effectiveQty: 0, totalQty: 0, newAvg: 0, changeRate: 0 };
@@ -494,6 +541,7 @@ createApp({
 
     onMounted(() => {
       loadHoldings();
+      window.addEventListener('keydown', handleKeydown);
       // 가격·호가는 30초마다 자동 갱신(초당 호출 한도 대비 여유), 그 외(차트·수급·공매도)는
       // 수동 갱신 버튼으로만 — 자주 안 바뀌는 데이터까지 매번 다시 부를 필요가 없어서.
       autoRefreshTimer = setInterval(async () => {
@@ -504,13 +552,16 @@ createApp({
         }
       }, 30_000);
     });
-    onUnmounted(() => { if (autoRefreshTimer) clearInterval(autoRefreshTimer); });
+    onUnmounted(() => {
+      if (autoRefreshTimer) clearInterval(autoRefreshTimer);
+      window.removeEventListener('keydown', handleKeydown);
+    });
 
     return {
       holdings, holdingsLoaded, selected, chartInterval, orderbook, investorTrading, shortSelling,
-      orders, ordersLoaded, orderTab, statusFilter, filteredOrders, chartCanvas,
+      orders, ordersLoaded, orderTab, statusFilter, filteredOrders, chartContainer,
       calcTarget, calcMode, calc, profitCalc, calcResult, profitResult,
-      fmtMoney, fmtNum, fmtRate, fmtPl, fmtSigned, fmtDate, statusLabel,
+      fmtMoney, fmtQty, fmtNum, fmtRate, fmtPl, fmtSigned, fmtDate, statusLabel,
       selectStock, setInterval_, loadOrders, refreshAll, openCalc
     };
   }
