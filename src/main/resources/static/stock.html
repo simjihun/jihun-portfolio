@@ -6,6 +6,8 @@
 <title>AI 주식 · hunit 포트폴리오</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/vue@3.4.21/dist/vue.global.prod.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js"></script>
 <link rel="stylesheet" href="/css/base.css">
 <style>
 .up{color:#f04452}   /* 토스 스타일: 상승=빨강 */
@@ -55,50 +57,68 @@
 .rank-controls{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
 .refresh-btn{margin-left:auto;display:flex;align-items:center;gap:8px;font-size:12px;color:var(--mut)}
 
-/* 왼쪽(순위~시가총액)은 촘촘하게, 오른쪽(산업/AI요약)은 구분선을 두고 여유있게 */
-.rank-table{width:100%;border-collapse:collapse;font-size:13.5px;min-width:760px}
+.rank-table{width:100%;border-collapse:collapse;font-size:13.5px;min-width:560px}
 .rank-table th{text-align:right;color:var(--dim);font-weight:600;font-size:12px;padding:8px 7px;border-bottom:1px solid var(--line);white-space:nowrap}
-.rank-table th:nth-child(1),.rank-table th:nth-child(2),.rank-table th:nth-child(7),.rank-table th:nth-child(8){text-align:left}
+.rank-table th:nth-child(1),.rank-table th:nth-child(2){text-align:left}
 .rank-table td{padding:8px 7px;border-bottom:1px solid var(--line);text-align:right;font-family:var(--mono);transition:background-color .5s}
 .rank-table td:nth-child(1){color:var(--dim);text-align:left;width:28px;padding-right:2px}
 .rank-table td:nth-child(2){text-align:left;font-family:inherit;font-weight:600;color:var(--ink);padding-right:12px}
 .rank-table td .sym{display:block;font-size:11px;color:var(--dim);font-weight:400}
-.rank-table td.c-industry{border-left:1px solid var(--line);padding-left:14px;text-align:left;font-family:inherit;font-size:12px;color:var(--mut);white-space:nowrap}
-.rank-table th:nth-child(7){border-left:1px solid var(--line);padding-left:14px}
-.rank-table td.c-ai{text-align:left;font-family:inherit}
 .rank-table tr{transition:transform .35s ease}
-.rank-table tr:hover td{background:rgba(255,255,255,.02)}
+.rank-table tbody tr{cursor:pointer}
+.rank-table tbody tr:hover td{background:rgba(255,255,255,.02)}
 .badge-rate{padding:2px 8px;border-radius:6px;font-weight:700;font-size:12.5px}
 .badge-rate.up{background:rgba(240,68,82,.12)}
 .badge-rate.down{background:rgba(49,130,246,.12)}
 .flash-up{background-color:rgba(240,68,82,.28) !important}
 .flash-down{background-color:rgba(49,130,246,.28) !important}
-.ai-btn{padding:4px 10px;border-radius:6px;border:1px solid var(--line);background:transparent;color:var(--mut);font-size:11.5px;cursor:pointer;white-space:nowrap}
-.ai-btn:hover{color:var(--amber);border-color:var(--amber)}
-.ai-tag{display:inline-block;padding:3px 9px;border-radius:6px;background:rgba(242,169,59,.12);color:var(--amber);font-size:11.5px;font-weight:600;cursor:pointer;white-space:nowrap}
-.ai-tag:hover{filter:brightness(1.1)}
 .empty-msg{padding:24px;text-align:center;color:var(--dim);font-size:13px}
 .disclaim{font-size:11.5px;color:var(--dim);margin-top:10px;line-height:1.6}
 
-/* ===== 종목 상세/AI 요약 팝업 ===== */
-.stock-modal-bg{position:fixed;inset:0;background:rgba(5,8,15,.72);display:none;place-items:center;z-index:300;padding:20px}
-.stock-modal-bg.show{display:grid}
-.stock-modal{background:var(--panel);border:1px solid var(--line);border-radius:14px;max-width:440px;width:100%;position:relative;padding:22px 22px 18px}
-.stock-modal .modal-x{position:absolute;top:10px;right:10px;width:30px;height:30px;border-radius:8px;border:0;background:transparent;color:var(--mut);font-size:15px;cursor:pointer}
-.stock-modal .modal-x:hover{color:var(--ink)}
-.sm-head{display:flex;align-items:baseline;gap:8px;margin-bottom:4px}
-.sm-head b{font-size:17px}
-.sm-head .sym{font-family:var(--mono);font-size:12px;color:var(--dim)}
-.sm-price{font-family:var(--mono);font-size:20px;font-weight:700;margin:6px 0 2px}
-.sm-meta{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:14px 0;font-size:12.5px}
-.sm-meta div{background:var(--panel-2);border:1px solid var(--line);border-radius:8px;padding:8px 10px}
-.sm-meta .k{color:var(--dim);font-size:11px;margin-bottom:3px}
-.sm-meta .v{font-family:var(--mono);font-weight:600;color:var(--ink)}
-.sm-ai{background:var(--panel-2);border:1px solid var(--line);border-left:3px solid var(--amber);border-radius:8px;padding:12px 14px;font-size:13px;line-height:1.75;color:var(--ink);min-height:60px}
-.sm-ai .tag{display:inline-block;font-size:11px;font-weight:700;color:var(--amber);margin-bottom:6px}
-.sm-loading{color:var(--dim);font-size:12.5px;text-align:center;padding:14px 0}
-.sm-fallback-link{display:inline-block;margin-top:8px;padding:7px 14px;border-radius:7px;background:var(--amber);color:#131A2A;font-size:12.5px;font-weight:700}
-.sm-disclaim{font-size:11px;color:var(--dim);margin-top:10px}
+/* ===== 종목 상세(차트·호가·수급·공매도) 팝업 — Vue로 독립 렌더링, 페이지 나머지와 데이터/DOM 공유 없음 ===== */
+.quote-modal-bg{position:fixed;inset:0;background:rgba(5,8,15,.72);display:none;place-items:center;z-index:300;padding:20px}
+.quote-modal-bg.show{display:grid}
+.quote-modal{background:var(--panel);border:1px solid var(--line);border-radius:14px;max-width:900px;width:100%;max-height:92vh;overflow-y:auto;position:relative;padding:22px}
+.quote-modal .modal-x{position:absolute;top:12px;right:12px;width:30px;height:30px;border-radius:8px;border:1px solid var(--line);background:transparent;color:var(--mut);font-size:14px;cursor:pointer;z-index:2}
+.quote-modal .modal-x:hover{color:var(--ink)}
+.q-head{display:flex;align-items:baseline;gap:10px;margin-bottom:2px;flex-wrap:wrap;padding-right:36px}
+.q-head h2{font-size:18px}
+.q-head .sym{font-family:var(--mono);font-size:12px;color:var(--dim)}
+.q-price{font-family:var(--mono);font-size:22px;font-weight:700;margin:4px 0 2px}
+.q-change{font-size:13px;color:var(--mut);margin-bottom:10px;display:block}
+.q-change .up,.q-change .down{font-family:var(--mono);font-weight:600}
+.q-interval-tabs{display:flex;gap:6px;margin-bottom:10px;align-items:center;flex-wrap:wrap}
+.q-interval-tab{padding:5px 12px;border-radius:7px;border:1px solid var(--line);background:transparent;color:var(--mut);font-size:12.5px;cursor:pointer}
+.q-interval-tab.on{background:rgba(242,169,59,.12);border-color:var(--amber);color:var(--amber);font-weight:600}
+.q-minute-select{width:auto;padding:5px 8px;border-radius:7px;border:1px solid var(--line);background:var(--panel-2);color:var(--amber);font-size:12.5px;font-family:var(--mono)}
+.q-ma-legend{display:flex;gap:12px;font-size:11px;margin-bottom:6px;color:var(--dim);align-items:center;flex-wrap:wrap}
+.q-ma-legend span{display:flex;align-items:center;gap:4px}
+.q-ma-legend i{width:10px;height:2px;display:inline-block}
+.q-refresh{padding:4px 10px;border-radius:6px;border:1px solid var(--line);background:transparent;color:var(--mut);font-size:11px;cursor:pointer;margin-left:auto}
+.q-refresh:hover{color:var(--amber);border-color:var(--amber)}
+.q-chart-ob-grid{display:grid;grid-template-columns:1fr 260px;gap:14px;align-items:stretch;margin-bottom:14px}
+@media (max-width:720px){ .q-chart-ob-grid{grid-template-columns:1fr} }
+.q-chart-wrap{height:280px;background:var(--panel-2);border:1px solid var(--line);border-radius:10px}
+.q-ob-panel{background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:12px}
+.q-ob-title{font-size:11.5px;color:var(--dim);margin-bottom:6px}
+.q-ob-row{display:grid;grid-template-columns:1fr 64px 1fr;font-family:var(--mono);font-size:11.5px;padding:3px 0;align-items:center;border-bottom:1px solid var(--line)}
+.q-ob-row .oq{color:var(--dim)}
+.q-ob-row .oq.ask{text-align:right;padding-right:8px;color:var(--blue)}
+.q-ob-row .oq.bid{text-align:left;padding-left:8px;color:var(--red)}
+.q-ob-row .op{text-align:center;font-weight:700}
+.q-ob-row .op.ask{color:var(--blue)}
+.q-ob-row .op.bid{color:var(--red)}
+.q-ob-sep{border-top:1px solid var(--line);border-bottom:1px solid var(--line);margin:5px 0}
+.q-ob-info{margin-top:8px}
+.q-ob-info-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:6px 0;border-top:1px solid var(--line)}
+.q-ob-info-cell{display:flex;justify-content:space-between;align-items:center;font-size:11.5px;color:var(--mut)}
+.q-ob-info-cell span:last-child{color:#e8ecf3;font-family:var(--mono);font-weight:600}
+.q-section{margin-bottom:14px}
+.q-section h3{font-size:14px;margin-bottom:8px}
+.q-table{font-size:12px;width:100%;table-layout:fixed}
+.q-table th,.q-table td{padding:6px 8px;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border-bottom:1px solid var(--line)}
+.q-table th:first-child,.q-table td:first-child{text-align:left}
+.q-disclaim{font-size:11px;color:var(--dim);margin-top:6px}
 </style>
 </head>
 <body>
@@ -107,7 +127,7 @@
 <main>
   <header class="page"><h1>📈 AI 주식</h1></header>
   <div class="skill-row">
-    <span>Java</span><span>Spring Boot</span><span>토스증권 Open API(OAuth2)</span><span>업비트 Open API</span><span>Gemini API</span><span>서버 TTL 캐시</span><span>Vanilla JS(FLIP 애니메이션)</span>
+    <span>Java</span><span>Spring Boot</span><span>토스증권 Open API(OAuth2)</span><span>업비트 Open API</span><span>Gemini API</span><span>서버 TTL 캐시</span><span>Vanilla JS(FLIP 애니메이션)</span><span>Vue.js 3(종목 상세 팝업)</span>
   </div>
 
   <!-- 상단: 지표 + 주요 일정 -->
@@ -164,30 +184,124 @@
     <div class="table-scroll">
       <table class="rank-table">
         <thead><tr>
-          <th>#</th><th>종목명</th><th>현재가</th><th>등락률</th><th>거래대금</th><th>시가총액</th><th>산업</th><th>AI 요약</th>
+          <th>#</th><th>종목명</th><th>현재가</th><th>등락률</th><th>거래대금</th><th>시가총액</th>
         </tr></thead>
-        <tbody id="rankBody"><tr><td colspan="8"><div class="empty-msg">불러오는 중...</div></td></tr></tbody>
+        <tbody id="rankBody"><tr><td colspan="6"><div class="empty-msg">불러오는 중...</div></td></tr></tbody>
       </table>
     </div>
-    <div class="disclaim">거래대금 랭킹은 실시간, 급상승·급하락은 1일 기준입니다 (토스증권 Open API). 산업·AI 요약은 토스 API 범위 밖이라 클릭 시 Gemini가 생성하며(종목당 12시간 캐시, 새로고침해도 유지), 종목명·현재가·등락률·거래대금·시가총액은 한눈에 보이도록 왼쪽에 촘촘히 배치했습니다.</div>
+    <div class="disclaim">거래대금 랭킹은 실시간, 급상승·급하락은 1일 기준입니다 (토스증권 Open API). 종목을 클릭하면 차트·호가·투자자별 매매동향·공매도 동향을 볼 수 있습니다.</div>
   </div>
 </main>
 
-<!-- 종목 상세 + AI 요약 팝업 -->
-<div class="stock-modal-bg" id="stockModalBg" onclick="if(event.target===this)closeStockModal()">
-  <div class="stock-modal">
-    <button class="modal-x" onclick="closeStockModal()" aria-label="닫기">✕</button>
-    <div class="sm-head"><b id="smName">-</b><span class="sym" id="smSymbol"></span></div>
-    <div class="sm-price" id="smPrice">-</div>
-    <div id="smRate"></div>
-    <div class="sm-meta">
-      <div><div class="k">거래대금</div><div class="v" id="smAmount">-</div></div>
-      <div><div class="k">시가총액</div><div class="v" id="smCap">-</div></div>
-      <div><div class="k">산업</div><div class="v" id="smIndustry">-</div></div>
-      <div><div class="k">시장</div><div class="v" id="smMarket">-</div></div>
+<!-- ===== 종목 상세(차트·호가·수급·공매도) 팝업 — Vue 앱, 나머지 페이지와 독립 ===== -->
+<div id="stockQuoteApp">
+  <div class="quote-modal-bg" :class="{show: visible}" @click.self="close">
+    <div class="quote-modal" v-if="visible">
+      <button class="modal-x" @click="close" aria-label="닫기">✕</button>
+      <div class="q-head">
+        <h2>{{ name }}</h2>
+        <span class="sym">{{ symbol }} · {{ country==='US' ? '미국' : '국내' }}</span>
+        <button class="q-refresh" @click="refreshAll">↻ 갱신</button>
+      </div>
+      <div class="q-price">{{ fmtMoney(lastPrice, currency) }}</div>
+      <span class="q-change" v-html="changeLineHtml"></span>
+
+      <div class="q-interval-tabs">
+        <button class="q-interval-tab" :class="{on: chartInterval==='1m'}" @click="setInterval_('1m')">분</button>
+        <select v-if="chartInterval==='1m'" class="q-minute-select" v-model.number="minuteUnit" @change="drawChart">
+          <option :value="1">1분</option>
+          <option :value="3">3분</option>
+          <option :value="5">5분</option>
+          <option :value="60">60분</option>
+        </select>
+        <button class="q-interval-tab" :class="{on: chartInterval==='1d'}" @click="setInterval_('1d')">일</button>
+        <button class="q-interval-tab" :class="{on: chartInterval==='1w'}" @click="setInterval_('1w')">주</button>
+        <button class="q-interval-tab" :class="{on: chartInterval==='1mo'}" @click="setInterval_('1mo')">월</button>
+        <button class="q-interval-tab" :class="{on: chartInterval==='1y'}" @click="setInterval_('1y')">년</button>
+      </div>
+      <div class="q-ma-legend">
+        <span><i style="background:#eee"></i>MA5</span>
+        <span><i style="background:#F2A93B"></i>MA20</span>
+        <span><i style="background:#8b5cf6"></i>MA60</span>
+      </div>
+
+      <div class="q-chart-ob-grid">
+        <div class="q-chart-wrap" ref="chartContainer"></div>
+        <div class="q-ob-panel">
+          <div class="q-ob-title">호가</div>
+          <div v-if="!orderbook"><div class="empty-msg" style="padding:8px 0">불러오는 중...</div></div>
+          <div v-else>
+            <div class="q-ob-row" v-for="a in asksDisplay" :key="'a'+a.price">
+              <span class="oq ask">{{ fmtNum(a.volume) }}</span>
+              <span class="op ask">{{ fmtNum(a.price) }}</span>
+              <span class="oq"></span>
+            </div>
+            <div class="q-ob-sep"></div>
+            <div class="q-ob-row" v-for="b in bidsDisplay" :key="'b'+b.price">
+              <span class="oq"></span>
+              <span class="op bid">{{ fmtNum(b.price) }}</span>
+              <span class="oq bid">{{ fmtNum(b.volume) }}</span>
+            </div>
+          </div>
+          <div class="q-ob-info">
+            <div class="q-ob-info-row">
+              <div class="q-ob-info-cell"><span>상한가</span><span class="up">{{ priceLimit.upperLimitPrice != null ? fmtNum(priceLimit.upperLimitPrice) : '-' }}</span></div>
+              <div class="q-ob-info-cell"><span>하한가</span><span class="down">{{ priceLimit.lowerLimitPrice != null ? fmtNum(priceLimit.lowerLimitPrice) : '-' }}</span></div>
+            </div>
+            <div class="q-ob-info-row">
+              <div class="q-ob-info-cell"><span>상승VI</span><span>{{ warnings.viUp ? '발동' : '-' }}</span></div>
+              <div class="q-ob-info-cell"><span>하강VI</span><span>{{ warnings.viDown ? '발동' : '-' }}</span></div>
+            </div>
+            <div class="q-ob-info-row">
+              <div class="q-ob-info-cell"><span>시작</span><span>{{ todayOpen != null ? fmtNum(todayOpen) : '-' }}</span></div>
+              <div class="q-ob-info-cell"><span>최고</span><span>{{ todayHigh != null ? fmtNum(todayHigh) : '-' }}</span></div>
+            </div>
+            <div class="q-ob-info-row">
+              <div class="q-ob-info-cell"><span>최저</span><span>{{ todayLow != null ? fmtNum(todayLow) : '-' }}</span></div>
+              <div class="q-ob-info-cell"><span>거래량</span><span>{{ todayVolume != null ? fmtNum(todayVolume) : '-' }}</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="q-section">
+        <h3>수급 · 투자자별 매매동향</h3>
+        <div v-if="!investorTrading.length" class="empty-msg">데이터가 없습니다.</div>
+        <div class="table-scroll" v-else>
+          <table class="q-table">
+            <thead><tr><th>일자</th><th>개인</th><th>외국인</th><th>기관</th></tr></thead>
+            <tbody>
+              <tr v-for="r in investorTrading.slice(0,7)" :key="r.date">
+                <td>{{ fmtDateLabel(r.date) }}</td>
+                <td v-html="fmtSigned(r.individual)"></td>
+                <td v-html="fmtSigned(r.foreigner)"></td>
+                <td v-html="fmtSigned(r.institution)"></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="q-section">
+        <h3>공매도 동향</h3>
+        <div v-if="!shortSelling.length" class="empty-msg">데이터가 없습니다.</div>
+        <div class="table-scroll" v-else>
+          <table class="q-table">
+            <thead><tr><th>일자</th><th>거래대금대비 비율</th><th>공매도 수량</th><th>공매도금액</th></tr></thead>
+            <tbody>
+              <tr v-for="r in shortSelling.slice(0,7)" :key="r.date">
+                <td>{{ fmtDateLabel(r.date) }}</td>
+                <td>{{ r.shortSellingAmountRate != null ? (r.shortSellingAmountRate*100).toFixed(2)+'%' : '-' }}</td>
+                <td>{{ fmtNum(r.shortSellingVolume) }}</td>
+                <td>{{ fmtMoney(r.shortSellingAmount, 'KRW') }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="q-disclaim">시세는 토스증권 Open API 기준이며 30초마다 자동 갱신됩니다. 주/월/년봉·N분봉은 일봉(최근 200개)·1분봉(최근 200개)을 직접 집계한 값이라 그 이상 과거는 표시되지 않습니다. 투자 판단과 책임은 본인에게 있습니다.</div>
     </div>
-    <div class="sm-ai" id="smAiBox"><div class="sm-loading">AI 분석 불러오는 중...</div></div>
-    <div class="sm-disclaim">※ 산업 분류·요약 모두 AI가 추정한 참고용 정보이며 투자 권유가 아닙니다.</div>
   </div>
 </div>
 
@@ -201,10 +315,10 @@ let country = 'KR', tab = 'amount';
    로컬 캐시 — 페이지에 다시 들어올 때마다 서버를 새로 부르지 않고,
    localStorage에 남아있는 값을 먼저 보여준 뒤, 그 항목의 캐시 유효기간이
    끝나는 시점에만 다시 불러온다(항목마다 유효기간이 다름: 지표/랭킹 60초,
-   브리핑 12시간(서버가 실패 시엔 10분 뒤 재시도하도록 별도 처리), 캘린더 12시간,
-   종목별 AI 요약 12시간 — 서버 TTL과 동일하게 맞춤).
+   브리핑 12시간(서버가 실패 시엔 10분 뒤 재시도하도록 별도 처리), 캘린더 12시간
+   — 서버 TTL과 동일하게 맞춤).
    =================================================== */
-const TTL = { dashboard: 60_000, rank: 60_000, briefing: 12 * 3600_000, calendar: 12 * 3600_000, insight: 12 * 3600_000 };
+const TTL = { dashboard: 60_000, rank: 60_000, briefing: 12 * 3600_000, calendar: 12 * 3600_000 };
 function cacheGet(key){
   try{ const raw = localStorage.getItem(key); return raw ? JSON.parse(raw) : null; }catch(e){ return null; }
 }
@@ -407,20 +521,6 @@ let rankRowsBySymbol = new Map(); // symbol -> <tr> element
 let rankDataBySymbol = new Map(); // symbol -> 최신 행 데이터 (팝업에서 사용)
 let lastRankKey = null;           // country+tab 조합 — 바뀌면 완전히 새로 그림
 
-/**
- * 종목별 AI 요약(태그·산업·설명)을 localStorage에 12시간 보관한다.
- * 서버도 같은 12시간 캐시라, 새로고침해도 다시 "AI 분석" 버튼을 누를 필요가 없다.
- */
-const insightCache = {
-  get(symbol){
-    const c = cacheGet('stock:insight:' + symbol);
-    return (c && c.expiresAt > Date.now()) ? c.data : null;
-  },
-  set(symbol, data){
-    cacheSet('stock:insight:' + symbol, data, TTL.insight);
-  }
-};
-
 function setCountry(v){ country = v; segSync('countrySeg', v); loadRankings(false); }
 function setTab(v){ tab = v; segSync('tabSeg', v); loadRankings(false); }
 function segSync(segId, v){
@@ -431,20 +531,12 @@ function rankRowHtml(r){
   const rate = r.changeRate;
   const rateCls = rate > 0 ? 'up' : rate < 0 ? 'down' : 'flat';
   const rateTxt = rate == null ? '-' : (rate > 0 ? '+' : '') + rate.toFixed(2) + '%';
-  const sym = r.symbol || '';
-  const cachedInsight = insightCache.get(sym);
-  const industry = (cachedInsight && cachedInsight.industry) || r.industry || '-';
-  const aiCell = cachedInsight && cachedInsight.tag
-    ? `<span class="ai-tag" onclick="openStockModal('${sym}')">${esc(cachedInsight.tag)}</span>`
-    : `<button class="ai-btn" onclick="openStockModal('${sym}')">AI 분석</button>`;
   return `<td class="c-rank">${r.rank}</td>
     <td>${esc(r.name || r.symbol)}<span class="sym">${esc(r.symbol || '')}</span></td>
     <td class="c-price">${fmtPrice(r.price, r.currency)}</td>
     <td class="c-rate"><span class="badge-rate ${rateCls}">${rateTxt}</span></td>
     <td class="c-amt">${fmtAmountKR(r.tradingAmount, r.currency)}</td>
-    <td class="c-cap">${fmtAmountKR(r.marketCap, r.currency)}</td>
-    <td class="c-industry">${esc(industry)}</td>
-    <td class="c-ai">${aiCell}</td>`;
+    <td class="c-cap">${fmtAmountKR(r.marketCap, r.currency)}</td>`;
 }
 
 function flash(cell, cls){
@@ -453,6 +545,13 @@ function flash(cell, cls){
   void cell.offsetWidth;
   cell.classList.add(cls);
   setTimeout(() => cell.classList.remove(cls), 700);
+}
+
+/** 종목 행 클릭 → Vue 팝업 열기. 랭킹 데이터(rankDataBySymbol)에서 이름·현재가·통화까지 함께 넘긴다. */
+function openQuote(symbol){
+  const r = rankDataBySymbol.get(symbol) || {};
+  const currency = r.currency || (country === 'US' ? 'USD' : 'KRW');
+  window.stockQuoteVM.open(symbol, r.name || symbol, country, currency, r.price ?? null);
 }
 
 function renderRankings(list, isSwitch){
@@ -465,7 +564,7 @@ function renderRankings(list, isSwitch){
 
   if (!list.length) {
     if (tbody.children.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="8"><div class="empty-msg">랭킹 데이터가 없습니다. (장 시간 외이거나 API 설정을 확인해주세요)</div></td></tr>';
+      tbody.innerHTML = '<tr><td colspan="6"><div class="empty-msg">랭킹 데이터가 없습니다. (장 시간 외이거나 API 설정을 확인해주세요)</div></td></tr>';
     }
     return;
   }
@@ -497,6 +596,7 @@ function renderRankings(list, isSwitch){
     }
     tr.dataset.price = r.price ?? '';
     tr.dataset.rate = r.changeRate ?? '';
+    tr.onclick = () => openQuote(sym);
     if (prevNode) prevNode.after(tr); else tbody.prepend(tr);
     prevNode = tr;
   });
@@ -547,73 +647,358 @@ async function loadRankings(force){
   scheduleNext('rank', TTL.rank, () => loadRankings(false));
 }
 
-/* ===================================================
-   종목 상세 + AI 요약 팝업 — 클릭했을 때만 생성(서버 12시간 캐시)해서
-   30개 종목을 자동으로 전부 분석하지 않고 필요한 종목만 확인한다.
-   토스 Open API에는 업종 분류가 없어 AI 요약과 함께 업종도 추정해 채운다.
-   =================================================== */
-function externalLink(symbol){
-  return country === 'US'
-    ? `https://finance.yahoo.com/quote/${encodeURIComponent(symbol)}`
-    : `https://finance.naver.com/item/main.naver?code=${encodeURIComponent(symbol)}`;
-}
-
-async function openStockModal(symbol){
-  const r = rankDataBySymbol.get(symbol) || {};
-  const cached = insightCache.get(symbol);
-  $('smName').textContent = r.name || symbol;
-  $('smSymbol').textContent = symbol;
-  $('smPrice').textContent = fmtPrice(r.price, r.currency);
-  $('smRate').innerHTML = fmtRate(r.changeRate);
-  $('smAmount').textContent = fmtAmountKR(r.tradingAmount, r.currency);
-  $('smCap').textContent = fmtAmountKR(r.marketCap, r.currency);
-  $('smIndustry').textContent = (cached && cached.industry) || r.industry || '-';
-  $('smMarket').textContent = country === 'US' ? '미국' : '국내';
-  $('stockModalBg').classList.add('show');
-
-  if (cached) { renderInsight(symbol, cached); return; }
-
-  $('smAiBox').innerHTML = '<div class="sm-loading">AI 분석 불러오는 중...</div>';
-  try {
-    const insight = await fetch(`/api/stock/insight?symbol=${encodeURIComponent(symbol)}&country=${country}`).then(res => res.json());
-    insightCache.set(symbol, insight);
-    renderInsight(symbol, insight);
-  } catch (e) {
-    renderInsight(symbol, null);
-  }
-}
-
-function renderInsight(symbol, insight){
-  const failed = !insight || !insight.summary || /생성하지 못했|설정되지 않아/.test(insight.summary);
-  if (failed) {
-    $('smAiBox').innerHTML = `<div>AI 요약을 아직 준비하지 못했습니다.</div>
-      <a class="sm-fallback-link" href="${externalLink(symbol)}" target="_blank" rel="noopener">바로가기 — 외부 시세 페이지에서 확인 →</a>`;
-  } else {
-    $('smAiBox').innerHTML = (insight.tag ? `<span class="tag">${esc(insight.tag)}</span><br>` : '') + esc(insight.summary);
-    if (insight.industry) $('smIndustry').textContent = insight.industry;
-  }
-  // 목록의 AI 요약·산업 셀도 즉시 갱신 (다시 클릭하지 않아도 보이도록)
-  const tr = rankRowsBySymbol.get(symbol);
-  if (tr) {
-    const aiCell = tr.querySelector('.c-ai');
-    if (aiCell) {
-      aiCell.innerHTML = (!failed && insight.tag)
-        ? `<span class="ai-tag" onclick="openStockModal('${symbol}')">${esc(insight.tag)}</span>`
-        : `<button class="ai-btn" onclick="openStockModal('${symbol}')">바로가기</button>`;
-    }
-    const indCell = tr.querySelector('.c-industry');
-    if (indCell && !failed && insight.industry) indCell.textContent = insight.industry;
-  }
-}
-
-function closeStockModal(){ $('stockModalBg').classList.remove('show'); }
-document.addEventListener('keydown', e => { if (e.key === 'Escape') closeStockModal(); });
-
 /* ===== 초기 로딩 — 전부 캐시 우선(force=false), 각자 자기 TTL에 맞춰 독립적으로 갱신 예약 ===== */
 loadDashboard(false);
 loadRankings(false);
 loadBriefing(false);
 loadCalendar(false);
+</script>
+
+<!-- ===================================================
+     종목 상세 팝업 Vue 앱 — /admin/toss-stock의 차트·호가·매매동향·공매도 로직을 그대로 가져와
+     공개 종목(로그인 불필요)에 맞게 축소했다(보유 평단선·계산기·주문내역·추세선 도구 등 제외).
+     위 vanilla-JS 랭킹 테이블과는 별개 앱(#stockQuoteApp)으로 마운트되어 있어 서로의 DOM/데이터에
+     영향을 주지 않는다. 자동 갱신은 팝업이 열려있는 동안만 30초 간격으로 동작하고, 닫으면 즉시 멈춘다.
+     =================================================== -->
+<script>
+(function(){
+  const { createApp, ref, reactive, computed, nextTick, onUnmounted } = Vue;
+
+  const MA_COLORS = { 5: '#eeeeee', 20: '#F2A93B', 60: '#8b5cf6' };
+
+  const app = createApp({
+    setup(){
+      const visible = ref(false);
+      const symbol = ref('');
+      const name = ref('');
+      const country = ref('KR');
+      const currency = ref('KRW');
+      const lastPrice = ref(null);
+      const chartInterval = ref('1d');
+      const minuteUnit = ref(1);
+      const dailyCandlesCache = ref([]);
+      const orderbook = ref(null);
+      const priceLimit = ref({});
+      const warnings = ref({});
+      const investorTrading = ref([]);
+      const shortSelling = ref([]);
+      const chartContainer = ref(null);
+      let chartHandle = null;
+      let candleSeries = null;
+      let maSeriesRefs = [];
+      let minuteCandlesTemp = [];
+      let refreshTimer = null;
+
+      function fmtMoney(v, cur){
+        if (v == null) return '-';
+        const symbolTxt = cur === 'USD' ? '$' : '';
+        const suffix = cur === 'USD' ? '' : '원';
+        const num = cur === 'USD' ? v.toFixed(2) : Math.round(v).toLocaleString('ko-KR');
+        return symbolTxt + num + suffix;
+      }
+      function fmtNum(v){ return v == null ? '-' : Number(v).toLocaleString('ko-KR'); }
+      function fmtSigned(v){
+        if (v == null) return '-';
+        const n = Number(v);
+        if (!Number.isFinite(n)) return '-';
+        const cls = n > 0 ? 'up' : n < 0 ? 'down' : '';
+        const sign = n > 0 ? '+' : '';
+        return `<span class="${cls}">${sign}${n.toLocaleString('ko-KR')}</span>`;
+      }
+      function todayKstStr(){
+        return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul' }).format(new Date());
+      }
+      function fmtDateLabel(d){
+        if (!d) return '-';
+        const ds = d.toString().substring(0, 10);
+        return ds === todayKstStr() ? '오늘' : ds;
+      }
+      function toNum(v){ const n = Number(v); return Number.isFinite(n) ? n : null; }
+
+      const todayCandle = computed(() => (dailyCandlesCache.value && dailyCandlesCache.value.length) ? dailyCandlesCache.value[0] : null);
+      const todayOpen = computed(() => todayCandle.value ? toNum(todayCandle.value.openPrice) : null);
+      const todayHigh = computed(() => todayCandle.value ? toNum(todayCandle.value.highPrice) : null);
+      const todayLow = computed(() => todayCandle.value ? toNum(todayCandle.value.lowPrice) : null);
+      const todayVolume = computed(() => todayCandle.value ? toNum(todayCandle.value.volume) : null);
+      const prevClose = computed(() => {
+        const arr = dailyCandlesCache.value;
+        if (!arr || arr.length < 2) return null;
+        return toNum(arr[1].closePrice);
+      });
+      const changeLineHtml = computed(() => {
+        if (lastPrice.value == null || prevClose.value == null || prevClose.value === 0) return '';
+        const diff = lastPrice.value - prevClose.value;
+        const rate = (diff / prevClose.value) * 100;
+        const cls = diff > 0 ? 'up' : diff < 0 ? 'down' : '';
+        const sign = diff > 0 ? '+' : '';
+        const amountTxt = fmtMoney(Math.abs(diff), currency.value).replace('-', '');
+        return `어제보다 <span class="${cls}">${sign}${amountTxt} (${sign}${rate.toFixed(2)}%)</span>`;
+      });
+
+      function sanitizeCandles(candles){
+        return (candles || [])
+          .map(c => ({
+            timestamp: c.timestamp,
+            openPrice: toNum(c.openPrice), highPrice: toNum(c.highPrice),
+            lowPrice: toNum(c.lowPrice), closePrice: toNum(c.closePrice)
+          }))
+          .filter(c => c.openPrice != null && c.highPrice != null && c.lowPrice != null && c.closePrice != null && c.timestamp);
+      }
+      function aggregateDaily(keyFn){
+        const source = sanitizeCandles(dailyCandlesCache.value);
+        const map = new Map();
+        for (const c of [...source].reverse()) {
+          const key = keyFn(c.timestamp);
+          if (!map.has(key)) {
+            map.set(key, { time: key, open: c.openPrice, high: c.highPrice, low: c.lowPrice, close: c.closePrice });
+          } else {
+            const e = map.get(key);
+            e.high = Math.max(e.high, c.highPrice);
+            e.low = Math.min(e.low, c.lowPrice);
+            e.close = c.closePrice;
+          }
+        }
+        return [...map.values()];
+      }
+      function weekKey(ts){
+        const d = new Date((ts || '').substring(0, 10) + 'T00:00:00');
+        const dow = (d.getDay() + 6) % 7;
+        d.setDate(d.getDate() - dow);
+        return d.toISOString().substring(0, 10);
+      }
+      function aggregateMinutes(groupMinutes){
+        const source = sanitizeCandles(minuteCandlesTemp);
+        const sorted = [...source].reverse();
+        if (groupMinutes <= 1) {
+          return sorted.map(c => ({
+            time: Math.floor(new Date(c.timestamp).getTime() / 1000),
+            open: c.openPrice, high: c.highPrice, low: c.lowPrice, close: c.closePrice
+          }));
+        }
+        const bucketMs = groupMinutes * 60 * 1000;
+        const map = new Map();
+        for (const c of sorted) {
+          const t = new Date(c.timestamp).getTime();
+          if (!Number.isFinite(t)) continue;
+          const bucketSec = Math.floor(Math.floor(t / bucketMs) * bucketMs / 1000);
+          if (!map.has(bucketSec)) {
+            map.set(bucketSec, { time: bucketSec, open: c.openPrice, high: c.highPrice, low: c.lowPrice, close: c.closePrice });
+          } else {
+            const e = map.get(bucketSec);
+            e.high = Math.max(e.high, c.highPrice);
+            e.low = Math.min(e.low, c.lowPrice);
+            e.close = c.closePrice;
+          }
+        }
+        return [...map.values()];
+      }
+      function toCandleSeriesData(candles, intraday){
+        return sanitizeCandles(candles).reverse().map(c => ({
+          time: intraday ? Math.floor(new Date(c.timestamp).getTime() / 1000) : (c.timestamp || '').substring(0, 10),
+          open: c.openPrice, high: c.highPrice, low: c.lowPrice, close: c.closePrice
+        }));
+      }
+      function finalizeSeriesData(data){
+        const byTime = new Map();
+        for (const d of data) {
+          if (![d.open, d.high, d.low, d.close].every(Number.isFinite)) continue;
+          byTime.set(d.time, d);
+        }
+        return [...byTime.values()].sort((a, b) => (a.time > b.time ? 1 : a.time < b.time ? -1 : 0));
+      }
+
+      function ensureChart(){
+        if (chartHandle) return;
+        if (!chartContainer.value) return;
+        chartHandle = LightweightCharts.createChart(chartContainer.value, {
+          width: chartContainer.value.clientWidth,
+          height: 280,
+          layout: { background: { color: 'transparent' }, textColor: '#7E8DA9', fontFamily: "'JetBrains Mono',monospace" },
+          grid: { vertLines: { color: '#1a2233' }, horzLines: { color: '#1a2233' } },
+          timeScale: { borderColor: '#243149' },
+          rightPriceScale: { borderColor: '#243149', autoScale: true },
+          crosshair: { mode: 0 }
+        });
+      }
+      function recreateCandleSeries(precision, minMove){
+        if (candleSeries) {
+          try { chartHandle.removeSeries(candleSeries); } catch (e) {}
+          candleSeries = null;
+        }
+        candleSeries = chartHandle.addCandlestickSeries({
+          upColor: '#f04452', downColor: '#3182f6', borderVisible: false,
+          wickUpColor: '#f04452', wickDownColor: '#3182f6',
+          priceFormat: { type: 'price', precision, minMove }
+        });
+      }
+      function computeSMA(data, period){
+        const out = [];
+        for (let i = period - 1; i < data.length; i++) {
+          let sum = 0;
+          for (let j = i - period + 1; j <= i; j++) sum += Number(data[j].close) || 0;
+          out.push({ time: data[i].time, value: sum / period });
+        }
+        return out;
+      }
+      function clearOverlays(){
+        maSeriesRefs.forEach(s => { try { chartHandle.removeSeries(s); } catch (e) {} });
+        maSeriesRefs = [];
+      }
+      function drawChart(){
+        ensureChart();
+        if (!chartHandle) return;
+        let data;
+        if (chartInterval.value === '1m') {
+          data = aggregateMinutes(minuteUnit.value);
+        } else if (chartInterval.value === '1w') {
+          data = aggregateDaily(weekKey);
+        } else if (chartInterval.value === '1mo') {
+          data = aggregateDaily(ts => (ts || '').substring(0, 7) + '-01');
+        } else if (chartInterval.value === '1y') {
+          data = aggregateDaily(ts => (ts || '').substring(0, 4) + '-01-01');
+        } else {
+          data = toCandleSeriesData(dailyCandlesCache.value || [], false);
+        }
+        data = finalizeSeriesData(data);
+        clearOverlays();
+        if (!data.length) {
+          if (candleSeries) { try { chartHandle.removeSeries(candleSeries); } catch (e) {} candleSeries = null; }
+          return;
+        }
+        const isUsd = currency.value === 'USD';
+        recreateCandleSeries(isUsd ? 2 : 0, isUsd ? 0.01 : 1);
+        candleSeries.setData(data);
+        if (chartInterval.value !== '1m') {
+          [5, 20, 60].forEach(period => {
+            if (data.length < period) return;
+            const s = chartHandle.addLineSeries({ color: MA_COLORS[period], lineWidth: 1, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false });
+            s.setData(computeSMA(data, period));
+            maSeriesRefs.push(s);
+          });
+        }
+        chartHandle.priceScale('right').applyOptions({ autoScale: true });
+        chartHandle.timeScale().fitContent();
+      }
+
+      const asksDisplay = computed(() => orderbook.value ? [...orderbook.value.asks].slice(0, 8).reverse() : []);
+      const bidsDisplay = computed(() => orderbook.value ? [...orderbook.value.bids].slice(0, 8) : []);
+
+      async function fetchJson(url){
+        return fetch(url).then(r => r.json()).catch(() => null);
+      }
+
+      async function loadAll(){
+        const sym = symbol.value;
+        const [chartRes, obRes, itRes, ssRes, plRes, wRes] = await Promise.all([
+          fetchJson(`/api/stock/${encodeURIComponent(sym)}/chart?interval=1d&count=200`),
+          fetchJson(`/api/stock/${encodeURIComponent(sym)}/orderbook`),
+          fetchJson(`/api/stock/${encodeURIComponent(sym)}/investor-trading?count=7`),
+          fetchJson(`/api/stock/${encodeURIComponent(sym)}/short-selling?count=7`),
+          fetchJson(`/api/stock/${encodeURIComponent(sym)}/price-limit`),
+          fetchJson(`/api/stock/${encodeURIComponent(sym)}/warnings`),
+        ]);
+        if (chartRes && chartRes.available) {
+          dailyCandlesCache.value = chartRes.candles || [];
+          // 오늘 일봉의 종가를 "현재가"로 갱신(랭킹 테이블에서 넘어온 값보다 최신일 수 있음)
+          if (dailyCandlesCache.value.length) {
+            const c = toNum(dailyCandlesCache.value[0].closePrice);
+            if (c != null) lastPrice.value = c;
+          }
+        }
+        if (obRes && obRes.available) orderbook.value = obRes;
+        if (itRes && itRes.available) investorTrading.value = itRes.records || [];
+        if (ssRes && ssRes.available) shortSelling.value = ssRes.records || [];
+        if (plRes && plRes.available) priceLimit.value = plRes;
+        if (wRes) warnings.value = wRes;
+      }
+
+      async function setInterval_(iv){
+        chartInterval.value = iv;
+        if (iv === '1m') {
+          const res = await fetchJson(`/api/stock/${encodeURIComponent(symbol.value)}/chart?interval=1m&count=200`);
+          minuteCandlesTemp = (res && res.available) ? res.candles : [];
+        }
+        await nextTick();
+        drawChart();
+      }
+
+      function stopAutoRefresh(){
+        if (refreshTimer) { clearInterval(refreshTimer); refreshTimer = null; }
+      }
+      function startAutoRefresh(){
+        stopAutoRefresh();
+        // 팝업이 열려있는 동안만 30초마다 호가·오늘 시세를 갱신(닫으면 즉시 멈춤 — close()에서 stopAutoRefresh 호출)
+        refreshTimer = setInterval(async () => {
+          const obRes = await fetchJson(`/api/stock/${encodeURIComponent(symbol.value)}/orderbook`);
+          if (obRes && obRes.available) orderbook.value = obRes;
+          const chartRes = await fetchJson(`/api/stock/${encodeURIComponent(symbol.value)}/chart?interval=1d&count=200`);
+          if (chartRes && chartRes.available) {
+            dailyCandlesCache.value = chartRes.candles || [];
+            if (dailyCandlesCache.value.length) {
+              const c = toNum(dailyCandlesCache.value[0].closePrice);
+              if (c != null) lastPrice.value = c;
+            }
+          }
+        }, 30_000);
+      }
+
+      async function refreshAll(){
+        await loadAll();
+        if (chartInterval.value === '1m') {
+          const res = await fetchJson(`/api/stock/${encodeURIComponent(symbol.value)}/chart?interval=1m&count=200`);
+          minuteCandlesTemp = (res && res.available) ? res.candles : [];
+        }
+        drawChart();
+      }
+
+      async function open(sym, nm, ctry, curr, initialPrice){
+        symbol.value = sym;
+        name.value = nm;
+        country.value = ctry;
+        currency.value = curr;
+        lastPrice.value = initialPrice ?? null;
+        chartInterval.value = '1d';
+        minuteUnit.value = 1;
+        dailyCandlesCache.value = [];
+        minuteCandlesTemp = [];
+        orderbook.value = null;
+        priceLimit.value = {};
+        warnings.value = {};
+        investorTrading.value = [];
+        shortSelling.value = [];
+        visible.value = true;
+        await nextTick();
+        await loadAll();
+        await nextTick();
+        drawChart();
+        startAutoRefresh();
+      }
+
+      function close(){
+        visible.value = false;
+        stopAutoRefresh();
+        if (chartHandle) { try { chartHandle.remove(); } catch (e) {} chartHandle = null; candleSeries = null; maSeriesRefs = []; }
+      }
+
+      function handleKeydown(e){
+        if (e.key === 'Escape' && visible.value) close();
+      }
+      window.addEventListener('keydown', handleKeydown);
+      onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
+
+      return {
+        visible, symbol, name, country, currency, lastPrice, chartInterval, minuteUnit,
+        orderbook, asksDisplay, bidsDisplay, priceLimit, warnings,
+        todayOpen, todayHigh, todayLow, todayVolume, changeLineHtml,
+        investorTrading, shortSelling, chartContainer,
+        fmtMoney, fmtNum, fmtSigned, fmtDateLabel,
+        setInterval_, refreshAll, close, open
+      };
+    }
+  });
+
+  window.stockQuoteVM = app.mount('#stockQuoteApp');
+})();
 </script>
 </body>
 </html>
