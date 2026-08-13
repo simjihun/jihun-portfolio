@@ -76,6 +76,16 @@ public class TossPortfolioService {
         try { return Double.parseDouble(s); } catch (Exception e) { return null; }
     }
 
+    /** 후보 키를 순서대로 시도해 첫 번째로 파싱되는 숫자를 반환한다(필드명이 문서상 불확실할 때 방어적으로 사용). */
+    private Double numAny(Map<String, Object> m, String... keys) {
+        if (m == null) return null;
+        for (String k : keys) {
+            Double v = num(m.get(k));
+            if (v != null) return v;
+        }
+        return null;
+    }
+
     private String str(Object v) {
         return v == null ? null : v.toString();
     }
@@ -294,6 +304,56 @@ public class TossPortfolioService {
             out.add(n);
         }
         return out;
+    }
+
+    /**
+     * 상한가/하한가. GET /api/v1/price-limits. 공식 문서상 응답 필드명이 확정되어 있지 않아
+     * 여러 후보 키를 순서대로 시도한다(넓은 후보 세트 — 실패해도 null로 조용히 넘어가고
+     * 프론트는 "-"로 표시하므로 안전하다).
+     */
+    public Map<String, Object> getPriceLimit(String symbol) {
+        Map<String, Object> result = new LinkedHashMap<>();
+        Map<String, Object> raw = unwrap(toss.get("/api/v1/price-limits?symbol=" + symbol));
+        if (raw == null) {
+            result.put("available", false);
+            return result;
+        }
+        result.put("available", true);
+        result.put("upperLimitPrice", numAny(raw, "upperLimitPrice", "upperPrice", "upperLimit", "limitUp", "ceilingPrice", "upperBound"));
+        result.put("lowerLimitPrice", numAny(raw, "lowerLimitPrice", "lowerPrice", "lowerLimit", "limitDown", "floorPrice", "lowerBound"));
+        return result;
+    }
+
+    /**
+     * 매수 유의사항/변동성완화장치(VI) 발동 정보. GET /api/v1/stocks/{symbol}/warnings.
+     * 활성 항목만 내려온다(문서 기준: startDate&lt;=오늘&lt;=endDate). VI 발동 방향(상승/하락)
+     * 필드명도 공식 문서에서 확정되지 않아 여러 후보 키를 시도하고, 방향을 알 수 없으면
+     * (필드가 없거나 값을 못 알아들으면) 상승/하락 둘 다 false로 둔다 — 잘못된 방향을 보여주는
+     * 것보다 "-"로 비워두는 편이 안전하다.
+     */
+    @SuppressWarnings("unchecked")
+    public Map<String, Object> getStockWarnings(String symbol) {
+        Map<String, Object> result = new LinkedHashMap<>();
+        Map<String, Object> raw = toss.get("/api/v1/stocks/" + symbol + "/warnings");
+        List<Map<String, Object>> list = listOf(raw, "warnings", "items", "list");
+        boolean viUp = false, viDown = false;
+        for (Map<String, Object> w : list) {
+            String type = str(w.get("warningType"));
+            if (type == null || !type.startsWith("VI_")) continue;
+            String dir = null;
+            for (String k : new String[]{"direction", "viDirection", "side", "triggerSide", "triggerType"}) {
+                Object v = w.get(k);
+                if (v != null) { dir = v.toString().toUpperCase(Locale.ROOT); break; }
+            }
+            if (dir != null) {
+                if (dir.contains("UP") || dir.contains("RISE") || dir.contains("상승")) viUp = true;
+                if (dir.contains("DOWN") || dir.contains("FALL") || dir.contains("하락") || dir.contains("하강")) viDown = true;
+            }
+        }
+        result.put("available", raw != null);
+        result.put("viUp", viUp);
+        result.put("viDown", viDown);
+        return result;
     }
 
     /**
