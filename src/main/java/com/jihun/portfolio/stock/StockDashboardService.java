@@ -34,6 +34,10 @@ import java.util.stream.Collectors;
  *    최대 1영업일치 휴장 정보만 나올 수 있다. 더 긴 범위를 원하면 별도 공휴일 데이터가 필요하다.
  *  - 종목명 검색: 토스 API에는 이름 기반 검색 엔드포인트가 따로 없어, 마켓별 전체 종목 목록
  *    (GET /api/v1/stocks/all, symbol+name)을 24시간 캐시해두고 그 안에서 부분 문자열로 직접 찾는다.
+ *  - 검색/즐겨찾기의 거래대금: 랭킹 API(/api/v1/rankings)만 실제 누적 거래대금(tradingAmount)을 주고,
+ *    임의 종목 하나를 콕 집어 조회하는 API는 그 필드가 없다. 대신 일봉의 당일 거래량(volume)에 현재가를
+ *    곱해 근사치를 계산한다(체결 시점별 가격을 다 더한 값이 아니라 "현재가 × 거래량"이라 랭킹의 정확한
+ *    거래대금과는 약간 다를 수 있음 — 정렬용이 아니라 참고용 표시이므로 이 정도 근사로 충분하다고 판단).
  */
 @Service
 public class StockDashboardService {
@@ -392,9 +396,7 @@ public class StockDashboardService {
      *
      * [주의] GET /api/v1/stocks/all은 marketCountry가 아니라 market 파라미터를 받고,
      * 값도 KR/US가 아니라 거래소 단위(KOSPI/KOSDAQ/NYSE/NASDAQ/AMEX/KR_ETC/US_ETC)다
-     * (한 번에 하나의 시장만 조회 가능 — 나라 단위가 아님). 처음에 marketCountry=KR 같은
-     * 존재하지 않는 파라미터로 호출해서 매번 조용히 실패(빈 목록)했던 원인이었다 — 그 결과
-     * 검색이 항상 "결과 없음"만 반환했다. 이제 나라별로 관련 거래소를 모두 순회해 합친다.
+     * (한 번에 하나의 시장만 조회 가능 — 나라 단위가 아님). 나라별로 관련 거래소를 모두 순회해 합친다.
      */
     @SuppressWarnings("unchecked")
     private List<Map<String, Object>> stockUniverse(String country) {
@@ -435,18 +437,31 @@ public class StockDashboardService {
         return out;
     }
 
-    /** 일봉 2개(전일·당일)로 전일 대비 등락률을 계산 — PriceResponse엔 등락률 필드가 없어서(위 클래스 설명 참고)
-     *  검색·즐겨찾기처럼 종목 수가 적은 곳에서만 종목당 1회씩 호출한다(랭킹처럼 30개씩 매 60초 부르면 과함). */
-    private Double fetchDailyChangeRate(String symbol) {
-        List<Double> daily = closesOf(toss.get("/api/v1/candles?symbol=" + symbol + "&interval=1d&count=2"));
-        if (daily == null || daily.size() < 2) return null;
-        double last = daily.get(daily.size() - 1);
-        double prev = daily.get(daily.size() - 2);
-        if (prev == 0) return null;
-        return (last - prev) / prev * 100;
+    /**
+     * 일봉 2개(전일·당일)를 한 번에 받아 {changeRate, volume}을 계산한다.
+     * changeRate: PriceResponse엔 등락률 필드가 없어서(위 클래스 설명 참고) 전일 종가 대비로 직접 계산.
+     * volume: 당일(가장 최근) 봉의 거래량 — 검색/즐겨찾기의 "거래대금" 근사치(price × volume) 계산에 사용.
+     * 검색·즐겨찾기처럼 종목 수가 적은 곳에서만 종목당 1회씩 호출한다(랭킹처럼 30개씩 매 60초 부르면 과함).
+     */
+    private Map<String, Double> fetchDailyStats(String symbol) {
+        Map<String, Object> raw = toss.get("/api/v1/candles?symbol=" + symbol + "&interval=1d&count=2");
+        List<Map<String, Object>> candles = listOf(raw, "candles", "items", "list");
+        Map<String, Double> out = new HashMap<>();
+        if (candles.isEmpty()) return out;
+        // 토스 캔들 응답은 최신순(가장 최근 봉이 0번)
+        Double todayClose = pickNum(candles.get(0), "closePrice");
+        Double todayVolume = pickNum(candles.get(0), "volume");
+        if (todayVolume != null) out.put("volume", todayVolume);
+        if (candles.size() >= 2) {
+            Double prevClose = pickNum(candles.get(1), "closePrice");
+            if (todayClose != null && prevClose != null && prevClose != 0) {
+                out.put("changeRate", (todayClose - prevClose) / prevClose * 100);
+            }
+        }
+        return out;
     }
 
-    /** matched 종목 목록에 현재가·등락률·시가총액을 붙여 랭킹 행과 동일한 모양으로 만든다. */
+    /** matched 종목 목록에 현재가·등락률·거래대금(근사)·시가총액을 붙여 랭킹 행과 동일한 모양으로 만든다. */
     private List<Map<String, Object>> enrichQuotes(List<Map<String, Object>> matched, String country) {
         if (matched.isEmpty()) return List.of();
         List<String> symbols = matched.stream().map(s -> (String) s.get("symbol")).toList();
@@ -459,7 +474,9 @@ public class StockDashboardService {
         for (Map<String, Object> s : matched) {
             String sym = (String) s.get("symbol");
             Double price = prices.get(sym);
-            Double changeRate = fetchDailyChangeRate(sym);
+            Map<String, Double> stats = fetchDailyStats(sym);
+            Double changeRate = stats.get("changeRate");
+            Double volume = stats.get("volume");
             Map<String, Object> info = master.get(sym);
             Double shares = info == null ? null : pickNum(info, "sharesOutstanding");
             String name = (String) s.get("name");
@@ -470,6 +487,8 @@ public class StockDashboardService {
             n.put("name", name);
             n.put("price", price);
             n.put("changeRate", changeRate);
+            // 정확한 누적 거래대금은 랭킹 API에만 있어서, 당일 거래량 × 현재가로 근사치를 낸다(참고용 표시).
+            n.put("tradingAmount", (price != null && volume != null) ? price * volume : null);
             n.put("marketCap", (shares != null && price != null) ? shares * price : null);
             n.put("currency", currency);
             results.add(n);
