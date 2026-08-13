@@ -1,5 +1,6 @@
 package com.jihun.portfolio.stock;
 
+import com.jihun.portfolio.portfolio.TossPortfolioService;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
@@ -15,9 +16,11 @@ import java.util.Map;
 public class StockController {
 
     private final StockDashboardService service;
+    private final TossPortfolioService portfolioService;
 
-    public StockController(StockDashboardService service) {
+    public StockController(StockDashboardService service, TossPortfolioService portfolioService) {
         this.service = service;
+        this.portfolioService = portfolioService;
     }
 
     /** 상단 지표 + 수급 (짧은 주기로 폴링되는 부분만) */
@@ -51,5 +54,46 @@ public class StockController {
     public Map<String, Object> insight(@RequestParam String symbol,
                                        @RequestParam(defaultValue = "KR") String country) {
         return service.getStockInsight(symbol, country);
+    }
+
+    /*
+     * ===== 종목 상세 팝업(차트·호가·수급·공매도) =====
+     * /admin/toss-stock(로그인 필요)에서 쓰는 TossPortfolioService의 시세 조회 메서드를 그대로
+     * 재사용한다 — 계좌 조회가 아니라 종목 시세 자체는 로그인과 무관한 공개 데이터라 인증을 요구하지
+     * 않는다. TossPortfolioService 쪽에 짧은 TTL 캐시가 이미 걸려있어(차트 15초·호가 8초 등)
+     * 이 페이지를 여러 명이 동시에 봐도 토스 API가 매번 호출되지 않는다.
+     */
+    @GetMapping("/{symbol}/chart")
+    public Map<String, Object> stockChart(@PathVariable String symbol,
+                                          @RequestParam(defaultValue = "1d") String interval,
+                                          @RequestParam(defaultValue = "200") int count) {
+        return portfolioService.getChart(symbol, interval, count);
+    }
+
+    @GetMapping("/{symbol}/orderbook")
+    public Map<String, Object> stockOrderbook(@PathVariable String symbol) {
+        return portfolioService.getOrderbook(symbol);
+    }
+
+    @GetMapping("/{symbol}/investor-trading")
+    public Map<String, Object> stockInvestorTrading(@PathVariable String symbol,
+                                                     @RequestParam(defaultValue = "7") int count) {
+        return portfolioService.getInvestorTrading(symbol, count);
+    }
+
+    @GetMapping("/{symbol}/short-selling")
+    public Map<String, Object> stockShortSelling(@PathVariable String symbol,
+                                                  @RequestParam(defaultValue = "7") int count) {
+        return portfolioService.getShortSelling(symbol, count);
+    }
+
+    @GetMapping("/{symbol}/price-limit")
+    public Map<String, Object> stockPriceLimit(@PathVariable String symbol) {
+        return portfolioService.getPriceLimit(symbol);
+    }
+
+    @GetMapping("/{symbol}/warnings")
+    public Map<String, Object> stockWarnings(@PathVariable String symbol) {
+        return portfolioService.getStockWarnings(symbol);
     }
 }
