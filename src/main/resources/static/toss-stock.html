@@ -30,7 +30,11 @@ main{max-width:1400px}
 .detail-head{display:flex;align-items:baseline;gap:10px;margin-bottom:2px;flex-wrap:wrap}
 .detail-head h2{font-size:18px}
 .detail-head .sym{font-family:var(--mono);font-size:12px;color:var(--dim)}
-.detail-price{font-family:var(--mono);font-size:24px;font-weight:700;margin:4px 0 12px}
+.session-badge{font-size:10.5px;padding:2px 9px;border-radius:999px;border:1px solid var(--line);color:var(--mut)}
+.session-badge.live{color:var(--amber);border-color:var(--amber)}
+.detail-price{font-family:var(--mono);font-size:24px;font-weight:700;margin:4px 0 2px}
+.change-line{font-size:13px;color:var(--mut);margin-bottom:10px;display:block}
+.change-line .up,.change-line .down{font-family:var(--mono);font-weight:600}
 .interval-tabs{display:flex;gap:6px;margin-bottom:10px;align-items:center;flex-wrap:wrap}
 .interval-tab{padding:5px 12px;border-radius:7px;border:1px solid var(--line);background:transparent;color:var(--mut);font-size:12.5px;cursor:pointer}
 .interval-tab.on{background:rgba(242,169,59,.12);border-color:var(--amber);color:var(--amber);font-weight:600}
@@ -40,7 +44,9 @@ main{max-width:1400px}
 .ma-legend i{width:10px;height:2px;display:inline-block}
 .line-toggle{padding:2px 9px;border-radius:999px;border:1px solid var(--line);background:transparent;color:var(--dim);font-size:11px;cursor:pointer;display:flex;align-items:center;gap:4px}
 .line-toggle.on{color:var(--mut);border-color:var(--mut)}
+.line-toggle.active{color:var(--amber);border-color:var(--amber);background:rgba(242,169,59,.12)}
 .chart-wrap-lg{height:300px}
+.draw-hint{font-size:10.5px;color:var(--dim);margin-top:4px}
 
 /* ===== 호가창: 증권사 표준 레이아웃(가격 가운데, 매도잔량 왼쪽·파랑 / 매수잔량 오른쪽·빨강) ===== */
 .ob-title{font-size:11.5px;color:var(--dim);margin-bottom:6px}
@@ -52,6 +58,9 @@ main{max-width:1400px}
 .ob-row .op.ask{color:var(--blue)}
 .ob-row .op.bid{color:var(--red)}
 .ob-sep{border-top:1px solid var(--line);border-bottom:1px solid var(--line);margin:5px 0}
+.ob-info{margin-top:8px}
+.ob-info-row{display:flex;justify-content:space-between;align-items:center;padding:6px 2px;border-top:1px solid var(--line);font-size:11.5px;color:var(--mut)}
+.ob-info-row span:last-child{color:#e8ecf3;font-family:var(--mono);font-weight:600}
 
 .refresh-mini{padding:4px 10px;border-radius:6px;border:1px solid var(--line);background:transparent;color:var(--mut);font-size:11px;cursor:pointer}
 .refresh-mini:hover{color:var(--amber);border-color:var(--amber)}
@@ -134,17 +143,19 @@ main{max-width:1400px}
               <div class="detail-head">
                 <h2>{{ selected.name }}</h2>
                 <span class="sym">{{ selected.symbol }} · {{ selected.marketCountry }}</span>
+                <span class="session-badge" :class="{live: marketSession.live}">{{ marketSession.label }}</span>
                 <button class="refresh-mini" style="margin-left:auto" @click="refreshAll">↻ 갱신</button>
               </div>
               <div class="detail-price">{{ fmtMoney(selected.lastPrice, selected.currency) }}</div>
+              <span class="change-line" v-html="changeLineHtml"></span>
 
               <div class="interval-tabs">
                 <button class="interval-tab" :class="{on: chartInterval==='1m'}" @click="setInterval_('1m')">분</button>
                 <select v-if="chartInterval==='1m'" class="minute-select" v-model.number="minuteUnit" @change="drawChart">
-                  <option :value="1">1분봉</option>
-                  <option :value="3">3분봉</option>
-                  <option :value="5">5분봉</option>
-                  <option :value="60">60분봉</option>
+                  <option :value="1">1분</option>
+                  <option :value="3">3분</option>
+                  <option :value="5">5분</option>
+                  <option :value="60">60분</option>
                 </select>
                 <button class="interval-tab" :class="{on: chartInterval==='1d'}" @click="setInterval_('1d')">일</button>
                 <button class="interval-tab" :class="{on: chartInterval==='1w'}" @click="setInterval_('1w')">주</button>
@@ -157,7 +168,10 @@ main{max-width:1400px}
                 <span><i style="background:#8b5cf6"></i>MA60</span>
                 <span style="color:var(--mut)">점선: 현재가 · 내 평균단가</span>
                 <button class="line-toggle" :class="{on: showAvgPriceLine}" @click="toggleAvgPriceLine">내 평균<span v-if="showAvgPriceLine">✕</span></button>
+                <button class="line-toggle" :class="{active: drawMode}" @click="toggleDrawMode">📈 추세선</button>
+                <button class="line-toggle" @click="clearDrawings">지우기</button>
               </div>
+              <div class="draw-hint" v-if="drawMode">차트를 두 번 클릭해 추세선을 그리세요{{ pendingHint }}</div>
 
               <div class="chart-wrap-lg" ref="chartContainer"></div>
             </div>
@@ -178,6 +192,16 @@ main{max-width:1400px}
                   <span class="op bid">{{ fmtNum(b.price) }}</span>
                   <span class="oq bid">{{ fmtNum(b.volume) }}</span>
                 </div>
+              </div>
+              <div class="ob-info">
+                <div class="ob-info-row"><span>상한가</span><span class="up">{{ priceLimit.upperLimitPrice != null ? fmtNum(priceLimit.upperLimitPrice) : '-' }}</span></div>
+                <div class="ob-info-row"><span>하한가</span><span class="down">{{ priceLimit.lowerLimitPrice != null ? fmtNum(priceLimit.lowerLimitPrice) : '-' }}</span></div>
+                <div class="ob-info-row"><span>상승VI</span><span>{{ warnings.viUp ? '발동' : '-' }}</span></div>
+                <div class="ob-info-row"><span>하강VI</span><span>{{ warnings.viDown ? '발동' : '-' }}</span></div>
+                <div class="ob-info-row"><span>시작</span><span>{{ todayOpen != null ? fmtNum(todayOpen) : '-' }}</span></div>
+                <div class="ob-info-row"><span>최고</span><span>{{ todayHigh != null ? fmtNum(todayHigh) : '-' }}</span></div>
+                <div class="ob-info-row"><span>최저</span><span>{{ todayLow != null ? fmtNum(todayLow) : '-' }}</span></div>
+                <div class="ob-info-row"><span>거래량</span><span>{{ todayVolume != null ? fmtNum(todayVolume) : '-' }}</span></div>
               </div>
             </div>
           </div>
@@ -278,7 +302,7 @@ main{max-width:1400px}
       </div>
     </div>
 
-    <div style="font-size:11.5px;color:var(--dim);margin-top:14px">국내 주식은 KRX 정규장 외에 넥스트(NXT) 대체거래소 시간대가 별도로 있고, 미국 주식은 프리마켓·정규장·애프터마켓 3단계로 나뉩니다. 가격·호가는 30초마다 자동 갱신됩니다(토스 API 초당 호출 한도 대비 여유 있게 설정). 주/월/년봉·N분봉은 토스 API가 제공하는 일봉(최근 200개)·1분봉(최근 200개)을 직접 집계한 값이라, 그 이상 과거는 표시되지 않습니다.</div>
+    <div style="font-size:11.5px;color:var(--dim);margin-top:14px">국내 주식은 KRX 정규장 외에 넥스트(NXT) 대체거래소 시간대가 별도로 있고, 미국 주식은 프리마켓·정규장·애프터마켓 3단계로 나뉩니다. 가격·호가는 30초마다 자동 갱신됩니다(토스 API 초당 호출 한도 대비 여유 있게 설정). 주/월/년봉·N분봉은 토스 API가 제공하는 일봉(최근 200개)·1분봉(최근 200개)을 직접 집계한 값이라, 그 이상 과거는 표시되지 않습니다. 장 상태 배지는 브라우저 현재 시각 기준의 대략적인 표시이며 공휴일은 반영하지 않습니다.</div>
 
     <!-- ===== 계산기 모달 — X버튼/ESC로만 닫힘 ===== -->
     <div class="modal-bg" :class="{show: calcTarget}">
@@ -355,6 +379,8 @@ createApp({
     const dailyCandlesCache = ref([]); // 1일봉 캐시 — 주/월/년봉은 전부 이걸 집계해서 만든다
     const showAvgPriceLine = ref(true);
     const orderbook = ref(null);
+    const priceLimit = ref({});
+    const warnings = ref({});
     const investorTrading = ref([]);
     const shortSelling = ref([]);
     const orders = ref([]);
@@ -362,11 +388,17 @@ createApp({
     const orderTab = ref('CLOSED');
     const statusFilter = reactive({ FILLED: true, CANCELED: false, REJECTED: false, ETC: false });
     const chartContainer = ref(null);
+    const drawMode = ref(false);
+    const pendingHint = ref('');
+    const nowTick = ref(Date.now());
     let chartHandle = null;
     let candleSeries = null;
     let maSeriesRefs = [];
+    let drawnLines = [];
+    let pendingDrawPoint = null;
     let minuteCandlesTemp = []; // 1분봉 원본 캐시(최신순) — minuteUnit에 따라 매번 다시 집계
     let autoRefreshTimer = null;
+    let clockTimer = null;
 
     const calcTarget = ref(null);
     const calcMode = ref('qty');
@@ -419,6 +451,55 @@ createApp({
       return ds === todayKstStr() ? '오늘' : ds;
     }
 
+    /** 오늘(최신) 일봉의 시가/고가/저가/거래량 — dailyCandlesCache는 최신순이라 [0]이 오늘(또는 최근 거래일). */
+    const todayCandle = computed(() => (dailyCandlesCache.value && dailyCandlesCache.value.length) ? dailyCandlesCache.value[0] : null);
+    const todayOpen = computed(() => todayCandle.value ? toNum(todayCandle.value.openPrice) : null);
+    const todayHigh = computed(() => todayCandle.value ? toNum(todayCandle.value.highPrice) : null);
+    const todayLow = computed(() => todayCandle.value ? toNum(todayCandle.value.lowPrice) : null);
+    const todayVolume = computed(() => todayCandle.value ? toNum(todayCandle.value.volume) : null);
+    /** 전일 종가 — [1]이 그 전 거래일. 어제 대비 등락 표시에 사용. */
+    const prevClose = computed(() => {
+      const arr = dailyCandlesCache.value;
+      if (!arr || arr.length < 2) return null;
+      return toNum(arr[1].closePrice);
+    });
+    const changeLineHtml = computed(() => {
+      if (!selected.value || selected.value.lastPrice == null || prevClose.value == null || prevClose.value === 0) return '';
+      const diff = selected.value.lastPrice - prevClose.value;
+      const rate = (diff / prevClose.value) * 100;
+      const cls = diff > 0 ? 'up' : diff < 0 ? 'down' : '';
+      const sign = diff > 0 ? '+' : '';
+      const amountTxt = fmtMoney(Math.abs(diff), selected.value.currency).replace('-', '');
+      return `어제보다 <span class="${cls}">${sign}${amountTxt} (${sign}${rate.toFixed(2)}%)</span>`;
+    });
+
+    /** 장 상태 배지 — 브라우저 로컬 시각을 종목 시장의 표준시간대로 변환해 대략적인 세션을 계산한다.
+     *  공휴일은 반영하지 않는 근사치이며, 30초마다 갱신되는 nowTick에 의존해 자동으로 최신화된다. */
+    const marketSession = computed(() => {
+      if (!selected.value) return { label: '', live: false };
+      const isKr = selected.value.currency !== 'USD' && selected.value.marketCountry !== 'US';
+      const tz = isKr ? 'Asia/Seoul' : 'America/New_York';
+      const parts = new Intl.DateTimeFormat('en-US', { timeZone: tz, hour12: false, hour: '2-digit', minute: '2-digit', weekday: 'short' }).formatToParts(new Date(nowTick.value));
+      const get = t => parts.find(p => p.type === t)?.value;
+      const hh = Number(get('hour')) % 24;
+      const mm = Number(get('minute'));
+      const wd = get('weekday');
+      const minutes = hh * 60 + mm;
+      if (wd === 'Sat' || wd === 'Sun') return { label: '휴장', live: false };
+      if (isKr) {
+        if (minutes >= 8 * 60 && minutes < 8 * 60 + 50) return { label: 'NXT 프리마켓', live: false };
+        if (minutes >= 8 * 60 + 50 && minutes < 9 * 60) return { label: '동시호가', live: false };
+        if (minutes >= 9 * 60 && minutes < 15 * 60 + 20) return { label: '정규장', live: true };
+        if (minutes >= 15 * 60 + 20 && minutes < 15 * 60 + 30) return { label: '동시호가', live: false };
+        if (minutes >= 15 * 60 + 30 && minutes < 20 * 60) return { label: 'NXT 애프터마켓', live: false };
+        return { label: '장마감', live: false };
+      }
+      if (minutes >= 4 * 60 && minutes < 9 * 60 + 30) return { label: '프리마켓', live: false };
+      if (minutes >= 9 * 60 + 30 && minutes < 16 * 60) return { label: '정규장', live: true };
+      if (minutes >= 16 * 60 && minutes < 20 * 60) return { label: '애프터마켓', live: false };
+      return { label: '장마감', live: false };
+    });
+
     async function loadHoldings(){
       const data = await fetch('/api/admin/portfolio/holdings').then(r => r.json()).catch(() => null);
       holdings.value = data || { available: false, message: '불러오지 못했습니다.' };
@@ -437,21 +518,28 @@ createApp({
       if (!selected.value) return;
       const sym = selected.value.symbol;
       orderbook.value = null;
+      priceLimit.value = {};
+      warnings.value = {};
       investorTrading.value = [];
       shortSelling.value = [];
       dailyCandlesCache.value = [];
       minuteCandlesTemp = [];
+      clearDrawings();
 
-      const [chartRes, obRes, itRes, ssRes] = await Promise.all([
+      const [chartRes, obRes, itRes, ssRes, plRes, wRes] = await Promise.all([
         fetch(`/api/admin/portfolio/stock/${sym}/chart?interval=1d&count=200`).then(r => r.json()).catch(() => null),
         fetch(`/api/admin/portfolio/stock/${sym}/orderbook`).then(r => r.json()).catch(() => null),
         fetch(`/api/admin/portfolio/stock/${sym}/investor-trading?count=7`).then(r => r.json()).catch(() => null),
         fetch(`/api/admin/portfolio/stock/${sym}/short-selling?count=7`).then(r => r.json()).catch(() => null),
+        fetch(`/api/admin/portfolio/stock/${sym}/price-limit`).then(r => r.json()).catch(() => null),
+        fetch(`/api/admin/portfolio/stock/${sym}/warnings`).then(r => r.json()).catch(() => null),
       ]);
       if (obRes && obRes.available) orderbook.value = obRes;
       if (itRes && itRes.available) investorTrading.value = itRes.records || [];
       if (ssRes && ssRes.available) shortSelling.value = ssRes.records || [];
       if (chartRes && chartRes.available) dailyCandlesCache.value = chartRes.candles || [];
+      if (plRes && plRes.available) priceLimit.value = plRes;
+      if (wRes) warnings.value = wRes;
       chartInterval.value = '1d';
       minuteUnit.value = 1;
       showAvgPriceLine.value = true;
@@ -464,6 +552,9 @@ createApp({
       chartInterval.value = iv;
       // 요구사항: 인터벌을 옮길 때마다 내 평균단가 기준선은 항상 다시 켜진 상태로 시작한다.
       showAvgPriceLine.value = true;
+      // 인터벌이 바뀌면 시간축 형식(분봉=숫자 타임스탬프, 일봉 이상=날짜 문자열)이 달라져
+      // 이전에 그려둔 추세선이 엉뚱한 위치에 남으므로 함께 지운다.
+      clearDrawings();
       if (iv === '1m' && selected.value) {
         const res = await fetch(`/api/admin/portfolio/stock/${selected.value.symbol}/chart?interval=1m&count=200`).then(r => r.json()).catch(() => null);
         // 1분봉은 최대 200개(약 3시간 남짓)까지만 조회됨(토스 API 자체 제약). 3/5/60분봉은 이 원본을
@@ -578,6 +669,44 @@ createApp({
       window.addEventListener('resize', () => {
         if (chartHandle && chartContainer.value) chartHandle.applyOptions({ width: chartContainer.value.clientWidth });
       });
+      // 간단한 추세선 그리기 도구: 그리기 모드에서 두 번 클릭하면 그 두 점을 잇는 선을 그린다.
+      // lightweight-charts에는 내장 드로잉 툴이 없어서 클릭 좌표를 시간/가격으로 직접 변환해 만든다.
+      chartHandle.subscribeClick(handleChartClick);
+    }
+
+    function handleChartClick(param){
+      if (!drawMode.value || !chartHandle || !candleSeries) return;
+      if (!param.point || param.time == null) return;
+      const price = candleSeries.coordinateToPrice(param.point.y);
+      if (price == null) return;
+      const point = { time: param.time, price };
+      if (!pendingDrawPoint) {
+        pendingDrawPoint = point;
+        pendingHint.value = ' (첫 지점 완료 · 두 번째 지점을 클릭하세요)';
+        return;
+      }
+      const p1 = pendingDrawPoint, p2 = point;
+      pendingDrawPoint = null;
+      pendingHint.value = '';
+      const p1Before = (typeof p1.time === 'number') ? p1.time <= p2.time : String(p1.time) <= String(p2.time);
+      const a = p1Before ? p1 : p2, b = p1Before ? p2 : p1;
+      if (a.time === b.time) return; // 같은 지점을 두 번 클릭한 경우 무시
+      const line = chartHandle.addLineSeries({ color: '#22d3ee', lineWidth: 2, lastValueVisible: false, priceLineVisible: false, crosshairMarkerVisible: false });
+      line.setData([{ time: a.time, value: a.price }, { time: b.time, value: b.price }]);
+      drawnLines.push(line);
+    }
+    function toggleDrawMode(){
+      drawMode.value = !drawMode.value;
+      pendingDrawPoint = null;
+      pendingHint.value = '';
+    }
+    function clearDrawings(){
+      if (chartHandle) {
+        drawnLines.forEach(s => { try { chartHandle.removeSeries(s); } catch (e) {} });
+      }
+      drawnLines = [];
+      pendingDrawPoint = null;
+      pendingHint.value = '';
     }
 
     /** 캔들 시리즈를 매번 새로 만든다(기존 시리즈에 applyOptions로 precision만 바꿔 재사용하던 방식은
@@ -648,21 +777,13 @@ createApp({
           maSeriesRefs.push(s);
         });
       }
-      // 현재가 기준선(항상 표시) · 내 평균단가 기준선(옆 ✕ 버튼으로 끌 수 있고, 인터벌을 옮기면
-      // 다시 켜진 상태로 시작) — 지금 이 종목이 차트 상 어디에 있는지 한눈에 보이게.
-      if (selected.value) {
-        if (selected.value.lastPrice != null) {
-          candleSeries.createPriceLine({
-            price: selected.value.lastPrice, color: '#7E8DA9', lineWidth: 1,
-            lineStyle: LightweightCharts.LineStyle.Dashed, axisLabelVisible: true, title: '현재가'
-          });
-        }
-        if (showAvgPriceLine.value && selected.value.averagePurchasePrice != null) {
-          candleSeries.createPriceLine({
-            price: selected.value.averagePurchasePrice, color: '#F2A93B', lineWidth: 1,
-            lineStyle: LightweightCharts.LineStyle.Dashed, axisLabelVisible: true, title: '내 평균'
-          });
-        }
+      // 내 평균단가 기준선 — 옆 ✕ 버튼으로 끌 수 있고, 인터벌을 옮기면 다시 켜진 상태로 시작한다.
+      // (현재가는 캔들 시리즈 자체의 마지막 값 라벨이 이미 보여주므로 별도 기준선을 그리지 않는다.)
+      if (selected.value && showAvgPriceLine.value && selected.value.averagePurchasePrice != null) {
+        candleSeries.createPriceLine({
+          price: selected.value.averagePurchasePrice, color: '#F2A93B', lineWidth: 1,
+          lineStyle: LightweightCharts.LineStyle.Dashed, axisLabelVisible: true, title: '내 평균'
+        });
       }
       chartHandle.priceScale('right').applyOptions({ autoScale: true });
       chartHandle.timeScale().fitContent();
@@ -749,22 +870,26 @@ createApp({
       loadHoldings();
       window.addEventListener('keydown', handleKeydown);
       autoRefreshTimer = setInterval(async () => {
+        nowTick.value = Date.now();
         await loadHoldingsSilent();
         if (selected.value) {
           const ob = await fetch(`/api/admin/portfolio/stock/${selected.value.symbol}/orderbook`).then(r => r.json()).catch(() => null);
           if (ob && ob.available) orderbook.value = ob;
         }
       }, 30_000);
+      clockTimer = setInterval(() => { nowTick.value = Date.now(); }, 30_000);
     });
     onUnmounted(() => {
       if (autoRefreshTimer) clearInterval(autoRefreshTimer);
+      if (clockTimer) clearInterval(clockTimer);
       window.removeEventListener('keydown', handleKeydown);
     });
 
     return {
       holdings, holdingsLoaded, selected, chartInterval, minuteUnit, orderbook, asksDisplay, bidsDisplay,
+      priceLimit, warnings, todayOpen, todayHigh, todayLow, todayVolume, changeLineHtml, marketSession,
       investorTrading, shortSelling, orders, ordersLoaded, orderTab, statusFilter, filteredOrders, chartContainer,
-      showAvgPriceLine, toggleAvgPriceLine,
+      showAvgPriceLine, toggleAvgPriceLine, drawMode, pendingHint, toggleDrawMode, clearDrawings,
       calcTarget, calcMode, calc, profitCalc, calcResult, profitResult,
       fmtMoney, fmtQty, fmtNum, fmtRate, fmtPl, fmtSigned, fmtDate, fmtDateLabel, statusLabel,
       selectStock, setInterval_, drawChart, loadOrders, refreshAll, openCalc
