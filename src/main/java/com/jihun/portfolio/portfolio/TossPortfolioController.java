@@ -34,7 +34,7 @@ public class TossPortfolioController {
         return portfolioService.getOrders(status, symbol);
     }
 
-    /** interval: 1m 또는 1d(토스 API가 지원하는 값은 이 둘뿐 — 주/월/년봉은 프론트에서 1d 데이터를 집계) */
+    /** interval: 1m 또는 1d(토스 API가 지원하는 값은 이 둘뿐 — 주/월/년봉과 N분봉은 프론트에서 1m/1d 데이터를 집계) */
     @GetMapping("/stock/{symbol}/chart")
     public Map<String, Object> chart(@PathVariable String symbol,
                                       @RequestParam(defaultValue = "1d") String interval,
@@ -47,13 +47,16 @@ public class TossPortfolioController {
         return portfolioService.getOrderbook(symbol);
     }
 
+    /** count: 최근 며칠치를 볼지(최신순). 프론트는 7일치만 표시한다. */
     @GetMapping("/stock/{symbol}/investor-trading")
-    public Map<String, Object> investorTrading(@PathVariable String symbol) {
-        return portfolioService.getInvestorTrading(symbol);
+    public Map<String, Object> investorTrading(@PathVariable String symbol,
+                                                @RequestParam(defaultValue = "7") int count) {
+        return portfolioService.getInvestorTrading(symbol, count);
     }
 
     @GetMapping("/stock/{symbol}/short-selling")
-    public Map<String, Object> shortSelling(@PathVariable String symbol) {
-        return portfolioService.getShortSelling(symbol);
+    public Map<String, Object> shortSelling(@PathVariable String symbol,
+                                             @RequestParam(defaultValue = "7") int count) {
+        return portfolioService.getShortSelling(symbol, count);
     }
 }
