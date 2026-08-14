@@ -64,6 +64,10 @@
 .search-row button:hover{color:var(--amber);border-color:var(--amber)}
 .search-row .clear-btn{padding:8px 12px;flex:none}
 
+/* rank-table: min-width:590px가 모바일 화면(360~400px)보다 훨씬 넓어서 .table-scroll을 스와이프해야만
+   등락률·거래대금·시가총액이 보였다("표 내용이 벗어나있다"는 증상의 원인). 모바일에서는 아예
+   덜 중요한 거래대금·시가총액 두 컬럼을 숨기고 나머지 5개(★·#·종목명·현재가·등락률)만 스와이프 없이
+   한 화면에 들어오게 한다 — 종목을 탭하면 상세 팝업에서 더 많은 정보를 볼 수 있다. */
 .rank-table{width:100%;border-collapse:collapse;font-size:13.5px;min-width:590px}
 .rank-table th{text-align:right;color:var(--dim);font-weight:600;font-size:12px;padding:8px 7px;border-bottom:1px solid var(--line);white-space:nowrap}
 .rank-table th:nth-child(2),.rank-table th:nth-child(3){text-align:left}
@@ -75,6 +79,12 @@
 .rank-table tr{transition:transform .35s ease}
 .rank-table tbody tr{cursor:pointer}
 .rank-table tbody tr:hover td{background:rgba(255,255,255,.02)}
+@media (max-width:600px){
+  .rank-table{min-width:0;font-size:12px}
+  .rank-table th,.rank-table td{padding:7px 4px}
+  .rank-table th:nth-child(6),.rank-table td:nth-child(6),
+  .rank-table th:nth-child(7),.rank-table td:nth-child(7){display:none}
+}
 .badge-rate{padding:2px 8px;border-radius:6px;font-weight:700;font-size:12.5px}
 .badge-rate.up{background:rgba(240,68,82,.12)}
 .badge-rate.down{background:rgba(49,130,246,.12)}
@@ -111,11 +121,16 @@
 .q-refresh{padding:4px 10px;border-radius:6px;border:1px solid var(--line);background:transparent;color:var(--mut);font-size:11px;cursor:pointer;margin-left:auto}
 .q-refresh:hover{color:var(--amber);border-color:var(--amber)}
 .q-chart-ob-grid{display:grid;grid-template-columns:1fr 260px;gap:14px;align-items:stretch;margin-bottom:14px}
+.q-chart-ob-grid>*{min-width:0}
 @media (max-width:720px){ .q-chart-ob-grid{grid-template-columns:1fr} }
 .q-chart-wrap{min-height:280px;background:var(--panel-2);border:1px solid var(--line);border-radius:10px}
 .q-ob-panel{background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:12px}
 .q-ob-title{font-size:11.5px;color:var(--dim);margin-bottom:6px}
+/* toss-stock.html의 ob-row/ob-info-cell과 동일한 grid/flex 표 흉내 컴포넌트라 같은 오버플로 버그가
+   있었다: grid/flex 자식은 기본 min-width:auto라 숫자가 넓으면 패널 밖으로 삐져나가고, body가
+   overflow-x:hidden이라 그냥 화면 밖에서 잘려 보인다. min-width:0으로 실제로 줄어들게 한다. */
 .q-ob-row{display:grid;grid-template-columns:1fr 64px 1fr;font-family:var(--mono);font-size:11.5px;padding:3px 0;align-items:center;border-bottom:1px solid var(--line)}
+.q-ob-row>span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .q-ob-row .oq{color:var(--dim)}
 .q-ob-row .oq.ask{text-align:right;padding-right:8px;color:var(--blue)}
 .q-ob-row .oq.bid{text-align:left;padding-left:8px;color:var(--red)}
@@ -125,13 +140,21 @@
 .q-ob-sep{border-top:1px solid var(--line);border-bottom:1px solid var(--line);margin:5px 0}
 .q-ob-info{margin-top:8px}
 .q-ob-info-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:6px 0;border-top:1px solid var(--line)}
-.q-ob-info-cell{display:flex;justify-content:space-between;align-items:center;font-size:11.5px;color:var(--mut)}
+.q-ob-info-row>*{min-width:0}
+.q-ob-info-cell{display:flex;justify-content:space-between;align-items:center;font-size:11.5px;color:var(--mut);min-width:0;gap:6px}
+.q-ob-info-cell span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .q-ob-info-cell span:last-child{color:#e8ecf3;font-family:var(--mono);font-weight:600}
 .q-section{margin-bottom:14px}
 .q-section h3{font-size:14px;margin-bottom:8px}
-.q-table{font-size:12px;width:100%;table-layout:fixed}
+/* base.css의 전역 table{min-width:560px}이 table-layout:fixed와 겹치면 모바일에서도 560px를
+   유지시켜 .table-scroll을 스와이프해야만 나머지 컬럼이 보였다. min-width:0으로 무효화. */
+.q-table{font-size:12px;width:100%;table-layout:fixed;min-width:0}
 .q-table th,.q-table td{padding:6px 8px;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border-bottom:1px solid var(--line)}
 .q-table th:first-child,.q-table td:first-child{text-align:left}
+@media (max-width:480px){
+  .q-table{font-size:10.5px}
+  .q-table th,.q-table td{padding:5px 2px}
+}
 .q-disclaim{font-size:11px;color:var(--dim);margin-top:6px}
 </style>
 </head>
