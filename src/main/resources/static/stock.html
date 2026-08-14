@@ -91,6 +91,11 @@
 .flash-up{background-color:rgba(240,68,82,.28) !important}
 .flash-down{background-color:rgba(49,130,246,.28) !important}
 .empty-msg{padding:24px;text-align:center;color:var(--dim);font-size:13px}
+/* 검색·즐겨찾기·초기 랭킹 로딩 시 눈에 잘 띄는 스피너 — 기존 empty-msg(회색 텍스트만)보다 로딩 중임이
+   한눈에 보이도록 회전 원 아이콘을 붙인다. */
+.loading-row{display:flex;align-items:center;justify-content:center;gap:10px;padding:30px 20px;color:var(--mut);font-size:13.5px}
+.spinner{width:16px;height:16px;flex:none;border:2px solid var(--line);border-top-color:var(--amber);border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
 .disclaim{font-size:11.5px;color:var(--dim);margin-top:10px;line-height:1.6}
 
 /* 즐겨찾기 별 — 종목명 바로 왼쪽 열에 둬서 "이 종목을 즐겨찾기했는지"가 이름과 한눈에 붙어 보이게 함.
@@ -231,7 +236,7 @@
         <thead><tr>
           <th></th><th>#</th><th>종목명</th><th>현재가</th><th>등락률</th><th>거래대금</th><th>시가총액</th>
         </tr></thead>
-        <tbody id="rankBody"><tr><td colspan="7"><div class="empty-msg">불러오는 중...</div></td></tr></tbody>
+        <tbody id="rankBody"><tr><td colspan="7"><div class="loading-row"><span class="spinner"></span>불러오는 중...</div></td></tr></tbody>
       </table>
     </div>
     <div class="disclaim">거래대금 랭킹은 실시간, 급상승·급하락은 1일 기준입니다 (토스증권 Open API). 종목을 클릭하면 차트·호가·투자자별 매매동향·공매도 동향을 볼 수 있습니다. ★는 이 브라우저에만 저장되는 즐겨찾기입니다(로그인 기능이 없어 기기·브라우저를 바꾸면 유지되지 않습니다).</div>
@@ -355,6 +360,13 @@
 const $ = id => document.getElementById(id);
 const esc = s => (s ?? '').toString().replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 let country = 'KR', tab = 'amount'; // tab: 'amount' | 'gainers' | 'losers' | 'favorites' | 'search'
+
+/* 랭킹 테이블 로딩 표시 — 회색 텍스트만으로는 로딩 중인지 눈에 잘 안 띈다는 피드백을 반영해
+   회전 스피너를 붙인다. colspan=7은 모바일에서 6/7번째 열이 숨겨져 있어도(CSS display:none)
+   DOM상 컬럼 수는 그대로라 정상적으로 전체 폭을 차지한다. */
+function loadingRow(text){
+  return `<tr><td colspan="7"><div class="loading-row"><span class="spinner"></span>${esc(text)}</div></td></tr>`;
+}
 
 /* ===================================================
    로컬 캐시 — 페이지에 다시 들어올 때마다 서버를 새로 부르지 않고,
@@ -784,7 +796,7 @@ async function doSearch(){
   segSync('tabSeg', null);
   segSync('favSeg', null);
   rankRowsBySymbol = new Map();
-  $('rankBody').innerHTML = '<tr><td colspan="7"><div class="empty-msg">검색 중...</div></td></tr>';
+  $('rankBody').innerHTML = loadingRow('검색 중...');
   const data = await fetch(`/api/stock/search?q=${encodeURIComponent(q)}&country=${country}`).then(r => r.json()).catch(() => null);
   const list = (data && data.results) || [];
   renderRankings(list, true);
@@ -811,7 +823,7 @@ async function loadFavorites(){
     $('refreshInfo').textContent = '';
     return;
   }
-  $('rankBody').innerHTML = '<tr><td colspan="7"><div class="empty-msg">불러오는 중...</div></td></tr>';
+  $('rankBody').innerHTML = loadingRow('불러오는 중...');
   const symbols = favs.map(f => f.symbol).join(',');
   const data = await fetch(`/api/stock/quotes?symbols=${encodeURIComponent(symbols)}&country=${country}`).then(r => r.json()).catch(() => null);
   const results = (data && data.results) || [];
