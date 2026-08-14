@@ -12,6 +12,11 @@ import jakarta.persistence.Table;
  * 방문자 요청(getAiBriefing)은 이 row를 그대로 읽기만 한다 — Gemini 무료 티어 일일 한도를
  * 방문자 수와 무관하게 하루 3회(또는 재시도 포함 최대 6회) 호출로 고정하기 위함.
  * picks·weekAhead는 구조가 있는 값이라 JSON 문자열로 직렬화해 저장한다(별도 테이블 없이 단순하게).
+ *
+ * columnDefinition="LONGTEXT" 명시: @Lob만으로는 MySQL에서 실제로 작은 컬럼(예: 기본 길이)이
+ * 생성되어 "Data too long for column 'picks_json'" 오류로 저장이 계속 실패하는 문제가 있었다
+ * (picks에 종목 3~5개의 이유 문장이 들어가면 수백 자를 쉽게 넘는다). columnDefinition으로
+ * 컬럼 타입을 명시적으로 고정한다.
  */
 @Entity
 @Table(name = "stock_ai_briefing")
@@ -24,17 +29,17 @@ public class StockAiBriefing {
     private String id = ID;
 
     @Lob
-    @Column(nullable = false)
+    @Column(nullable = false, columnDefinition = "LONGTEXT")
     private String summary;
 
     /** JSON 배열 문자열 — [{"name":..,"symbol":..,"market":..,"reason":..}, ...] */
     @Lob
-    @Column(nullable = false)
+    @Column(nullable = false, columnDefinition = "LONGTEXT")
     private String picksJson;
 
     /** JSON 배열 문자열 — ["...", "..."] */
     @Lob
-    @Column(nullable = false)
+    @Column(nullable = false, columnDefinition = "LONGTEXT")
     private String weekAheadJson;
 
     @Column(nullable = false)
