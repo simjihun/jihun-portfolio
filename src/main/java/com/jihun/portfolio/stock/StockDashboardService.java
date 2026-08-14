@@ -1,11 +1,10 @@
 package com.jihun.portfolio.stock;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.jihun.portfolio.common.GeminiClient;
 import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.*;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
@@ -33,6 +32,9 @@ import java.util.stream.Collectors;
  * getAiBriefing()은 그 값을 그대로 읽기만 한다. 방문자가 몇 명이든 Gemini 호출은 하루 최대
  * 3회(재시도 포함 최대 6회)로 고정되어 무료 티어 일일 한도 소진을 막는다.
  *
+ * Gemini 호출 자체(모델 후보 폴백, 404/5xx 처리)는 GeminiClient(common 패키지)가 담당한다 —
+ * AI 뉴스 브리핑과 같은 클라이언트를 공유해 두 기능이 같은 모델 후보 목록·재시도 정책을 따른다.
+ *
  * 스키마(공식 문서 확인):
  *  - RankingItem: rank/symbol/currency/price{lastPrice,basePrice,changeRate(소수비율)}/tradingVolume/tradingAmount
  *    → 종목명·시총은 없음. /api/v1/stocks(종목마스터: name, sharesOutstanding)를 조인해 시총 계산.
@@ -58,9 +60,9 @@ public class StockDashboardService {
     private final TossApiClient toss;
     private final RestTemplate rest;
     private final StockAiBriefingRepository aiBriefingRepository;
+    private final GeminiClient geminiClient;
     private final ObjectMapper mapper = new ObjectMapper();
     private final Map<String, CacheEntry> cache = new ConcurrentHashMap<>();
-    private volatile String workingGeminiModel = null;
 
     /** 검색/즐겨찾기의 종목별 일봉 조회(fetchDailyStats)를 병렬로 쏘기 위한 전용 풀.
      *  TossApiClient는 여전히 전역 스로틀(300ms 간격)로 실제 호출 자체를 직렬화하지만,
@@ -77,14 +79,12 @@ public class StockDashboardService {
     /** 환율은 등락률 API가 없어 서버가 직접 당일 샘플을 모아 시가 대비 등락률·스파크라인을 만든다. */
     private final Deque<double[]> fxHistory = new ArrayDeque<>(); // {epochDay, rate}
 
-    @Value("${GEMINI_API_KEY:}")
-    private String geminiApiKey;
-
     private record CacheEntry(long expiresAt, Object value) {}
 
-    public StockDashboardService(TossApiClient toss, StockAiBriefingRepository aiBriefingRepository) {
+    public StockDashboardService(TossApiClient toss, StockAiBriefingRepository aiBriefingRepository, GeminiClient geminiClient) {
         this.toss = toss;
         this.aiBriefingRepository = aiBriefingRepository;
+        this.geminiClient = geminiClient;
         SimpleClientHttpRequestFactory f = new SimpleClientHttpRequestFactory();
         f.setConnectTimeout(4000);
         f.setReadTimeout(20000);
@@ -612,7 +612,7 @@ public class StockDashboardService {
         fallback.put("tag", null);
         fallback.put("industry", null);
         fallback.put("summary", "AI 요약을 생성하지 못했습니다.");
-        if (geminiApiKey == null || geminiApiKey.isBlank()) {
+        if (!geminiClient.isConfigured()) {
             fallback.put("summary", "GEMINI_API_KEY가 설정되지 않아 AI 요약을 생성할 수 없습니다.");
             return fallback;
         }
@@ -635,7 +635,7 @@ public class StockDashboardService {
                     + " \"summary\": \"2~3문장 요약. 등락 배경이나 소속 산업 특징 위주로, 확인되지 않은 사실은 단정하지 말 것\"}\n"
                     + "투자 권유가 아닌 데이터 기반 관찰만 서술하세요.\n\n종목: " + symbol + "\n데이터: " + dataJson;
 
-            String text = callGemini(prompt);
+            String text = geminiClient.generate(prompt);
             if (text == null) return fallback;
             String cleaned = text.replaceAll("```json|```", "").trim();
             Map<String, Object> parsed = mapper.readValue(cleaned, Map.class);
@@ -648,10 +648,6 @@ public class StockDashboardService {
     }
 
     /* ===================== AI 시황 브리핑 (Gemini, DB 스케줄 기반) ===================== */
-
-    private static final String[] GEMINI_MODELS = {
-            "gemini-flash-latest", "gemini-3-flash", "gemini-3-flash-preview", "gemini-2.0-flash", "gemini-2.5-flash"
-    };
 
     /** 방문자 요청 시점에는 Gemini를 절대 부르지 않는다 — DB에 저장된 최신 스냅샷만 읽는다.
      *  생성은 refreshAiBriefingScheduled()가 하루 3회 전담한다. 배포 직후 등 DB가 아직 비어 있으면
@@ -759,7 +755,7 @@ public class StockDashboardService {
         fallback.put("summary", "AI 브리핑을 생성하지 못했습니다. 잠시 후 다시 시도해주세요.");
         fallback.put("weekAhead", List.of());
         fallback.put("picks", List.of());
-        if (geminiApiKey == null || geminiApiKey.isBlank()) {
+        if (!geminiClient.isConfigured()) {
             fallback.put("summary", "GEMINI_API_KEY가 설정되지 않아 AI 브리핑을 생성할 수 없습니다.");
             return fallback;
         }
@@ -782,7 +778,7 @@ public class StockDashboardService {
                     + " \"picks\": [{\"name\": \"종목명\", \"symbol\": \"심볼\", \"market\": \"KR또는US\", \"reason\": \"이유 1~2문장\"}] (3~5개, 반드시 제공된 거래대금 상위 목록 안에서만)}\n"
                     + "투자 권유가 아닌 데이터 기반 관찰만 서술하세요.\n\n데이터:\n" + contextJson;
 
-            String text = callGemini(prompt);
+            String text = geminiClient.generate(prompt);
             if (text == null) return fallback;
             String cleaned = text.replaceAll("```json|```", "").trim();
             Map<String, Object> parsed = mapper.readValue(cleaned, Map.class);
@@ -792,39 +788,5 @@ public class StockDashboardService {
             log.error("AI 브리핑 생성 실패: {}", e.getMessage());
             return fallback;
         }
-    }
-
-    /** 사용 가능한 모델을 찾을 때까지 후보를 순회(404면 다음 모델). 성공한 모델은 기억해 재사용. */
-    @SuppressWarnings("unchecked")
-    private String callGemini(String prompt) {
-        List<String> models = new ArrayList<>();
-        if (workingGeminiModel != null) models.add(workingGeminiModel);
-        for (String m : GEMINI_MODELS) if (!models.contains(m)) models.add(m);
-        for (String model : models) {
-            try {
-                Map<String, Object> reqBody = Map.of("contents", List.of(Map.of("parts", List.of(Map.of("text", prompt)))));
-                HttpHeaders headers = new HttpHeaders();
-                headers.setContentType(MediaType.APPLICATION_JSON);
-                String url = "https://generativelanguage.googleapis.com/v1beta/models/" + model + ":generateContent?key=" + geminiApiKey;
-                ResponseEntity<String> res = rest.postForEntity(url, new HttpEntity<>(mapper.writeValueAsString(reqBody), headers), String.class);
-                Map<String, Object> body = mapper.readValue(res.getBody(), Map.class);
-                List<Map<String, Object>> candidates = (List<Map<String, Object>>) (Object) listOf(body, "candidates");
-                if (candidates.isEmpty()) continue;
-                Map<String, Object> content = pickMap(candidates.get(0), "content");
-                List<Map<String, Object>> parts = content == null ? List.of() : (List<Map<String, Object>>) (Object) content.getOrDefault("parts", List.of());
-                if (parts.isEmpty()) continue;
-                String text = pickStr(parts.get(0), "text");
-                if (text != null) {
-                    workingGeminiModel = model;
-                    return text;
-                }
-            } catch (org.springframework.web.client.HttpClientErrorException.NotFound e) {
-                log.warn("Gemini 모델 {} 사용 불가(404) — 다음 후보 시도", model);
-            } catch (Exception e) {
-                log.warn("Gemini 호출 실패(모델 {}): {}", model, e.getMessage());
-                return null;
-            }
-        }
-        return null;
     }
 }
