@@ -10,6 +10,15 @@ spring:
   application:
     name: jihun-portfolio
 
+  # @Scheduled 작업들을 위한 스레드풀. 기본값이 1개라, 뉴스 수집(30분 간격)처럼 오래 걸릴 수 있는
+  # 작업 하나가 늦어지면 뉴스 AI 브리핑(매일 7시)·AWS 빌링 갱신(매일 자정)·주식 AI 브리핑(9/15/21시)
+  # 같은 다른 스케줄 작업들이 전부 그 뒤에서 굶는 문제가 있었다(news_briefing이 2주 넘게 한 번도
+  # 안 쌓인 원인). 서로 독립된 별도 스레드에서 돌도록 여유 있게 늘려둔다.
+  task:
+    scheduling:
+      pool:
+        size: 5
+
   datasource:
     # 인메모리 H2 → 앱을 끄면 데이터가 사라짐 (로컬 개발용)
     url: jdbc:h2:mem:portfoliodb
