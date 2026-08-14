@@ -8,8 +8,8 @@ Spring Boot 애플리케이션 하나에 기능별 패키지를 추가하는 구
 
 | 상태 | 프로젝트 | 적용 기술·알고리즘 |
 |---|---|---|
-| 🟢 LIVE | **AI 뉴스** | RSS 다중 언론사 자동 수집(ROME), 제목 완전일치 기준 중복 제거, Gemini API 일일 브리핑 생성, OpenGraph 메타데이터 파싱(JSoup) 기반 기사 미리보기 |
-| 🟢 LIVE | **AI 주식** | 토스증권 Open API(OAuth2 Client Credentials, 전역 요청 스로틀링, TTL 캐시), 업비트 공개 API, Gemini API 시황 요약, 프론트엔드 FLIP 애니메이션 기반 실시간 테이블 갱신 |
+| 🟢 LIVE | **AI 뉴스** | RSS 다중 언론사 자동 수집(ROME), 링크·제목 완전일치 + 문자 2-그램 유사도 기반 근사중복 제거, Gemini API 일일 브리핑 생성(스케줄러+DB 저장, 배포 직후엔 즉시 1회), OpenGraph 메타데이터 파싱(JSoup) 기반 기사 미리보기 |
+| 🟢 LIVE | **AI 주식** | 토스증권 Open API(OAuth2 Client Credentials, 전역 요청 스로틀링, TTL 캐시), 업비트 공개 API, Gemini API 시황 요약(하루 3회 스케줄러+DB 저장), 프론트엔드 FLIP 애니메이션 기반 실시간 테이블 갱신 |
 | 🟢 LIVE | **지도 API** | 카카오 Local API(키워드·반경 검색), 네이버 지도 SDK, 국토교통부 실거래가 공공데이터 API 연동 |
 | 🟢 LIVE | **MMS** | 비동기 큐 + 멀티쓰레드 워커 풀(5개), 재시도 로직, 실시간 처리량 집계 |
 | 🟢 LIVE | **웹게임** | 숫자야구(스트라이크/볼 판정), 발리볼(Canvas 기반 실시간 물리 시뮬레이션) |
@@ -39,9 +39,10 @@ Spring Boot 애플리케이션 하나에 기능별 패키지를 추가하는 구
 ```
 [NewsFetchService] 30분 주기, 카테고리별 다중 언론사 RSS 수집
     - 소스 단위 장애 격리(하나가 실패해도 나머지 수집 계속)
-    - 링크 기준 + 제목 완전일치 기준 이중 중복 제거
+    - 링크·제목 완전일치 중복 제거 + 문자 2-그램 자카드 유사도 기반 근사중복 제거
     - 3일 경과 기사 자동 삭제
-[NewsBriefingService] 매일 07:00 카테고리별 헤드라인을 Gemini API에 전달해 요약 생성
+[NewsBriefingService] 매일 07:00(+배포 직후 데이터가 없으면 즉시 1회) 카테고리별 헤드라인을
+    공용 GeminiClient에 전달해 요약 생성 후 DB에 저장, 방문자 요청은 저장된 값만 조회
 [NewsPreviewService] OpenGraph 메타데이터(이미지·제목·요약)만 파싱해 표시, 본문 미저장
 [NewsController] 주요 뉴스는 카테고리별 최소 1건을 우선 확보한 뒤 최신순으로 채우는
     균형 배치 알고리즘 적용
@@ -52,11 +53,13 @@ Spring Boot 애플리케이션 하나에 기능별 패키지를 추가하는 구
 ```
 [TossApiClient] OAuth2 Client Credentials 토큰 캐싱, 전역 300ms 요청 스로틀,
     429 응답 시 Retry-After 기반 재시도
-[StockDashboardService] 지표(60s)·랭킹(60s)·수급(10m)·캘린더(12h)·AI브리핑(30m)
-    TTL 캐시로 외부 API 호출량 제한. 종목마스터 조인으로 랭킹에 종목명·시가총액 부여.
-    환율 등락률은 당일 최초 샘플 대비로 서버가 직접 산출
+[StockDashboardService] 지표(60s)·랭킹(60s)·수급(10m)·캘린더(12h) TTL 캐시로 외부 API
+    호출량 제한. 종목마스터 조인으로 랭킹에 종목명·시가총액 부여. 환율 등락률은 당일
+    최초 샘플 대비로 서버가 직접 산출. 검색 결과의 종목별 시세 조회는 전용 스레드풀로
+    병렬 디스패치해 응답 대기 시간 단축
+[StockAiBriefing] 시황 요약·주목종목·체크포인트는 하루 3회(09/15/21시) 스케줄러가
+    공용 GeminiClient로 생성해 DB에 저장, 방문자 요청은 저장된 값만 조회
 [Upbit 공개 API] 비트코인 시세·캔들 조회
-[Gemini API] 지표·수급·거래대금 데이터를 근거로 시황 요약 생성
 [프론트엔드] 실시간 랭킹 테이블은 폴링마다 DOM을 재생성하지 않고 키 기반으로 기존
     엘리먼트를 재사용, FLIP 기법으로 순위 변동을 애니메이션 처리
 ```
@@ -121,7 +124,7 @@ Spring Boot 애플리케이션 하나에 기능별 패키지를 추가하는 구
 
 ```
 com.jihun.portfolio
-├── common/          # 공통(헬스체크, URL 라우팅 - WebConfig)
+├── common/          # 공통(헬스체크, URL 라우팅 - WebConfig, Gemini API 공용 호출 클라이언트 - GeminiClient)
 ├── message/         # MMS
 │   ├── controller/  #   REST API (/api/message/*)
 │   ├── domain/
@@ -135,9 +138,11 @@ com.jihun.portfolio
 │   ├── repository/
 │   └── service/     #   RSS 수집 · Gemini 브리핑 · 기사 미리보기
 ├── stock/           # AI 주식
-│   ├── TossApiClient.java          # 토스증권 Open API OAuth 클라이언트
-│   ├── StockDashboardService.java  # 지표·랭킹·수급·캘린더·AI브리핑
-│   └── StockController.java        # REST API (/api/stock/*)
+│   ├── TossApiClient.java              # 토스증권 Open API OAuth 클라이언트
+│   ├── StockDashboardService.java      # 지표·랭킹·수급·캘린더·AI브리핑
+│   ├── StockAiBriefing.java            # AI 브리핑 스냅샷 엔티티(단일 row)
+│   ├── StockAiBriefingRepository.java
+│   └── StockController.java            # REST API (/api/stock/*)
 ├── map/             # 지도 API
 │   ├── MapController.java          # 맛집 검색(카카오)
 │   ├── RealEstateController.java   # 부동산 실거래 조회(국토부)
