@@ -12,7 +12,10 @@ import org.springframework.web.client.RestTemplate;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
 
 /**
@@ -50,6 +53,18 @@ public class StockDashboardService {
     private final ObjectMapper mapper = new ObjectMapper();
     private final Map<String, CacheEntry> cache = new ConcurrentHashMap<>();
     private volatile String workingGeminiModel = null;
+
+    /** 검색/즐겨찾기의 종목별 일봉 조회(fetchDailyStats)를 병렬로 쏘기 위한 전용 풀.
+     *  TossApiClient는 여전히 전역 스로틀(300ms 간격)로 실제 호출 자체를 직렬화하지만,
+     *  이전처럼 한 종목의 응답(네트워크 왕복)을 다 기다린 뒤에야 다음 종목을 스로틀에 태우는 게 아니라
+     *  여러 스레드가 동시에 대기열에 서 있게 해서, 응답 대기 시간이 스로틀 간격 위에 그대로 누적되던
+     *  부분을 없앤다(종목 10개 기준 체감 대기시간이 크게 줄어듦). 스레드는 데몬으로 만들어 앱 종료를
+     *  막지 않게 한다. */
+    private final ExecutorService searchIoExecutor = Executors.newFixedThreadPool(8, r -> {
+        Thread t = new Thread(r, "toss-search-io");
+        t.setDaemon(true);
+        return t;
+    });
 
     /** 환율은 등락률 API가 없어 서버가 직접 당일 샘플을 모아 시가 대비 등락률·스파크라인을 만든다. */
     private final Deque<double[]> fxHistory = new ArrayDeque<>(); // {epochDay, rate}
@@ -461,7 +476,11 @@ public class StockDashboardService {
         return out;
     }
 
-    /** matched 종목 목록에 현재가·등락률·거래대금(근사)·시가총액을 붙여 랭킹 행과 동일한 모양으로 만든다. */
+    /** matched 종목 목록에 현재가·등락률·거래대금(근사)·시가총액을 붙여 랭킹 행과 동일한 모양으로 만든다.
+     *  종목별 일봉 조회(fetchDailyStats)는 배치 API가 없어 종목당 1회씩 필요한데, 순차 호출하면 스로틀
+     *  간격(300ms) 위에 매번 응답 대기 시간까지 얹혀서 종목이 많을수록 느려졌다 — searchIoExecutor로
+     *  병렬 디스패치해 "응답을 기다리는 동안 다음 요청도 이미 대기열에 서 있는" 상태를 만든다(실제 호출
+     *  간격은 TossApiClient 전역 스로틀이 여전히 지켜준다). */
     private List<Map<String, Object>> enrichQuotes(List<Map<String, Object>> matched, String country) {
         if (matched.isEmpty()) return List.of();
         List<String> symbols = matched.stream().map(s -> (String) s.get("symbol")).toList();
@@ -470,11 +489,25 @@ public class StockDashboardService {
         if (master == null) master = Map.of();
         String currency = "US".equals(country) ? "USD" : "KRW";
 
+        Map<String, CompletableFuture<Map<String, Double>>> statsFutures = new HashMap<>();
+        for (String sym : new LinkedHashSet<>(symbols)) {
+            statsFutures.put(sym, CompletableFuture.supplyAsync(() -> fetchDailyStats(sym), searchIoExecutor));
+        }
+        Map<String, Map<String, Double>> statsBySymbol = new HashMap<>();
+        statsFutures.forEach((sym, future) -> {
+            try {
+                statsBySymbol.put(sym, future.join());
+            } catch (Exception e) {
+                log.warn("종목 {} 일봉 조회 실패: {}", sym, e.getMessage());
+                statsBySymbol.put(sym, Map.of());
+            }
+        });
+
         List<Map<String, Object>> results = new ArrayList<>();
         for (Map<String, Object> s : matched) {
             String sym = (String) s.get("symbol");
             Double price = prices.get(sym);
-            Map<String, Double> stats = fetchDailyStats(sym);
+            Map<String, Double> stats = statsBySymbol.getOrDefault(sym, Map.of());
             Double changeRate = stats.get("changeRate");
             Double volume = stats.get("volume");
             Map<String, Object> info = master.get(sym);
