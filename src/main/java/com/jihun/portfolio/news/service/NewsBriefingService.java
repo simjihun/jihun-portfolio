@@ -6,6 +6,7 @@ import com.jihun.portfolio.news.domain.NewsBriefing;
 import com.jihun.portfolio.news.domain.NewsCategory;
 import com.jihun.portfolio.news.repository.NewsBriefingRepository;
 import com.jihun.portfolio.news.repository.NewsRepository;
+import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -75,6 +76,28 @@ public class NewsBriefingService {
             }
         }
         log.info("[brief] AI 브리핑 갱신 완료 ({}/{}개 카테고리)", ok, NewsCategory.values().length);
+    }
+
+    /**
+     * 서버가 막 배포되어 DB에 브리핑이 하나도 없을 때만(최초 1회) 다음날 오전 7시까지 기다리지 않고
+     * 채워둔다. NewsFetchService의 최초 수집(앱 시작 10초 후)이 끝날 시간을 준 뒤(60초 대기)
+     * 실행한다 — 기사가 아직 하나도 없는 상태에서 부르면 카테고리마다 "기사 부족"으로 전부
+     * 스킵되기 때문. 별도 데몬 스레드로 실행해 앱 기동 자체를 지연시키지 않는다.
+     */
+    @PostConstruct
+    public void generateOnStartupIfEmpty() {
+        if (briefingRepository.count() > 0) return;
+        Thread t = new Thread(() -> {
+            try {
+                Thread.sleep(60_000);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return;
+            }
+            generateAll();
+        }, "news-briefing-init");
+        t.setDaemon(true);
+        t.start();
     }
 
     private boolean generate(NewsCategory category) throws Exception {
