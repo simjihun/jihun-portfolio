@@ -9,10 +9,17 @@ import java.time.LocalDateTime;
  *
  * 저작권 고려: 기사 본문/요약문은 저장하지 않는다.
  * 제목 + 언론사 + 시각 + 원문 링크만 보관하고, 클릭 시 언론사 원문으로 연결한다.
+ *
+ * link/title 인덱스: NewsFetchService가 30분마다 새 RSS 항목 하나하나를 existsByLink()/
+ * existsByTitle()로 중복 체크하는데, 인덱스가 없어 매번 테이블 전체를 스캔하고 있었다. 기사가
+ * 쌓일수록 이 체크가 느려져 결국 수집 작업(fetchAll) 한 번이 오래 걸리게 됐고, 그게 다른
+ * @Scheduled 작업(AI 브리핑 등)이 스케줄러 스레드를 못 받는 원인 중 하나였다.
  */
 @Entity
 @Table(name = "news_article", indexes = {
-        @Index(name = "idx_news_category_published", columnList = "category, publishedAt")
+        @Index(name = "idx_news_category_published", columnList = "category, publishedAt"),
+        @Index(name = "idx_news_link", columnList = "link"),
+        @Index(name = "idx_news_title", columnList = "title")
 })
 public class NewsArticle {
 
