@@ -63,6 +63,11 @@ public class NewsFetchService {
      * SBS는 공식 RSS(news.sbs.co.kr)를 사용하고, 동아일보는 오래전부터 공개된
      * rss.donga.com 주소를 사용한다. 주소가 개편되어 일부 소스가 응답하지 않아도
      * fetchAll()에서 소스 단위로 예외를 잡기 때문에 나머지 수집에는 영향이 없다.
+     *
+     * IT_SCIENCE·STOCK은 소스가 1개뿐이라(다른 카테고리는 3개), 근사중복 정리(카테고리
+     * 경계 없이 전체를 대상으로 함)에 상대적으로 취약해 가끔 보존 기사 수가 3건 밑으로
+     * 떨어져 브리핑 생성이 "기사 부족"으로 스킵되는 문제가 있었다(IT_SCIENCE에서 실제 확인됨).
+     * IT_SCIENCE에 파이낸셜뉴스 IT 피드를 추가해 소스를 2개로 늘렸다.
      */
     private static final Map<NewsCategory, List<FeedSource>> FEEDS = new LinkedHashMap<>() {{
         put(NewsCategory.POLITICS, List.of(
@@ -76,7 +81,8 @@ public class NewsFetchService {
                 new FeedSource("https://rss.donga.com/economy.xml", "동아일보")
         ));
         put(NewsCategory.IT_SCIENCE, List.of(
-                new FeedSource("https://www.hankyung.com/feed/it", "한국경제")
+                new FeedSource("https://www.hankyung.com/feed/it", "한국경제"),
+                new FeedSource("https://www.fnnews.com/rss/r20/fn_realnews_it.xml", "파이낸셜뉴스")
         ));
         put(NewsCategory.SOCIETY, List.of(
                 new FeedSource("https://www.hankyung.com/feed/society", "한국경제"),
