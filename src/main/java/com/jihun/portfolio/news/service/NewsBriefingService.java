@@ -14,10 +14,13 @@ import org.springframework.stereotype.Service;
 /**
  * Gemini 기반 카테고리별 3줄 브리핑 생성 서비스.
  *
- * 스케줄: 매일 오전 7시 1회 (비용 최소화 및 무료 티어 일일 할당량 안에서 수용)
- * - Flash 무료 RPD 250, 카테고리 7개 x 1회 = 하루 7요청으로 안정적 운영
+ * 스케줄: 하루 3회(09:00 / 15:00 / 21:00, KST) — AI 주식의 시황 브리핑(StockDashboardService)과
+ * 동일한 스케줄을 쓴다. Gemini API를 쓰는 정기 생성 작업은 전부 이 세 시각으로 통일해, DB에
+ * 저장해두고 방문자는 그 값을 그대로 읽기만 하는 동일한 정책을 따른다(자세한 배경은 CLAUDE.md의
+ * 'Gemini API 호출 정책' 참고).
+ * - Flash 무료 RPD 250, 카테고리 8개 x 3회 = 하루 24요청으로 여유 있게 운영
  * - 카테고리 간 호출 간격 10초 (분당 요청 제한 방지)
- * - 429 시 재시도 없음 (1회 요청이 실패하면 다음날 실행 시 다시 시도)
+ * - 429 시 재시도 없음 (이번 주기가 실패하면 다음 스케줄 시각에 다시 시도)
  *
  * Gemini 호출 자체(모델 후보 폴백, 404/5xx 처리)는 GeminiClient(common 패키지)가 담당한다 —
  * 예전엔 이 서비스가 "gemini-2.5-flash" 모델 하나만 하드코딩해서, 그 모델이 API 버전 개편으로
@@ -41,11 +44,8 @@ public class NewsBriefingService {
         this.geminiClient = geminiClient;
     }
 
-    /**
-     * 매일 오전 7시 실행 (cron: 초 분 시 일 월 요일)
-     * RPD 250 무료 티어에서 7개 카테고리x1회 = 7요청/일로 안정적으로 운영
-     */
-    @Scheduled(cron = "0 0 7 * * *")
+    /** 하루 3회(09:00 / 15:00 / 21:00, KST) 실행 — AI 주식 브리핑과 동일한 스케줄. */
+    @Scheduled(cron = "0 0 9,15,21 * * *", zone = "Asia/Seoul")
     public void generateAll() {
         if (!geminiClient.isConfigured()) {
             log.info("[brief] GEMINI_API_KEY 미설정 - AI 브리핑 비활성화");
@@ -68,7 +68,7 @@ public class NewsBriefingService {
     }
 
     /**
-     * 서버가 막 배포되어 DB에 브리핑이 하나도 없을 때만(최초 1회) 다음날 오전 7시까지 기다리지 않고
+     * 서버가 막 배포되어 DB에 브리핑이 하나도 없을 때만(최초 1회) 다음 스케줄 시각까지 기다리지 않고
      * 채워둔다. NewsFetchService의 최초 수집(앱 시작 10초 후)이 끝날 시간을 준 뒤(60초 대기)
      * 실행한다 — 기사가 아직 하나도 없는 상태에서 부르면 카테고리마다 "기사 부족"으로 전부
      * 스킵되기 때문. 별도 데몬 스레드로 실행해 앱 기동 자체를 지연시키지 않는다.
