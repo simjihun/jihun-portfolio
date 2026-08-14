@@ -372,10 +372,13 @@ function loadingRow(text){
    로컬 캐시 — 페이지에 다시 들어올 때마다 서버를 새로 부르지 않고,
    localStorage에 남아있는 값을 먼저 보여준 뒤, 그 항목의 캐시 유효기간이
    끝나는 시점에만 다시 불러온다(항목마다 유효기간이 다름: 지표/랭킹 60초,
-   브리핑 12시간(서버가 실패 시엔 10분 뒤 재시도하도록 별도 처리), 캘린더 12시간
-   — 서버 TTL과 동일하게 맞춤).
+   캘린더 12시간 — 서버 TTL과 동일하게 맞춤).
+   AI 브리핑(시황 요약·주목종목·체크포인트)은 이 로컬 캐시 대상이 아니다 —
+   방문자마다 다른 시점에 캐시된 값을 보면 PC/모바일/다른 사람마다 서로 다른
+   내용을 보게 되는데, 이 항목들은 모두가 같은 내용을 봐야 하는 정보라서
+   매번 서버(DB)에서 직접 조회한다(아래 loadBriefing 참고).
    =================================================== */
-const TTL = { dashboard: 60_000, rank: 60_000, briefing: 12 * 3600_000, calendar: 12 * 3600_000 };
+const TTL = { dashboard: 60_000, rank: 60_000, calendar: 12 * 3600_000, briefing: 30 * 60_000 };
 function cacheGet(key){
   try{ const raw = localStorage.getItem(key); return raw ? JSON.parse(raw) : null; }catch(e){ return null; }
 }
@@ -544,11 +547,16 @@ async function loadCalendar(force){
   scheduleNext('calendar', TTL.calendar, loadCalendar);
 }
 
-/* ===== AI 브리핑 (서버 12시간 캐시와 동일 주기 — 서버가 실패 시엔 10분 뒤 재시도하므로 그 경우엔 짧게 재요청) ===== */
+/* ===== AI 브리핑 — 서버가 하루 3회(09/15/21시) DB에 미리 채워두는 값을 그대로 읽기만 한다.
+   방문자 요청 시점에 Gemini를 부르지 않으므로 캐시 성공/실패를 프론트가 따로 신경 쓸 필요가
+   없다. localStorage에 저장하지 않고 매번 서버(DB)에서 직접 조회한다 — PC/모바일/다른
+   방문자 모두 같은 시점엔 같은 내용을 보게 하기 위함(예전엔 브라우저별 12시간 localStorage
+   캐시를 썼는데, 그래서 PC는 예전에 저장된 값을, 처음 접속한 모바일은 다른 값을 보는
+   문제가 있었다). 페이지가 열려있는 동안은 30분마다 다시 조회해 최신 상태를 반영한다. */
 function applyBriefing(data){
   $('briefSummary').textContent = data.summary || '-';
   if (data.generatedAt) {
-    $('briefTime').textContent = '· ' + new Date(data.generatedAt).toLocaleTimeString('ko-KR', {hour:'2-digit',minute:'2-digit'}) + ' 생성 (12시간 캐시)';
+    $('briefTime').textContent = '· ' + new Date(data.generatedAt).toLocaleTimeString('ko-KR', {hour:'2-digit',minute:'2-digit'}) + ' 생성 (하루 3회 09/15/21시 갱신)';
   }
   const picks = data.picks || [];
   $('picksBox').innerHTML = !picks.length ? '<div class="empty-msg">-</div>' :
@@ -563,27 +571,10 @@ function applyBriefing(data){
   }
 }
 
-async function loadBriefing(force){
-  const key = 'stock:briefing';
-  if (!force) {
-    const c = cacheGet(key);
-    if (c && c.expiresAt > Date.now()) {
-      applyBriefing(c.data);
-      scheduleNext('briefing', c.expiresAt - Date.now(), loadBriefing);
-      return;
-    }
-  }
+async function loadBriefing(){
   const data = await fetch('/api/stock/briefing').then(r => r.json()).catch(() => null);
-  if (data) {
-    applyBriefing(data);
-    // 서버가 실패 응답을 줬을 때는(GEMINI 한도 소진 등) 서버 쪽 재시도 주기(10분)와 맞춰 프론트도 짧게 다시 시도한다
-    const failed = !data.summary || /생성하지 못했|설정되지 않아/.test(data.summary);
-    const ttl = failed ? 10 * 60_000 : TTL.briefing;
-    cacheSet(key, data, ttl);
-    scheduleNext('briefing', ttl, loadBriefing);
-    return;
-  }
-  scheduleNext('briefing', 10 * 60_000, loadBriefing);
+  if (data) applyBriefing(data);
+  scheduleNext('briefing', TTL.briefing, loadBriefing);
 }
 
 /* ===================================================
@@ -837,10 +828,10 @@ async function loadFavorites(){
   $('refreshInfo').textContent = '즐겨찾기 ' + merged.length + '건';
 }
 
-/* ===== 초기 로딩 — 전부 캐시 우선(force=false), 각자 자기 TTL에 맞춰 독립적으로 갱신 예약 ===== */
+/* ===== 초기 로딩 — 랭킹/지표/캘린더는 로컬 캐시 우선(force=false), AI 브리핑은 매번 서버(DB)에서 직접 조회 ===== */
 loadDashboard(false);
 loadRankings(false);
-loadBriefing(false);
+loadBriefing();
 loadCalendar(false);
 </script>
 
