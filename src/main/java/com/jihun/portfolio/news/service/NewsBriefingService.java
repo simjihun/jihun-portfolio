@@ -1,7 +1,6 @@
 package com.jihun.portfolio.news.service;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.jihun.portfolio.common.GeminiClient;
 import com.jihun.portfolio.news.domain.NewsBriefing;
 import com.jihun.portfolio.news.domain.NewsCategory;
 import com.jihun.portfolio.news.repository.NewsBriefingRepository;
@@ -9,17 +8,8 @@ import com.jihun.portfolio.news.repository.NewsRepository;
 import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
-
-import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
-import java.time.Duration;
-import java.util.List;
-import java.util.Map;
 
 /**
  * Gemini 기반 카테고리별 3줄 브리핑 생성 서비스.
@@ -28,28 +18,27 @@ import java.util.Map;
  * - Flash 무료 RPD 250, 카테고리 7개 x 1회 = 하루 7요청으로 안정적 운영
  * - 카테고리 간 호출 간격 10초 (분당 요청 제한 방지)
  * - 429 시 재시도 없음 (1회 요청이 실패하면 다음날 실행 시 다시 시도)
+ *
+ * Gemini 호출 자체(모델 후보 폴백, 404/5xx 처리)는 GeminiClient(common 패키지)가 담당한다 —
+ * 예전엔 이 서비스가 "gemini-2.5-flash" 모델 하나만 하드코딩해서, 그 모델이 API 버전 개편으로
+ * 없어지자(404) 카테고리 8개가 전부 실패했었다.
  */
 @Service
 public class NewsBriefingService {
 
     private static final Logger log = LoggerFactory.getLogger(NewsBriefingService.class);
-    private static final String MODEL = "gemini-2.5-flash";
     private static final int CALL_INTERVAL_MS = 10_000;
 
     private final NewsRepository newsRepository;
     private final NewsBriefingRepository briefingRepository;
-    private final ObjectMapper objectMapper = new ObjectMapper();
-    private final HttpClient http = HttpClient.newBuilder()
-            .connectTimeout(Duration.ofSeconds(10))
-            .build();
-
-    @Value("${GEMINI_API_KEY:}")
-    private String apiKey;
+    private final GeminiClient geminiClient;
 
     public NewsBriefingService(NewsRepository newsRepository,
-                               NewsBriefingRepository briefingRepository) {
+                               NewsBriefingRepository briefingRepository,
+                               GeminiClient geminiClient) {
         this.newsRepository = newsRepository;
         this.briefingRepository = briefingRepository;
+        this.geminiClient = geminiClient;
     }
 
     /**
@@ -58,7 +47,7 @@ public class NewsBriefingService {
      */
     @Scheduled(cron = "0 0 7 * * *")
     public void generateAll() {
-        if (apiKey == null || apiKey.isBlank()) {
+        if (!geminiClient.isConfigured()) {
             log.info("[brief] GEMINI_API_KEY 미설정 - AI 브리핑 비활성화");
             return;
         }
@@ -100,7 +89,7 @@ public class NewsBriefingService {
         t.start();
     }
 
-    private boolean generate(NewsCategory category) throws Exception {
+    private boolean generate(NewsCategory category) {
         var articles = newsRepository.findTop30ByCategoryOrderByPublishedAtDesc(category);
         if (articles.size() < 3) {
             log.info("[brief] {} 기사 부족 스킵", category);
@@ -118,33 +107,10 @@ public class NewsBriefingService {
                 + "- 줄 사이는 줄바꿈 문자만 사용 (번호, 불릿, 이모지, 머리말 금지)\n"
                 + "- 헤드라인에 없는 내용을 추측하거나 덧붙이지 말 것\n";
 
-        String content = callGemini(prompt);
+        String content = geminiClient.generate(prompt);
         if (content == null || content.isBlank()) return false;
         briefingRepository.save(new NewsBriefing(category, content.strip()));
         log.info("[brief] {} 브리핑 저장 완료", category);
         return true;
-    }
-
-    private String callGemini(String prompt) throws Exception {
-        Map<String, Object> body = Map.of(
-                "contents", List.of(Map.of("parts", List.of(Map.of("text", prompt))))
-        );
-        HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create("https://generativelanguage.googleapis.com/v1beta/models/"
-                        + MODEL + ":generateContent"))
-                .header("Content-Type", "application/json")
-                .header("x-goog-api-key", apiKey)
-                .timeout(Duration.ofSeconds(30))
-                .POST(HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(body)))
-                .build();
-
-        HttpResponse<String> response = http.send(request, HttpResponse.BodyHandlers.ofString());
-        if (response.statusCode() != 200) {
-            throw new IllegalStateException("Gemini 응답 오류 HTTP " + response.statusCode());
-        }
-        JsonNode root = objectMapper.readTree(response.body());
-        return root.path("candidates").path(0)
-                .path("content").path("parts").path(0)
-                .path("text").asText(null);
     }
 }
