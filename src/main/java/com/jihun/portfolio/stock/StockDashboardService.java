@@ -704,18 +704,20 @@ public class StockDashboardService {
     }
 
     /** 1회 시도해서 실패하면 5초 후 딱 한 번만 더 재시도한다(그 이상은 무료 티어 한도만 더 갉아먹음).
+     *  Gemini 생성과 DB 저장이 각각 따로 실패할 수 있어(예: DB 컬럼 크기 초과) 저장까지 실제로
+     *  성공했는지 확인한 뒤에만 "갱신 성공"으로 간주하고 재시도를 멈춘다 — 예전엔 saveAiBriefing()이
+     *  내부에서 예외를 삼키기만 해서, DB 저장이 실패해도 로그엔 "성공"이라고 찍히는 버그가 있었다.
      *  두 번 다 실패하면 아무것도 하지 않고 끝낸다 — DB의 기존 row를 건드리지 않으므로
      *  getAiBriefing()은 자동으로 마지막 성공분(이전 데이터)을 계속 돌려주게 된다. */
     private void refreshAiBriefing() {
         final int attempts = 2;
         for (int i = 0; i < attempts; i++) {
             Map<String, Object> result = loadAiBriefing();
-            if (!isBriefingFailure(result)) {
-                saveAiBriefing(result);
+            if (!isBriefingFailure(result) && saveAiBriefing(result)) {
                 log.info("[stock-brief] AI 시황 브리핑 갱신 성공");
                 return;
             }
-            log.warn("[stock-brief] AI 시황 브리핑 생성 실패 ({}번째 시도)", i + 1);
+            log.warn("[stock-brief] AI 시황 브리핑 갱신 실패 ({}번째 시도)", i + 1);
             if (i < attempts - 1) {
                 try { Thread.sleep(5_000); } catch (InterruptedException ie) { Thread.currentThread().interrupt(); return; }
             }
@@ -723,7 +725,8 @@ public class StockDashboardService {
         log.warn("[stock-brief] {}회 시도 모두 실패 — 기존 DB 데이터를 그대로 유지합니다", attempts);
     }
 
-    private void saveAiBriefing(Map<String, Object> result) {
+    /** DB 저장 성공 여부를 반환한다(호출부가 재시도 여부를 정확히 판단할 수 있도록). */
+    private boolean saveAiBriefing(Map<String, Object> result) {
         try {
             String summary = String.valueOf(result.get("summary"));
             String picksJson = mapper.writeValueAsString(result.getOrDefault("picks", List.of()));
@@ -738,8 +741,10 @@ public class StockDashboardService {
                 entity.update(summary, picksJson, weekAheadJson, generatedAt);
                 aiBriefingRepository.save(entity);
             }
+            return true;
         } catch (Exception e) {
             log.error("[stock-brief] DB 저장 실패: {}", e.getMessage());
+            return false;
         }
     }
 
