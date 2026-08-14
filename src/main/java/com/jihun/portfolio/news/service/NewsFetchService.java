@@ -48,6 +48,13 @@ public class NewsFetchService {
     /** 문자 2-그램 자카드 유사도가 이 값 이상이면 같은 사건을 다룬 기사로 보고 하나만 남긴다. */
     private static final double DUPLICATE_SIMILARITY_THRESHOLD = 0.40;
 
+    /** 근사중복 정리는 대상 기사 수의 제곱에 비례해 느려진다(전체를 서로 비교). 정상 운영 중에는
+     *  보존 기간(3일)·30분 주기 수집을 감안하면 이 상한을 넘길 일이 거의 없지만, 혹시 어떤 이유로
+     *  (예: 삭제 실패, 일시적 폭주) 대상이 비정상적으로 많아지면 이 정리 작업 자체가 오래 걸려
+     *  스케줄러 스레드를 오래 붙잡게 된다 — 그 경우 이번 주기는 건너뛰고 다음 주기에 다시 시도해
+     *  한 번의 폭주가 다른 스케줄 작업들(AI 브리핑 등)까지 지연시키지 않도록 한다. */
+    private static final int MAX_DEDUP_CANDIDATES = 3000;
+
     /** 언론사별 RSS 소스 */
     private record FeedSource(String url, String press) {}
 
@@ -160,7 +167,7 @@ public class NewsFetchService {
     }
 
     /**
-     * 제목 정규화 — 스마트 따옴표(‘’“”)를 일반 따옴표('")로 통일하고 연속 공백을 하나로 줄인 뒤 양끝 공백을 제거한다.
+     * 제목 정규화 — 스마트 따옴표(‘’“”)를 일반 따옴표('\")로 통일하고 연속 공백을 하나로 줄인 뒤 양끝 공백을 제거한다.
      * 언론사마다 RSS에 실리는 따옴표 문자 코드가 달라, 사람 눈에는 완전히 같은 제목인데도 바이트가
      * 달라 중복 판정을 통과하는 경우가 있었다 — 저장 전에 정규화해 이 문제를 근본적으로 막는다.
      */
@@ -212,6 +219,11 @@ public class NewsFetchService {
     private int cleanupNearDuplicateTitles() {
         List<NewsArticle> recent = newsRepository.findByPublishedAtAfterOrderByPublishedAtAsc(
                 LocalDateTime.now().minusDays(RETENTION_DAYS));
+        if (recent.size() > MAX_DEDUP_CANDIDATES) {
+            log.warn("[news] 근사중복 정리 대상 {}건 — 상한({}) 초과로 이번 주기는 건너뜀 (다음 주기에 재시도)",
+                    recent.size(), MAX_DEDUP_CANDIDATES);
+            return 0;
+        }
         List<NewsArticle> kept = new ArrayList<>();
         List<Long> toDelete = new ArrayList<>();
         for (NewsArticle a : recent) {
