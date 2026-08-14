@@ -1,11 +1,13 @@
 package com.jihun.portfolio.stock;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
@@ -23,8 +25,13 @@ import java.util.stream.Collectors;
  *
  * 보호장치 3중:
  *  1) TossApiClient 전역 스로틀(300ms 간격) + 429 재시도
- *  2) TTL 캐시: 지표/랭킹 60초, 수급 10분, 캘린더 12시간(서버 재시작 시에도 새로 채워짐), AI 브리핑 12시간(실패 시 10분 후 재시도), 종목마스터 24시간, 종목별 AI 요약 12시간, 종목 전체 목록(검색용) 24시간
+ *  2) TTL 캐시: 지표/랭킹 60초, 수급 10분, 캘린더 12시간(서버 재시작 시에도 새로 채워짐), 종목마스터 24시간, 종목별 AI 요약 12시간, 종목 전체 목록(검색용) 24시간
  *  3) 요청 병합: cached()가 동기화되어 같은 데이터를 동시에 중복 로드하지 않음
+ *
+ * AI 시황 브리핑(요약·주목 종목·이번 주 체크포인트)만은 예외적으로 방문자 요청 시점에 Gemini를
+ * 부르지 않는다 — 하루 09/15/21시(KST) 스케줄러가 미리 만들어 DB(StockAiBriefing)에 저장해두고,
+ * getAiBriefing()은 그 값을 그대로 읽기만 한다. 방문자가 몇 명이든 Gemini 호출은 하루 최대
+ * 3회(재시도 포함 최대 6회)로 고정되어 무료 티어 일일 한도 소진을 막는다.
  *
  * 스키마(공식 문서 확인):
  *  - RankingItem: rank/symbol/currency/price{lastPrice,basePrice,changeRate(소수비율)}/tradingVolume/tradingAmount
@@ -50,6 +57,7 @@ public class StockDashboardService {
 
     private final TossApiClient toss;
     private final RestTemplate rest;
+    private final StockAiBriefingRepository aiBriefingRepository;
     private final ObjectMapper mapper = new ObjectMapper();
     private final Map<String, CacheEntry> cache = new ConcurrentHashMap<>();
     private volatile String workingGeminiModel = null;
@@ -74,8 +82,9 @@ public class StockDashboardService {
 
     private record CacheEntry(long expiresAt, Object value) {}
 
-    public StockDashboardService(TossApiClient toss) {
+    public StockDashboardService(TossApiClient toss, StockAiBriefingRepository aiBriefingRepository) {
         this.toss = toss;
+        this.aiBriefingRepository = aiBriefingRepository;
         SimpleClientHttpRequestFactory f = new SimpleClientHttpRequestFactory();
         f.setConnectTimeout(4000);
         f.setReadTimeout(20000);
@@ -638,31 +647,100 @@ public class StockDashboardService {
         }
     }
 
-    /* ===================== AI 시황 브리핑 (Gemini) ===================== */
+    /* ===================== AI 시황 브리핑 (Gemini, DB 스케줄 기반) ===================== */
 
     private static final String[] GEMINI_MODELS = {
             "gemini-flash-latest", "gemini-3-flash", "gemini-3-flash-preview", "gemini-2.0-flash", "gemini-2.5-flash"
     };
 
-    /**
-     * 성공하면 12시간 캐시, 실패하면 10분 뒤 재시도(짧게 재시도하되 실패할 때마다 계속 두드리지는 않음).
-     * 이전엔 성공/실패 구분 없이 30분 캐시라 하루 최대 48번 Gemini를 호출했는데, 무료 티어 일일 한도를
-     * 다른 기능(종목별 AI 요약, AI 뉴스 브리핑)과 나눠 쓰다 보니 자주 소진되어 계속 실패 문구만 보이는
-     * 원인이 됐다. 호출 자체를 하루 2~3회 수준으로 줄여 한도 소진을 피한다.
-     */
+    /** 방문자 요청 시점에는 Gemini를 절대 부르지 않는다 — DB에 저장된 최신 스냅샷만 읽는다.
+     *  생성은 refreshAiBriefingScheduled()가 하루 3회 전담한다. 배포 직후 등 DB가 아직 비어 있으면
+     *  안내 문구를 돌려준다(initAiBriefingIfEmpty가 앱 시작 직후 별도 스레드로 한 번 채워준다). */
     public Map<String, Object> getAiBriefing() {
-        CacheEntry e = cache.get("briefing");
-        long now = System.currentTimeMillis();
-        if (e != null && now < e.expiresAt()) {
-            @SuppressWarnings("unchecked")
-            Map<String, Object> cachedVal = (Map<String, Object>) e.value();
-            return cachedVal;
+        return aiBriefingRepository.findById(StockAiBriefing.ID)
+                .map(this::toBriefingResponse)
+                .orElseGet(() -> {
+                    Map<String, Object> fallback = new HashMap<>();
+                    fallback.put("summary", "AI 브리핑을 아직 준비 중입니다. 잠시 후 다시 확인해주세요.");
+                    fallback.put("weekAhead", List.of());
+                    fallback.put("picks", List.of());
+                    return fallback;
+                });
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> toBriefingResponse(StockAiBriefing entity) {
+        Map<String, Object> res = new HashMap<>();
+        res.put("summary", entity.getSummary());
+        try {
+            res.put("picks", mapper.readValue(entity.getPicksJson(), List.class));
+        } catch (Exception e) {
+            res.put("picks", List.of());
         }
-        Map<String, Object> result = loadAiBriefing();
-        boolean failed = isBriefingFailure(result);
-        long ttl = failed ? 10 * 60_000 : 12 * 3600_000;
-        cache.put("briefing", new CacheEntry(now + ttl, result));
-        return result;
+        try {
+            res.put("weekAhead", mapper.readValue(entity.getWeekAheadJson(), List.class));
+        } catch (Exception e) {
+            res.put("weekAhead", List.of());
+        }
+        res.put("generatedAt", entity.getGeneratedAt());
+        return res;
+    }
+
+    /** 하루 3회(09:00 / 15:00 / 21:00, KST) Gemini로 시황 브리핑을 새로 만들어 DB에 저장한다. */
+    @Scheduled(cron = "0 0 9,15,21 * * *", zone = "Asia/Seoul")
+    public void refreshAiBriefingScheduled() {
+        refreshAiBriefing();
+    }
+
+    /** 서버가 막 배포되어 DB에 브리핑이 하나도 없을 때만(최초 1회) 앱 시작 직후 채워둔다 —
+     *  스케줄러 시각이 되기 전까지 방문자가 빈 화면을 보지 않도록. 별도 데몬 스레드로 실행해
+     *  앱 기동 자체를 지연시키지 않는다. */
+    @PostConstruct
+    public void initAiBriefingIfEmpty() {
+        if (aiBriefingRepository.count() > 0) return;
+        Thread t = new Thread(this::refreshAiBriefing, "ai-briefing-init");
+        t.setDaemon(true);
+        t.start();
+    }
+
+    /** 1회 시도해서 실패하면 5초 후 딱 한 번만 더 재시도한다(그 이상은 무료 티어 한도만 더 갉아먹음).
+     *  두 번 다 실패하면 아무것도 하지 않고 끝낸다 — DB의 기존 row를 건드리지 않으므로
+     *  getAiBriefing()은 자동으로 마지막 성공분(이전 데이터)을 계속 돌려주게 된다. */
+    private void refreshAiBriefing() {
+        final int attempts = 2;
+        for (int i = 0; i < attempts; i++) {
+            Map<String, Object> result = loadAiBriefing();
+            if (!isBriefingFailure(result)) {
+                saveAiBriefing(result);
+                log.info("[stock-brief] AI 시황 브리핑 갱신 성공");
+                return;
+            }
+            log.warn("[stock-brief] AI 시황 브리핑 생성 실패 ({}번째 시도)", i + 1);
+            if (i < attempts - 1) {
+                try { Thread.sleep(5_000); } catch (InterruptedException ie) { Thread.currentThread().interrupt(); return; }
+            }
+        }
+        log.warn("[stock-brief] {}회 시도 모두 실패 — 기존 DB 데이터를 그대로 유지합니다", attempts);
+    }
+
+    private void saveAiBriefing(Map<String, Object> result) {
+        try {
+            String summary = String.valueOf(result.get("summary"));
+            String picksJson = mapper.writeValueAsString(result.getOrDefault("picks", List.of()));
+            String weekAheadJson = mapper.writeValueAsString(result.getOrDefault("weekAhead", List.of()));
+            Object ga = result.get("generatedAt");
+            long generatedAt = ga instanceof Number n ? n.longValue() : System.currentTimeMillis();
+
+            StockAiBriefing entity = aiBriefingRepository.findById(StockAiBriefing.ID).orElse(null);
+            if (entity == null) {
+                aiBriefingRepository.save(new StockAiBriefing(summary, picksJson, weekAheadJson, generatedAt));
+            } else {
+                entity.update(summary, picksJson, weekAheadJson, generatedAt);
+                aiBriefingRepository.save(entity);
+            }
+        } catch (Exception e) {
+            log.error("[stock-brief] DB 저장 실패: {}", e.getMessage());
+        }
     }
 
     private boolean isBriefingFailure(Map<String, Object> result) {
