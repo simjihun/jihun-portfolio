@@ -2,11 +2,13 @@
   // 사이트 전체 공통 네비게이션. 새 기능 추가 시 이 배열에만 항목을 추가하면 모든 페이지에 반영된다.
   // 순서 = 메인화면 기능 섹션 순서와 동일하게 유지한다.
   // type:'dropdown'은 상위 링크(href) 자체로도 이동 가능하면서, 하위 분류(children)를 함께 노출한다.
+  // Web Tool(/webtool)은 웹 에디터 기능 설계 착수로 메뉴에서만 잠시 숨김 처리 — 라우팅/페이지는
+  // 그대로 남아있고 직접 URL로는 계속 접근 가능하다. 웹 에디터 완성되면 이 자리를 그것으로 정식 전환한다.
   const NAV_ITEMS = [
     { type: 'link', href: '/news', label: 'AI 뉴스' },
     { type: 'link', href: '/stock', label: 'AI 주식' },
     { type: 'link', href: '/map', label: '지도 API' },
-    { type: 'link', href: '/webtool', label: 'Web Tool' },
+    { type: 'soon', label: '웹 에디터' },
     { type: 'link', href: '/mms', label: 'MMS' },
     { type: 'dropdown', href: '/game', label: '웹 게임', children: [
       { href: '/game', label: '웹게임' },
