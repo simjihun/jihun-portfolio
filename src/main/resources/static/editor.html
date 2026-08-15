@@ -37,7 +37,11 @@
 
 .we-preview-card{background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden}
 .we-preview-head{display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:var(--panel-2);border-bottom:1px solid var(--line);font-size:12px;color:var(--dim)}
-.we-preview-frame{width:100%;height:420px;border:0;background:#fff}
+/* iframe 자체 배경을 흰색으로 두면, srcdoc이 새로 로드될 때마다 새 문서의 CSS가 적용되기 전
+   잠깐 흰 화면이 노출되어 깜빡이는 것처럼 보인다(문서 교체 자체는 매번 일어남 — 브라우저는
+   같은 내용이어도 srcdoc 대입 시 항상 새로 내비게이션한다). 대부분의 예제가 어두운 배경을
+   쓰므로 iframe 기본 배경도 어둡게 맞춰서 전환이 튀지 않게 한다. */
+.we-preview-frame{width:100%;height:420px;border:0;background:#0b101b}
 
 .we-libs{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:10px 0}
 .we-lib-chip{display:flex;align-items:center;gap:6px;background:var(--panel-2);border:1px solid var(--line);border-radius:999px;padding:4px 6px 4px 12px;font-size:11.5px;font-family:var(--mono);color:var(--mut);max-width:280px}
@@ -155,146 +159,118 @@
   });
 
   /* ===================================================
-     템플릿별 예제 — 처음 시작이 막막하지 않도록 언어/프레임워크별로 미리 넣어둔다.
+     템플릿별 예제 — 실무에서 실제로 마주치는 패턴 위주의 상급 예제로 구성했다
+     (디바운스/레이스 컨디션, Web Worker, Composable, Provide/Inject, Teleport,
+     Suspense, useReducer, useMemo/memo 최적화, 커스텀 훅, Portal, Error Boundary 등).
      새 예제를 추가하려면 이 객체에 { name, html, css, js } 한 항목만 추가하면 된다.
      =================================================== */
   const EXAMPLES = {
     HTML_CSS_JS: [
       {
-        name: 'Hello World',
-        html: '<h1 id="title">Hello, Web!</h1>\n<p>HTML을 고치고 오른쪽 미리보기를 확인해보세요.</p>',
-        css: 'body{font-family:sans-serif;padding:20px;background:#0b101b;color:#eef1f8}\n#title{color:#f2a93b}',
-        js: 'console.log("스크립트가 실행됩니다. 우클릭 → 검사 → Console에서 확인해보세요.");'
+        name: '디바운스 검색 + 레이스 컨디션 방지',
+        html: '<input id="q" placeholder="과일 검색 (예: an)">\n<div id="results"></div>',
+        css: 'body{font-family:sans-serif;padding:24px;background:#0b101b;color:#eef1f8}\ninput{width:100%;box-sizing:border-box;padding:8px;border-radius:6px;border:1px solid #2a3348;background:#161d2e;color:#eef1f8}\n.item{padding:6px 0;border-bottom:1px solid #2a3348}',
+        js: 'const DATA = ["Apple","Banana","Cherry","Date","Grape","Kiwi","Mango","Orange","Papaya","Tangerine"];\n\nlet requestId = 0;\nlet timer = null;\nconst input = document.getElementById("q");\nconst results = document.getElementById("results");\n\ninput.addEventListener("input", () => {\n  clearTimeout(timer);\n  timer = setTimeout(search, 300);\n});\n\n// 실제 네트워크처럼 무작위 지연을 흉내낸다 — 늦게 도착한 이전 요청 응답이\n// 나중에 시작한 요청의 결과를 덮어쓰는 "레이스 컨디션" 문제를 재현하기 위함\nfunction fakeFetch(q) {\n  const delay = 200 + Math.random() * 700;\n  return new Promise(resolve => setTimeout(() => {\n    resolve(DATA.filter(f => f.toLowerCase().includes(q.toLowerCase())));\n  }, delay));\n}\n\nasync function search() {\n  const q = input.value.trim();\n  if (!q) { results.innerHTML = ""; return; }\n  const myId = ++requestId; // 이 요청의 고유 번호를 찍어둔다\n  results.innerHTML = "검색 중...";\n  const items = await fakeFetch(q);\n  if (myId !== requestId) return; // 그 사이 새 요청이 시작됐으면 이 결과는 버린다\n  results.innerHTML = items.length ? items.map(f => `<div class="item">${f}</div>`).join("") : "결과 없음";\n}'
       },
       {
-        name: 'DOM 이벤트 다루기 (카운터)',
-        html: '<button id="btn">클릭 횟수: <span id="count">0</span></button>',
-        css: 'body{font-family:sans-serif;padding:24px;background:#0b101b}\nbutton{font-size:16px;padding:10px 18px;border-radius:8px;border:0;background:#f2a93b;cursor:pointer}',
-        js: 'let count = 0;\nconst countEl = document.getElementById("count");\ndocument.getElementById("btn").addEventListener("click", () => {\n  count++;\n  countEl.textContent = count;\n});'
+        name: 'Intersection Observer 무한 스크롤',
+        html: '<div id="list"></div>\n<div id="sentinel">더 불러오는 중...</div>',
+        css: 'body{font-family:sans-serif;padding:24px;background:#0b101b;color:#eef1f8;margin:0}\n.row{padding:10px;border-bottom:1px solid #2a3348}\n#sentinel{padding:10px;color:#9aa4bb;text-align:center}',
+        js: 'const list = document.getElementById("list");\nconst sentinel = document.getElementById("sentinel");\nlet page = 0;\n\nfunction loadMore() {\n  page++;\n  for (let i = 1; i <= 10; i++) {\n    const div = document.createElement("div");\n    div.className = "row";\n    div.textContent = `항목 #${(page - 1) * 10 + i}`;\n    list.appendChild(div);\n  }\n}\n\n// sentinel(마지막에 배치된 요소)이 화면에 보이면 다음 페이지를 불러온다 —\n// scroll 이벤트를 계속 감시하는 것보다 훨씬 가볍고 정확한 방식\nconst observer = new IntersectionObserver((entries) => {\n  if (entries[0].isIntersecting) loadMore();\n}, { threshold: 1 });\n\nobserver.observe(sentinel);\nloadMore();'
       },
       {
-        name: 'CSS 애니메이션 (바운스)',
-        html: '<div class="box"></div>',
-        css: 'body{background:#0b101b;display:flex;align-items:center;justify-content:center;height:100vh;margin:0}\n.box{width:60px;height:60px;background:#f2a93b;border-radius:12px;animation:bounce 1s infinite alternate}\n@keyframes bounce{from{transform:translateY(0)}to{transform:translateY(-40px)}}',
-        js: ''
+        name: 'Drag & Drop 칸반 보드',
+        html: '<div class="board">\n  <div class="col" data-status="todo"><h3>할 일</h3>\n    <div class="card" draggable="true">기획서 작성</div>\n    <div class="card" draggable="true">디자인 시안</div>\n  </div>\n  <div class="col" data-status="doing"><h3>진행중</h3>\n    <div class="card" draggable="true">API 개발</div>\n  </div>\n  <div class="col" data-status="done"><h3>완료</h3></div>\n</div>',
+        css: 'body{font-family:sans-serif;padding:24px;background:#0b101b;color:#eef1f8;margin:0}\n.board{display:flex;gap:12px}\n.col{flex:1;background:#161d2e;border-radius:8px;padding:10px;min-height:200px;border:2px dashed transparent}\n.col.over{border-color:#f2a93b}\n.card{background:#f2a93b;color:#131A2A;padding:8px;border-radius:6px;margin-bottom:8px;cursor:grab;font-size:13px}',
+        js: 'let dragged = null;\n\ndocument.querySelectorAll(".card").forEach(card => {\n  card.addEventListener("dragstart", () => { dragged = card; });\n});\n\ndocument.querySelectorAll(".col").forEach(col => {\n  col.addEventListener("dragover", (e) => {\n    e.preventDefault(); // 이걸 안 하면 drop 이벤트가 아예 발생하지 않는다\n    col.classList.add("over");\n  });\n  col.addEventListener("dragleave", () => col.classList.remove("over"));\n  col.addEventListener("drop", (e) => {\n    e.preventDefault();\n    col.classList.remove("over");\n    if (dragged) col.appendChild(dragged);\n  });\n});'
       },
       {
-        name: 'Fetch API로 데이터 가져오기',
-        html: '<button id="loadBtn">사용자 목록 불러오기</button>\n<ul id="list"></ul>',
-        css: 'body{font-family:sans-serif;padding:24px;background:#0b101b;color:#eef1f8}\nbutton{padding:8px 16px;border-radius:8px;border:0;background:#f2a93b;cursor:pointer;margin-bottom:12px}\nli{padding:4px 0}',
-        js: 'document.getElementById("loadBtn").addEventListener("click", async () => {\n  const list = document.getElementById("list");\n  list.innerHTML = "불러오는 중...";\n  try {\n    const res = await fetch("https://jsonplaceholder.typicode.com/users?_limit=5");\n    const users = await res.json();\n    list.innerHTML = users.map(u => `<li>${u.name} (${u.email})</li>`).join("");\n  } catch (e) {\n    list.innerHTML = "불러오기 실패: " + e.message;\n  }\n});'
+        name: 'Canvas 파티클 애니메이션',
+        html: '<canvas id="c" width="400" height="280"></canvas>\n<p style="text-align:center;color:#9aa4bb;font-size:12px">캔버스를 클릭해보세요</p>',
+        css: 'body{background:#0b101b;margin:0;padding:16px;font-family:sans-serif}\ncanvas{background:#0b101b;display:block;margin:0 auto;border:1px solid #2a3348;border-radius:8px}',
+        js: 'const canvas = document.getElementById("c");\nconst ctx = canvas.getContext("2d");\nlet particles = [];\n\nfunction spawn(x, y) {\n  for (let i = 0; i < 20; i++) {\n    particles.push({\n      x, y,\n      vx: (Math.random() - 0.5) * 6,\n      vy: (Math.random() - 0.5) * 6 - 2,\n      life: 60\n    });\n  }\n}\n\ncanvas.addEventListener("click", (e) => {\n  const rect = canvas.getBoundingClientRect();\n  spawn(e.clientX - rect.left, e.clientY - rect.top);\n});\n\nfunction tick() {\n  ctx.fillStyle = "rgba(11,16,27,0.25)"; // 완전히 지우지 않고 살짝만 덮어서 잔상(트레일) 효과를 낸다\n  ctx.fillRect(0, 0, canvas.width, canvas.height);\n  particles.forEach(p => {\n    p.vy += 0.15; // 중력\n    p.x += p.vx;\n    p.y += p.vy;\n    p.life--;\n    ctx.fillStyle = `rgba(242,169,59,${p.life / 60})`;\n    ctx.beginPath();\n    ctx.arc(p.x, p.y, 3, 0, Math.PI * 2);\n    ctx.fill();\n  });\n  particles = particles.filter(p => p.life > 0);\n  requestAnimationFrame(tick);\n}\ntick();'
       },
       {
-        name: 'LocalStorage 메모장',
-        html: '<textarea id="note" placeholder="메모를 입력하면 자동 저장됩니다" rows="6" style="width:100%;box-sizing:border-box"></textarea>\n<div id="status"></div>',
-        css: 'body{font-family:sans-serif;padding:24px;background:#0b101b;color:#eef1f8}\ntextarea{background:#161d2e;color:#eef1f8;border:1px solid #2a3348;border-radius:8px;padding:10px}\n#status{font-size:12px;color:#9aa4bb;margin-top:6px}',
-        js: 'const note = document.getElementById("note");\nconst status = document.getElementById("status");\nnote.value = localStorage.getItem("myNote") || "";\nnote.addEventListener("input", () => {\n  localStorage.setItem("myNote", note.value);\n  status.textContent = "저장됨 · " + new Date().toLocaleTimeString();\n});'
+        name: 'Web Worker로 무거운 연산 오프로딩',
+        html: '<button id="run">Worker로 소수 10만 개 계산</button>\n<button id="block">메인 스레드에서 계산 (UI 멈춤 확인용)</button>\n<div id="status">idle</div>\n<input id="test" placeholder="계산 중에도 여기에 입력해보세요">',
+        css: 'body{font-family:sans-serif;padding:24px;background:#0b101b;color:#eef1f8}\nbutton{padding:8px 14px;border-radius:8px;border:0;background:#f2a93b;cursor:pointer;margin-right:8px;margin-bottom:10px}\n#status{margin:10px 0;font-size:13px;color:#9aa4bb}\ninput{width:100%;box-sizing:border-box;padding:8px;border-radius:6px;border:1px solid #2a3348;background:#161d2e;color:#eef1f8}',
+        js: '// 별도 파일 없이 Blob으로 워커 스크립트를 즉석에서 만든다(플레이그라운드처럼 파일 하나뿐인 환경에서 유용한 기법)\nconst workerCode = `\n  self.onmessage = function() {\n    function isPrime(x) {\n      for (let i = 2; i * i <= x; i++) if (x % i === 0) return false;\n      return x > 1;\n    }\n    const primes = [];\n    let n = 2;\n    while (primes.length < 100000) {\n      if (isPrime(n)) primes.push(n);\n      n++;\n    }\n    postMessage(primes.length);\n  };\n`;\nconst blob = new Blob([workerCode], { type: "application/javascript" });\nconst worker = new Worker(URL.createObjectURL(blob));\n\ndocument.getElementById("run").addEventListener("click", () => {\n  document.getElementById("status").textContent = "계산 중 (백그라운드)...";\n  const start = performance.now();\n  worker.postMessage("go");\n  worker.onmessage = (e) => {\n    document.getElementById("status").textContent = `완료: 소수 ${e.data}개, ${(performance.now() - start).toFixed(0)}ms — 입력창이 안 멈췄던 걸 확인해보세요`;\n  };\n});\n\ndocument.getElementById("block").addEventListener("click", () => {\n  document.getElementById("status").textContent = "메인 스레드에서 계산 중... (입력창이 멈춥니다)";\n  setTimeout(() => {\n    function isPrime(x) {\n      for (let i = 2; i * i <= x; i++) if (x % i === 0) return false;\n      return x > 1;\n    }\n    const primes = [];\n    let n = 2;\n    while (primes.length < 100000) {\n      if (isPrime(n)) primes.push(n);\n      n++;\n    }\n    document.getElementById("status").textContent = `완료(메인 스레드): 소수 ${primes.length}개`;\n  }, 10);\n});'
       },
       {
-        name: 'Flexbox 카드 레이아웃',
-        html: '<div class="cards">\n  <div class="card">카드 1</div>\n  <div class="card">카드 2</div>\n  <div class="card">카드 3</div>\n</div>',
-        css: 'body{background:#0b101b;padding:24px;margin:0;font-family:sans-serif}\n.cards{display:flex;gap:12px;flex-wrap:wrap}\n.card{flex:1 1 150px;background:#161d2e;border:1px solid #2a3348;border-radius:10px;padding:20px;color:#eef1f8;text-align:center}',
-        js: ''
-      },
-      {
-        name: 'CSS Grid 대시보드 레이아웃',
-        html: '<div class="grid">\n  <header>헤더</header>\n  <nav>사이드바</nav>\n  <main>본문</main>\n  <footer>푸터</footer>\n</div>',
-        css: 'body{margin:0;background:#0b101b;font-family:sans-serif;color:#eef1f8}\n.grid{display:grid;grid-template-columns:150px 1fr;grid-template-rows:60px 1fr 40px;height:100vh;gap:2px}\nheader{grid-column:1/3;background:#f2a93b;color:#131A2A;display:flex;align-items:center;padding:0 16px}\nnav{background:#161d2e;padding:16px}\nmain{background:#0f1522;padding:16px}\nfooter{grid-column:1/3;background:#161d2e;display:flex;align-items:center;padding:0 16px;font-size:12px;color:#9aa4bb}',
-        js: ''
-      },
-      {
-        name: '폼 검증',
-        html: '<form id="form">\n  <input id="email" type="text" placeholder="이메일">\n  <div id="msg"></div>\n  <button type="submit">제출</button>\n</form>',
-        css: 'body{font-family:sans-serif;padding:24px;background:#0b101b;color:#eef1f8}\ninput{padding:8px;border-radius:6px;border:1px solid #2a3348;background:#161d2e;color:#eef1f8;width:200px}\n#msg{font-size:12px;color:#f88;margin:6px 0}\nbutton{padding:8px 16px;border-radius:8px;border:0;background:#f2a93b;cursor:pointer}',
-        js: 'document.getElementById("form").addEventListener("submit", (e) => {\n  e.preventDefault();\n  const email = document.getElementById("email").value;\n  const msg = document.getElementById("msg");\n  const ok = /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email);\n  msg.textContent = ok ? "" : "올바른 이메일 형식이 아닙니다.";\n  msg.style.color = ok ? "#a5e0a5" : "#f88";\n  if (ok) alert("제출되었습니다: " + email);\n});'
+        name: 'CSS 커스텀 프로퍼티로 다크모드 전환',
+        html: '<button id="toggle">테마 전환</button>\n<div class="card">이 카드도 함께 테마를 따라갑니다.</div>',
+        css: ':root{--bg:#0b101b;--fg:#eef1f8;--card:#161d2e}\n:root.light{--bg:#f5f5f5;--fg:#131A2A;--card:#ffffff}\nbody{background:var(--bg);color:var(--fg);font-family:sans-serif;padding:24px;transition:background .3s,color .3s}\n.card{background:var(--card);padding:20px;border-radius:10px;margin-top:16px;transition:background .3s}\nbutton{padding:8px 16px;border-radius:8px;border:0;background:#f2a93b;cursor:pointer}',
+        js: '// CSS 변수(커스텀 프로퍼티)는 JS에서 클래스 하나만 토글해도 여러 요소에 한꺼번에 반영된다 —\n// 요소마다 개별적으로 색을 바꾸는 것보다 유지보수가 훨씬 쉽다\ndocument.getElementById("toggle").addEventListener("click", () => {\n  document.documentElement.classList.toggle("light");\n});'
       }
     ],
     VUE: [
       {
-        name: 'Vue 3 카운터',
-        html: '<div id="app">\n  <button @click="count++">클릭 횟수: {{ count }}</button>\n</div>',
-        css: 'body{font-family:sans-serif;padding:24px;background:#0b101b;color:#eef1f8}\nbutton{font-size:16px;padding:10px 18px;border-radius:8px;border:0;background:#f2a93b;cursor:pointer}',
-        js: 'const { createApp, ref } = Vue;\ncreateApp({\n  setup() {\n    const count = ref(0);\n    return { count };\n  }\n}).mount("#app");'
+        name: 'Composable 패턴 (useFetch)',
+        html: '<div id="app">\n  <button @click="reload">새로고침</button>\n  <p v-if="loading">불러오는 중...</p>\n  <ul v-else>\n    <li v-for="u in data" :key="u.id">{{ u.name }}</li>\n  </ul>\n</div>',
+        css: 'body{font-family:sans-serif;padding:24px;background:#0b101b;color:#eef1f8}\nbutton{padding:8px 16px;border-radius:8px;border:0;background:#f2a93b;cursor:pointer;margin-bottom:10px}',
+        js: 'const { createApp, ref } = Vue;\n\n// 여러 컴포넌트에서 재사용할 수 있도록 데이터 로딩 로직을 함수로 뽑아낸 "컴포저블"\nfunction useFetch(url) {\n  const data = ref(null);\n  const loading = ref(false);\n  async function load() {\n    loading.value = true;\n    try {\n      const res = await fetch(url);\n      data.value = await res.json();\n    } finally {\n      loading.value = false;\n    }\n  }\n  load();\n  return { data, loading, reload: load };\n}\n\ncreateApp({\n  setup() {\n    const { data, loading, reload } = useFetch("https://jsonplaceholder.typicode.com/users?_limit=5");\n    return { data, loading, reload };\n  }\n}).mount("#app");'
       },
       {
-        name: 'Vue 3 할 일 목록',
-        html: '<div id="app">\n  <input v-model="text" @keyup.enter="add" placeholder="할 일 입력 후 Enter">\n  <ul>\n    <li v-for="(t, i) in todos" :key="i">{{ t }} <button @click="todos.splice(i,1)">삭제</button></li>\n  </ul>\n</div>',
-        css: 'body{font-family:sans-serif;padding:24px;background:#0b101b;color:#eef1f8}\nli{margin:6px 0}',
-        js: 'const { createApp, ref } = Vue;\ncreateApp({\n  setup() {\n    const text = ref("");\n    const todos = ref([]);\n    function add() {\n      if (!text.value.trim()) return;\n      todos.value.push(text.value);\n      text.value = "";\n    }\n    return { text, todos, add };\n  }\n}).mount("#app");'
+        name: 'Provide/Inject로 깊은 트리 상태 공유',
+        html: '<div id="app">\n  <level-a></level-a>\n</div>',
+        css: 'body{font-family:sans-serif;padding:24px;background:#0b101b;color:#eef1f8}\nbutton{padding:6px 12px;border-radius:6px;border:0;background:#f2a93b;cursor:pointer}',
+        js: 'const { createApp, ref, provide, inject } = Vue;\n\n// props를 3단계씩 내려보내지 않고, 필요한 곳에서 바로 꺼내 쓴다(prop drilling 회피)\nconst LevelC = {\n  setup() {\n    const theme = inject("theme");\n    const setTheme = inject("setTheme");\n    return { theme, setTheme };\n  },\n  template: `<div>\n    <p>3단계 아래에서 주입받은 값: {{ theme }}</p>\n    <button @click="setTheme(theme === \'dark\' ? \'light\' : \'dark\')">전환</button>\n  </div>`\n};\nconst LevelB = { components: { LevelC }, template: `<div style="padding-left:16px;border-left:1px dashed #2a3348"><level-c /></div>` };\nconst LevelA = { components: { LevelB }, template: `<div style="padding-left:16px;border-left:1px dashed #2a3348"><level-b /></div>` };\n\ncreateApp({\n  components: { LevelA },\n  setup() {\n    const theme = ref("dark");\n    provide("theme", theme);\n    provide("setTheme", (v) => { theme.value = v; });\n  }\n}).mount("#app");'
       },
       {
-        name: 'computed/watch 실시간 계산기',
-        html: '<div id="app">\n  <input v-model.number="a" type="number"> + <input v-model.number="b" type="number"> = {{ sum }}\n  <p>{{ message }}</p>\n</div>',
-        css: 'body{font-family:sans-serif;padding:24px;background:#0b101b;color:#eef1f8}\ninput{width:60px;padding:6px;border-radius:6px;border:1px solid #2a3348;background:#161d2e;color:#eef1f8}',
-        js: 'const { createApp, ref, computed, watch } = Vue;\ncreateApp({\n  setup() {\n    const a = ref(0);\n    const b = ref(0);\n    const sum = computed(() => a.value + b.value);\n    const message = ref("");\n    watch(sum, (newVal) => {\n      message.value = newVal > 100 ? "합계가 100을 넘었습니다!" : "";\n    });\n    return { a, b, sum, message };\n  }\n}).mount("#app");'
+        name: 'Teleport로 모달 구현',
+        html: '<div id="app">\n  <button @click="open = true">모달 열기</button>\n  <teleport to="body">\n    <div v-if="open" class="overlay" @click.self="open=false">\n      <div class="modal">\n        <p>body 최상위로 순간이동한 모달입니다.</p>\n        <button @click="open=false">닫기</button>\n      </div>\n    </div>\n  </teleport>\n</div>',
+        css: 'body{font-family:sans-serif;padding:24px;background:#0b101b;color:#eef1f8}\nbutton{padding:8px 16px;border-radius:8px;border:0;background:#f2a93b;cursor:pointer}\n.overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center}\n.modal{background:#161d2e;padding:24px;border-radius:10px}\n.modal button{margin-top:12px}',
+        js: '// Teleport는 컴포넌트 트리 구조(상태·로직)는 그대로 두고, 실제 DOM 위치만 body로 옮겨준다.\n// 모달이 부모의 overflow:hidden이나 z-index에 갇히는 문제를 깔끔하게 피할 수 있다.\nconst { createApp, ref } = Vue;\ncreateApp({\n  setup() {\n    const open = ref(false);\n    return { open };\n  }\n}).mount("#app");'
       },
       {
-        name: '탭 UI (v-if/v-show)',
-        html: '<div id="app">\n  <button v-for="t in tabs" :key="t" @click="active = t" :class="{on: active===t}">{{ t }}</button>\n  <div v-show="active===\'A\'">A 탭 내용입니다.</div>\n  <div v-show="active===\'B\'">B 탭 내용입니다.</div>\n  <div v-show="active===\'C\'">C 탭 내용입니다.</div>\n</div>',
-        css: 'body{font-family:sans-serif;padding:24px;background:#0b101b;color:#eef1f8}\nbutton{padding:6px 14px;margin-right:6px;border-radius:6px;border:1px solid #2a3348;background:#161d2e;color:#9aa4bb;cursor:pointer}\nbutton.on{background:#f2a93b;color:#131A2A;border-color:#f2a93b}',
-        js: 'const { createApp, ref } = Vue;\ncreateApp({\n  setup() {\n    const tabs = ["A", "B", "C"];\n    const active = ref("A");\n    return { tabs, active };\n  }\n}).mount("#app");'
+        name: 'Suspense + 비동기 컴포넌트',
+        html: '<div id="app">\n  <Suspense>\n    <template #default>\n      <async-user></async-user>\n    </template>\n    <template #fallback>\n      <p>불러오는 중...</p>\n    </template>\n  </Suspense>\n</div>',
+        css: 'body{font-family:sans-serif;padding:24px;background:#0b101b;color:#eef1f8}',
+        js: '// async setup()을 쓰는 컴포넌트를 <Suspense>로 감싸면, 데이터가 준비될 때까지\n// fallback 슬롯을 자동으로 보여준다(로딩 상태를 직접 ref로 관리할 필요가 없어짐).\n// Vue 3 공식 문서에서도 아직 실험적 기능으로 표시하지만 이 정도 용도로는 안정적이다.\nconst { createApp } = Vue;\n\nconst AsyncUser = {\n  async setup() {\n    const res = await fetch("https://jsonplaceholder.typicode.com/users/1");\n    const user = await res.json();\n    return { user };\n  },\n  template: `<div>{{ user.name }} ({{ user.email }})</div>`\n};\n\ncreateApp({\n  components: { AsyncUser }\n}).mount("#app");'
       },
       {
-        name: '컴포넌트 분리 + props/emit',
-        html: '<div id="app">\n  <child-item v-for="n in items" :key="n" :label="n" @remove="remove(n)"></child-item>\n</div>',
-        css: 'body{font-family:sans-serif;padding:24px;background:#0b101b;color:#eef1f8}\n.item{display:flex;justify-content:space-between;padding:8px;background:#161d2e;border-radius:6px;margin-bottom:6px}\nbutton{border:0;background:transparent;color:#f88;cursor:pointer}',
-        js: 'const { createApp, ref } = Vue;\n\nconst ChildItem = {\n  props: ["label"],\n  emits: ["remove"],\n  template: \'<div class="item">{{ label }} <button @click="$emit(\\\'remove\\\')">삭제</button></div>\'\n};\n\ncreateApp({\n  components: { ChildItem },\n  setup() {\n    const items = ref(["사과", "바나나", "체리"]);\n    function remove(n) {\n      items.value = items.value.filter(i => i !== n);\n    }\n    return { items, remove };\n  }\n}).mount("#app");'
-      },
-      {
-        name: 'Fetch로 비동기 데이터 로딩',
-        html: '<div id="app">\n  <button @click="load" :disabled="loading">{{ loading ? "불러오는 중..." : "불러오기" }}</button>\n  <ul>\n    <li v-for="u in users" :key="u.id">{{ u.name }}</li>\n  </ul>\n</div>',
-        css: 'body{font-family:sans-serif;padding:24px;background:#0b101b;color:#eef1f8}\nbutton{padding:8px 16px;border-radius:8px;border:0;background:#f2a93b;cursor:pointer}',
-        js: 'const { createApp, ref } = Vue;\ncreateApp({\n  setup() {\n    const users = ref([]);\n    const loading = ref(false);\n    async function load() {\n      loading.value = true;\n      const res = await fetch("https://jsonplaceholder.typicode.com/users?_limit=5");\n      users.value = await res.json();\n      loading.value = false;\n    }\n    return { users, loading, load };\n  }\n}).mount("#app");'
-      },
-      {
-        name: 'Composition API 스톱워치',
-        html: '<div id="app">\n  <h2>{{ formatted }}</h2>\n  <button @click="toggle">{{ running ? "정지" : "시작" }}</button>\n  <button @click="reset">리셋</button>\n</div>',
-        css: 'body{font-family:sans-serif;padding:24px;background:#0b101b;color:#eef1f8;text-align:center}\nbutton{padding:8px 16px;margin:4px;border-radius:8px;border:0;background:#f2a93b;cursor:pointer}',
-        js: 'const { createApp, ref, computed, onUnmounted } = Vue;\ncreateApp({\n  setup() {\n    const seconds = ref(0);\n    const running = ref(false);\n    let timer = null;\n    const formatted = computed(() => {\n      const m = String(Math.floor(seconds.value / 60)).padStart(2, "0");\n      const s = String(seconds.value % 60).padStart(2, "0");\n      return m + ":" + s;\n    });\n    function toggle() {\n      running.value = !running.value;\n      if (running.value) timer = setInterval(() => seconds.value++, 1000);\n      else clearInterval(timer);\n    }\n    function reset() {\n      seconds.value = 0;\n      running.value = false;\n      clearInterval(timer);\n    }\n    onUnmounted(() => clearInterval(timer));\n    return { formatted, running, toggle, reset };\n  }\n}).mount("#app");'
+        name: '드래그로 순서 바꾸는 리스트',
+        html: '<div id="app">\n  <div\n    v-for="(item, i) in items"\n    :key="item"\n    draggable="true"\n    class="row"\n    @dragstart="dragIndex = i"\n    @dragover.prevent\n    @drop="onDrop(i)"\n  >{{ item }}</div>\n</div>',
+        css: 'body{font-family:sans-serif;padding:24px;background:#0b101b;color:#eef1f8}\n.row{padding:10px;background:#161d2e;border-radius:6px;margin-bottom:6px;cursor:grab}',
+        js: 'const { createApp, ref } = Vue;\ncreateApp({\n  setup() {\n    const items = ref(["첫 번째", "두 번째", "세 번째", "네 번째"]);\n    const dragIndex = ref(null);\n    function onDrop(i) {\n      const arr = items.value;\n      const [moved] = arr.splice(dragIndex.value, 1);\n      arr.splice(i, 0, moved);\n    }\n    return { items, dragIndex, onDrop };\n  }\n}).mount("#app");'
       }
     ],
     REACT: [
       {
-        name: 'React 카운터',
+        name: 'useReducer로 장바구니 상태 관리',
         html: '<div id="root"></div>',
-        css: 'body{font-family:sans-serif;padding:24px;background:#0b101b;color:#eef1f8}\nbutton{font-size:16px;padding:10px 18px;border-radius:8px;border:0;background:#f2a93b;cursor:pointer}',
-        js: 'const { useState } = React;\n\nfunction Counter() {\n  const [count, setCount] = useState(0);\n  return (\n    <button onClick={() => setCount(count + 1)}>\n      클릭 횟수: {count}\n    </button>\n  );\n}\n\nReactDOM.createRoot(document.getElementById("root")).render(<Counter />);'
+        css: 'body{font-family:sans-serif;padding:24px;background:#0b101b;color:#eef1f8}\nbutton{padding:8px 14px;border-radius:8px;border:0;background:#f2a93b;cursor:pointer;margin-right:8px;margin-bottom:10px}\nli{margin:6px 0}',
+        js: 'const { useReducer } = React;\n\n// 상태 변경 로직을 한 곳(reducer)에 모아두면, 상태가 복잡해질수록 useState를 여러 개\n// 흩어놓는 것보다 추적하기 쉬워진다(Redux와 같은 사고방식).\nfunction cartReducer(state, action) {\n  switch (action.type) {\n    case "add": return [...state, { id: Date.now(), name: action.name, price: action.price }];\n    case "remove": return state.filter(item => item.id !== action.id);\n    case "clear": return [];\n    default: return state;\n  }\n}\n\nfunction Cart() {\n  const [items, dispatch] = useReducer(cartReducer, []);\n  const total = items.reduce((sum, i) => sum + i.price, 0);\n\n  return (\n    <div>\n      <button onClick={() => dispatch({ type: "add", name: "커피", price: 4500 })}>커피 추가</button>\n      <button onClick={() => dispatch({ type: "add", name: "샌드위치", price: 6000 })}>샌드위치 추가</button>\n      <button onClick={() => dispatch({ type: "clear" })}>비우기</button>\n      <ul>\n        {items.map(item => (\n          <li key={item.id}>\n            {item.name} - {item.price}원{" "}\n            <button onClick={() => dispatch({ type: "remove", id: item.id })}>삭제</button>\n          </li>\n        ))}\n      </ul>\n      <p>합계: {total}원</p>\n    </div>\n  );\n}\n\nReactDOM.createRoot(document.getElementById("root")).render(<Cart />);'
       },
       {
-        name: 'React 할 일 목록',
+        name: 'useMemo/React.memo 렌더링 최적화',
         html: '<div id="root"></div>',
-        css: 'body{font-family:sans-serif;padding:24px;background:#0b101b;color:#eef1f8}\nli{margin:6px 0}',
-        js: 'const { useState } = React;\n\nfunction TodoApp() {\n  const [text, setText] = useState("");\n  const [todos, setTodos] = useState([]);\n\n  function add() {\n    if (!text.trim()) return;\n    setTodos([...todos, text]);\n    setText("");\n  }\n\n  return (\n    <div>\n      <input value={text} onChange={e => setText(e.target.value)}\n             onKeyUp={e => e.key === "Enter" && add()}\n             placeholder="할 일 입력 후 Enter" />\n      <ul>\n        {todos.map((t, i) => (\n          <li key={i}>{t} <button onClick={() => setTodos(todos.filter((_, j) => j !== i))}>삭제</button></li>\n        ))}\n      </ul>\n    </div>\n  );\n}\n\nReactDOM.createRoot(document.getElementById("root")).render(<TodoApp />);'
+        css: 'body{font-family:sans-serif;padding:24px;background:#0b101b;color:#eef1f8}\nbutton{padding:8px 14px;border-radius:8px;border:0;background:#f2a93b;cursor:pointer;margin-right:8px;margin-bottom:10px}',
+        js: 'const { useState, useMemo, memo } = React;\n\n// React.memo로 감싼 컴포넌트는 props가 실제로 바뀔 때만 다시 렌더링된다.\n// 우클릭 → 검사 → Console을 열어두고 "관계없는 카운터" 버튼을 눌러보면\n// ExpensiveChild가 다시 렌더링되지 않는 걸 확인할 수 있다.\nconst ExpensiveChild = memo(function ExpensiveChild({ value }) {\n  console.log("ExpensiveChild 렌더링됨, value =", value);\n  return <p>memo로 감싼 자식 — value: {value}</p>;\n});\n\nfunction heavyCompute(n) {\n  let total = 0;\n  for (let i = 0; i < n * 500000; i++) total += i % 3;\n  return total;\n}\n\nfunction App() {\n  const [count, setCount] = useState(0);\n  const [n, setN] = useState(1);\n\n  // n이 바뀔 때만 재계산 — count만 바뀔 때는 이전 계산 결과를 그대로 재사용한다\n  const result = useMemo(() => heavyCompute(n), [n]);\n\n  return (\n    <div>\n      <button onClick={() => setCount(count + 1)}>관계없는 카운터: {count}</button>\n      <button onClick={() => setN(n + 1)}>무거운 계산 트리거: {n}</button>\n      <p>계산 결과: {result}</p>\n      <ExpensiveChild value={n} />\n    </div>\n  );\n}\n\nReactDOM.createRoot(document.getElementById("root")).render(<App />);'
       },
       {
-        name: 'useEffect로 데이터 로딩',
+        name: '커스텀 훅 useDebounce + 검색',
         html: '<div id="root"></div>',
-        css: 'body{font-family:sans-serif;padding:24px;background:#0b101b;color:#eef1f8}',
-        js: 'const { useState, useEffect } = React;\n\nfunction UserList() {\n  const [users, setUsers] = useState([]);\n  const [loading, setLoading] = useState(true);\n\n  useEffect(() => {\n    fetch("https://jsonplaceholder.typicode.com/users?_limit=5")\n      .then(res => res.json())\n      .then(data => {\n        setUsers(data);\n        setLoading(false);\n      });\n  }, []);\n\n  if (loading) return <p>불러오는 중...</p>;\n  return (\n    <ul>\n      {users.map(u => <li key={u.id}>{u.name}</li>)}\n    </ul>\n  );\n}\n\nReactDOM.createRoot(document.getElementById("root")).render(<UserList />);'
+        css: 'body{font-family:sans-serif;padding:24px;background:#0b101b;color:#eef1f8}\ninput{padding:8px;border-radius:6px;border:1px solid #2a3348;background:#161d2e;color:#eef1f8;width:100%;box-sizing:border-box}\nli{margin:4px 0}',
+        js: 'const { useState, useEffect } = React;\n\n// 값이 바뀔 때마다 타이머를 다시 걸고, cleanup 함수(return)로 이전 타이머를 취소한다 —\n// useEffect의 cleanup을 이용한 디바운스의 정석적인 구현 방식\nfunction useDebounce(value, delay) {\n  const [debounced, setDebounced] = useState(value);\n  useEffect(() => {\n    const t = setTimeout(() => setDebounced(value), delay);\n    return () => clearTimeout(t);\n  }, [value, delay]);\n  return debounced;\n}\n\nconst DATA = ["Apple", "Banana", "Cherry", "Date", "Grape", "Kiwi", "Mango", "Orange"];\n\nfunction Search() {\n  const [text, setText] = useState("");\n  const debounced = useDebounce(text, 400);\n  const results = debounced ? DATA.filter(f => f.toLowerCase().includes(debounced.toLowerCase())) : [];\n\n  return (\n    <div>\n      <input value={text} onChange={e => setText(e.target.value)} placeholder="과일 검색" />\n      <ul>\n        {results.map(f => <li key={f}>{f}</li>)}\n      </ul>\n    </div>\n  );\n}\n\nReactDOM.createRoot(document.getElementById("root")).render(<Search />);'
       },
       {
-        name: '커스텀 훅 (useToggle)',
+        name: 'Portal로 모달 구현',
         html: '<div id="root"></div>',
         css: 'body{font-family:sans-serif;padding:24px;background:#0b101b;color:#eef1f8}\nbutton{padding:8px 16px;border-radius:8px;border:0;background:#f2a93b;cursor:pointer}',
-        js: 'const { useState } = React;\n\nfunction useToggle(initial = false) {\n  const [value, setValue] = useState(initial);\n  const toggle = () => setValue(v => !v);\n  return [value, toggle];\n}\n\nfunction App() {\n  const [isOpen, toggleOpen] = useToggle(false);\n  return (\n    <div>\n      <button onClick={toggleOpen}>{isOpen ? "닫기" : "열기"}</button>\n      {isOpen && <p>내용이 열렸습니다!</p>}\n    </div>\n  );\n}\n\nReactDOM.createRoot(document.getElementById("root")).render(<App />);'
+        js: 'const { useState } = React;\nconst { createPortal } = ReactDOM;\n\n// createPortal은 컴포넌트 트리(상태·이벤트 버블링)는 그대로 유지하면서\n// 실제 DOM만 다른 위치(여기서는 body)에 렌더링한다 — 모달·툴팁에 자주 쓰인다.\nfunction Modal({ onClose }) {\n  return createPortal(\n    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.6)", display: "flex", alignItems: "center", justifyContent: "center" }}>\n      <div style={{ background: "#161d2e", padding: 24, borderRadius: 10 }}>\n        <p>document.body로 포탈된 모달입니다.</p>\n        <button onClick={onClose}>닫기</button>\n      </div>\n    </div>,\n    document.body\n  );\n}\n\nfunction App() {\n  const [open, setOpen] = useState(false);\n  return (\n    <div>\n      <button onClick={() => setOpen(true)}>모달 열기</button>\n      {open && <Modal onClose={() => setOpen(false)} />}\n    </div>\n  );\n}\n\nReactDOM.createRoot(document.getElementById("root")).render(<App />);'
       },
       {
-        name: 'Context API로 상태 공유',
+        name: 'Error Boundary (클래스 컴포넌트)',
         html: '<div id="root"></div>',
         css: 'body{font-family:sans-serif;padding:24px;background:#0b101b;color:#eef1f8}\nbutton{padding:8px 16px;border-radius:8px;border:0;background:#f2a93b;cursor:pointer}',
-        js: 'const { useState, createContext, useContext } = React;\n\nconst ThemeContext = createContext(null);\n\nfunction ThemedButton() {\n  const { dark, setDark } = useContext(ThemeContext);\n  return (\n    <button onClick={() => setDark(!dark)}>\n      현재 테마: {dark ? "다크" : "라이트"} (클릭해서 전환)\n    </button>\n  );\n}\n\nfunction App() {\n  const [dark, setDark] = useState(true);\n  return (\n    <ThemeContext.Provider value={{ dark, setDark }}>\n      <ThemedButton />\n    </ThemeContext.Provider>\n  );\n}\n\nReactDOM.createRoot(document.getElementById("root")).render(<App />);'
+        js: '// Error Boundary는 아직 훅으로 만들 수 없어 클래스 컴포넌트로만 구현 가능하다(React 18 기준).\n// 자식 트리 렌더링 중 에러가 나면 전체 앱이 죽는 대신 이 컴포넌트가 대체 화면을 보여준다.\nclass ErrorBoundary extends React.Component {\n  constructor(props) {\n    super(props);\n    this.state = { hasError: false };\n  }\n  static getDerivedStateFromError() {\n    return { hasError: true };\n  }\n  render() {\n    if (this.state.hasError) {\n      return <p style={{ color: "#f88" }}>문제가 발생해서 이 부분만 대신 표시합니다.</p>;\n    }\n    return this.props.children;\n  }\n}\n\nfunction Bomb() {\n  throw new Error("의도적으로 발생시킨 에러");\n}\n\nfunction App() {\n  const [showBomb, setShowBomb] = React.useState(false);\n  return (\n    <div>\n      <button onClick={() => setShowBomb(true)}>에러 발생시키기</button>\n      <ErrorBoundary>\n        {showBomb ? <Bomb /> : <p>정상 상태입니다.</p>}\n      </ErrorBoundary>\n    </div>\n  );\n}\n\nReactDOM.createRoot(document.getElementById("root")).render(<App />);'
       },
       {
-        name: '폼 상태 관리 + 검증',
+        name: 'Context + useReducer 전역 상태 관리',
         html: '<div id="root"></div>',
-        css: 'body{font-family:sans-serif;padding:24px;background:#0b101b;color:#eef1f8}\ninput{padding:8px;border-radius:6px;border:1px solid #2a3348;background:#161d2e;color:#eef1f8}\nbutton{padding:8px 16px;border-radius:8px;border:0;background:#f2a93b;cursor:pointer;margin-left:6px}\n.err{color:#f88;font-size:12px}',
-        js: 'const { useState } = React;\n\nfunction SignupForm() {\n  const [email, setEmail] = useState("");\n  const [error, setError] = useState("");\n\n  function handleSubmit(e) {\n    e.preventDefault();\n    const ok = /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email);\n    setError(ok ? "" : "올바른 이메일 형식이 아닙니다.");\n    if (ok) alert("제출됨: " + email);\n  }\n\n  return (\n    <form onSubmit={handleSubmit}>\n      <input value={email} onChange={e => setEmail(e.target.value)} placeholder="이메일" />\n      <button type="submit">제출</button>\n      {error && <p className="err">{error}</p>}\n    </form>\n  );\n}\n\nReactDOM.createRoot(document.getElementById("root")).render(<SignupForm />);'
-      },
-      {
-        name: 'useRef로 포커스 관리',
-        html: '<div id="root"></div>',
-        css: 'body{font-family:sans-serif;padding:24px;background:#0b101b;color:#eef1f8}\ninput{padding:8px;border-radius:6px;border:1px solid #2a3348;background:#161d2e;color:#eef1f8}\nbutton{padding:8px 16px;border-radius:8px;border:0;background:#f2a93b;cursor:pointer;margin-left:6px}',
-        js: 'const { useRef } = React;\n\nfunction FocusInput() {\n  const inputRef = useRef(null);\n  function focus() {\n    inputRef.current.focus();\n  }\n  return (\n    <div>\n      <input ref={inputRef} placeholder="여기를 포커스" />\n      <button onClick={focus}>포커스 주기</button>\n    </div>\n  );\n}\n\nReactDOM.createRoot(document.getElementById("root")).render(<FocusInput />);'
+        css: 'body{font-family:sans-serif;padding:24px;background:#0b101b;color:#eef1f8}\nbutton{padding:8px 14px;border-radius:8px;border:0;background:#f2a93b;cursor:pointer;margin-right:8px}',
+        js: '// useReducer + useContext 조합은 별도 라이브러리 없이도 "전역 상태 관리"의 핵심 아이디어를\n// 그대로 구현한다 — 서로 멀리 떨어진 컴포넌트끼리 props 없이 상태를 공유·변경한다.\nconst { createContext, useContext, useReducer } = React;\n\nconst CounterContext = createContext(null);\n\nfunction counterReducer(state, action) {\n  switch (action.type) {\n    case "inc": return state + 1;\n    case "dec": return state - 1;\n    default: return state;\n  }\n}\n\nfunction CounterProvider({ children }) {\n  const [count, dispatch] = useReducer(counterReducer, 0);\n  return <CounterContext.Provider value={{ count, dispatch }}>{children}</CounterContext.Provider>;\n}\n\nfunction DisplayA() {\n  const { count } = useContext(CounterContext);\n  return <p>다른 컴포넌트(A)에서 본 값: {count}</p>;\n}\n\nfunction ButtonsB() {\n  const { dispatch } = useContext(CounterContext);\n  return (\n    <div>\n      <button onClick={() => dispatch({ type: "inc" })}>+1</button>\n      <button onClick={() => dispatch({ type: "dec" })}>-1</button>\n    </div>\n  );\n}\n\nfunction App() {\n  return (\n    <CounterProvider>\n      <DisplayA />\n      <ButtonsB />\n    </CounterProvider>\n  );\n}\n\nReactDOM.createRoot(document.getElementById("root")).render(<App />);'
       }
     ]
   };
@@ -358,11 +334,20 @@
         };
       }
 
+      /* setCode()는 내부적으로 각 Monaco 모델의 값을 바꾸는데, 이때 onDidChangeModelContent가
+         걸려 있어 600ms 뒤 run()이 자동으로 한 번 더 예약된다. 여기서 곧바로 run()을 명시적으로
+         호출하면 "즉시 실행 + 600ms 뒤 예약된 실행"이 겹쳐 미리보기가 두 번 리로드되며
+         깜빡이는 원인이 됐다 — 예약을 취소해 정확히 한 번만 실행되게 한다. */
+      function setCodeAndRun(html, css, js){
+        setCode(html, css, js);
+        clearTimeout(debounceTimer);
+        run();
+      }
+
       function loadExample(name){
         const ex = currentExamples.value.find(e => e.name === name) || currentExamples.value[0];
         if (!ex) return;
-        setCode(ex.html, ex.css, ex.js);
-        run();
+        setCodeAndRun(ex.html, ex.css, ex.js);
       }
 
       function onTemplateChange(){
@@ -465,12 +450,11 @@
           const s = await res.json();
           template.value = s.template;
           await nextTick();
-          setCode(s.html, s.css, s.js);
+          setCodeAndRun(s.html, s.css, s.js);
           libs.splice(0, libs.length, ...(s.libs || []));
           title.value = s.title + ' (복사본)';
           loadedFrom.value = s.title;
           history.pushState(null, '', '/editor/' + id);
-          run();
           window.scrollTo({ top: 0, behavior: 'smooth' });
         } catch (e) {
           showToast('불러오는 중 오류가 발생했습니다.');
