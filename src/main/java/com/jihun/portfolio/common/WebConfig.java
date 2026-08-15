@@ -22,6 +22,12 @@ public class WebConfig implements WebMvcConfigurer {
         registry.addViewController("/map").setViewName("forward:/map.html");
         registry.addViewController("/map/food").setViewName("forward:/map.html");
         registry.addViewController("/map/estate").setViewName("forward:/map.html");
+        // 웹 도구 — 개발자용 미니툴 모음(JSON 포매터, 정규식 테스터 등). 브라우저에서만 처리하고
+        // 서버 API가 필요 없어 별도 컨트롤러 없이 정적 페이지만 포워딩한다. 도구가 30~50개로 늘어나도
+        // 이 와일드카드 한 줄이면 충분 — 어떤 도구를 보여줄지는 webtool.html의 JS가 URL 뒷부분(슬러그,
+        // 예: /webtool/json-formatter)을 읽어서 처리한다.
+        registry.addViewController("/webtool").setViewName("forward:/webtool.html");
+        registry.addViewController("/webtool/**").setViewName("forward:/webtool.html");
         // 웹 게임(상위 분류) — /game 아래 웹게임(숫자야구·발리볼) / board(오목·장기) / card(프리셀·클론다이크·스파이더) 3갈래
         registry.addViewController("/game").setViewName("forward:/game.html");
         registry.addViewController("/game/baseball").setViewName("forward:/game.html");
