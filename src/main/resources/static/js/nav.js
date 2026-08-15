@@ -6,6 +6,7 @@
     { type: 'link', href: '/news', label: 'AI 뉴스' },
     { type: 'link', href: '/stock', label: 'AI 주식' },
     { type: 'link', href: '/map', label: '지도 API' },
+    { type: 'link', href: '/webtool', label: 'Web Tool' },
     { type: 'link', href: '/mms', label: 'MMS' },
     { type: 'dropdown', href: '/game', label: '웹 게임', children: [
       { href: '/game', label: '웹게임' },
