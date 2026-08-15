@@ -8,10 +8,10 @@
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/vue@3.4.21/dist/vue.global.prod.js"></script>
 <!-- React 템플릿의 JSX를 iframe에 넣기 전에 이 페이지(부모)에서 미리 변환하는 데 사용한다.
-     iframe 안에 babel.min.js를 넣고 자동 스캔에 맡기는 방식은 srcdoc을 매번 새로 그리는
-     환경에서 DOMContentLoaded 타이밍이 어긋나 변환이 누락되는 경우가 있어, 부모에서
-     Babel.transform()으로 미리 순수 JS로 바꿔 넣는 방식으로 바꿨다(항상 안정적으로 동작). -->
-<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+     버전을 @7로 고정한다 — 버전을 안 박은 최신 URL(.../standalone/babel.min.js)이 최근
+     Babel 8 릴리스 이후 깨져서(Babel 저장소에도 관련 이슈 등록됨) React 예제가 전부
+     실행되지 않는 원인이었다. 안정적인 7 계열로 고정해 이 문제를 피한다. -->
+<script src="https://unpkg.com/@babel/standalone@7/babel.min.js"></script>
 <link rel="stylesheet" href="/css/base.css">
 <style>
 .we-toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
