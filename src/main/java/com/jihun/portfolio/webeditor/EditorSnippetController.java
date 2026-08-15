@@ -83,8 +83,11 @@ public class EditorSnippetController {
 
     @GetMapping("/snippets/{id}")
     public ResponseEntity<?> get(@PathVariable Long id) {
+        // .map()과 .orElseGet() 두 분기가 서로 다른 바디 타입(SnippetDetail vs 에러 Map)을 반환해서
+        // Optional<T>의 T를 하나로 추론하지 못해 컴파일 오류가 났었다 — 제네릭 타입을 ResponseEntity<?>로
+        // 명시해 두 분기가 같은 타입으로 취급되게 한다.
         return repository.findById(id)
-                .map(s -> ResponseEntity.ok(new SnippetDetail(
+                .<ResponseEntity<?>>map(s -> ResponseEntity.ok(new SnippetDetail(
                         s.getId(), s.getTitle(), s.getTemplate().name(), s.getHtml(), s.getCss(), s.getJs(),
                         parseLibs(s.getLibsJson()), s.getCreatedAt())))
                 .orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", "존재하지 않는 스니펫입니다.")));
