@@ -26,8 +26,14 @@ public class WebConfig implements WebMvcConfigurer {
         // 서버 API가 필요 없어 별도 컨트롤러 없이 정적 페이지만 포워딩한다. 도구가 30~50개로 늘어나도
         // 이 와일드카드 한 줄이면 충분 — 어떤 도구를 보여줄지는 webtool.html의 JS가 URL 뒷부분(슬러그,
         // 예: /webtool/json-formatter)을 읽어서 처리한다.
+        // 현재 메뉴에는 웹 에디터 개발 착수로 잠시 숨겨져 있지만(nav.js), 라우팅은 유지한다.
         registry.addViewController("/webtool").setViewName("forward:/webtool.html");
         registry.addViewController("/webtool/**").setViewName("forward:/webtool.html");
+        // 웹 에디터 — Monaco Editor 기반 HTML/CSS/JS·Vue·React 실습 및 공유(CodePen 스타일).
+        // 스니펫 상세는 /api/webeditor/snippets/{id} REST API로 조회하고, 어떤 스니펫을 보여줄지는
+        // editor.html의 JS가 URL 뒷부분(슬러그, 예: /editor/42)을 읽어서 처리한다.
+        registry.addViewController("/editor").setViewName("forward:/editor.html");
+        registry.addViewController("/editor/**").setViewName("forward:/editor.html");
         // 웹 게임(상위 분류) — /game 아래 웹게임(숫자야구·발리볼) / board(오목·장기) / card(프리셀·클론다이크·스파이더) 3갈래
         registry.addViewController("/game").setViewName("forward:/game.html");
         registry.addViewController("/game/baseball").setViewName("forward:/game.html");
