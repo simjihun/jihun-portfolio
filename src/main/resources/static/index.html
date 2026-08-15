@@ -93,6 +93,12 @@ main{max-width:1080px}
 .mock-rank{display:flex;justify-content:space-between;font-size:11px;color:var(--mut);padding:5px 0;border-bottom:1px solid var(--line)}
 .mock-rank:last-child{border-bottom:0}
 
+/* 웹 에디터 목업 */
+.mock-code-line{font-family:var(--mono);font-size:11px;color:var(--mut);padding:2px 0;white-space:pre}
+.mock-code-line .kw{color:#c792ea}
+.mock-code-line .fn{color:#8bd1ff}
+.mock-code-line .str{color:#a5e0a5}
+
 /* ===== Backlog / footer ===== */
 .tail{padding:56px 0 64px}
 .tail h2{font-size:20px;margin-bottom:18px}
@@ -223,30 +229,31 @@ main{max-width:1080px}
     </div>
   </section>
 
-  <!-- ===== Web Tool ===== -->
+  <!-- ===== 웹 에디터 ===== -->
   <section class="feature rev">
     <div class="feature-text">
       <span class="tag">● LIVE</span>
-      <h2>Web Tool — 개발자 미니툴 모음</h2>
+      <h2>웹 에디터 — 브라우저에서 바로 실습하는 코드 플레이그라운드</h2>
       <div class="skills">
-        <span>Vue.js 3</span><span>Web Crypto API</span><span>브라우저 전용 처리</span>
+        <span>Monaco Editor</span><span>Vue.js 3</span><span>React(Babel Standalone)</span><span>MySQL</span>
       </div>
       <ul>
-        <li>JSON 포매터, 정규식 테스터, Base64/URL 인코더, UUID·해시 생성기, Unix 타임스탬프 변환기 등</li>
-        <li>모든 입력은 브라우저에서만 처리(서버 미전송)</li>
-        <li>카테고리별 사이드바 + 검색으로 도구 다건 탐색</li>
-        <li>도구가 계속 추가되는 확장형 구조</li>
+        <li>HTML/CSS/JS, Vue 3, React 템플릿 지원, 언어별 시작 예제 제공</li>
+        <li>Monaco Editor(VS Code 편집기) 기반 실시간 문법 오류 표시</li>
+        <li>외부 CDN 라이브러리 추가, 격리된 iframe에서 즉시 실행</li>
+        <li>로그인 없이 공개로 저장(CodePen 방식) — 누구나 목록에서 열람 가능</li>
       </ul>
-      <a class="feature-link" href="/webtool">Web Tool 열어보기 →</a>
+      <a class="feature-link" href="/editor">웹 에디터 열어보기 →</a>
     </div>
     <div class="feature-visual">
       <div class="mockup">
         <div class="mockup-bar"><span></span><span></span><span></span></div>
         <div class="mockup-body">
-          <div class="mock-tabs"><span class="on">JSON</span><span>정규식</span><span>Base64</span><span>UUID</span></div>
-          <div class="mock-brief"><div></div><div></div><div></div></div>
-          <div class="mock-headline"><span>{ "name": "jihun" }</span><span>정렬</span></div>
-          <div class="mock-headline"><span>a1b2c3d4-...</span><span>UUID</span></div>
+          <div class="mock-tabs"><span class="on">HTML</span><span>CSS</span><span>JS</span></div>
+          <div class="mock-code-line"><span class="kw">const</span> <span class="fn">app</span> = <span class="kw">createApp</span>({});</div>
+          <div class="mock-code-line">app.<span class="fn">mount</span>(<span class="str">'#app'</span>);</div>
+          <div class="mock-code-line">&lt;<span class="kw">button</span> @click=<span class="str">"count++"</span>&gt;</div>
+          <div class="mock-code-line">&nbsp;&nbsp;{{ count }}</div>
         </div>
       </div>
     </div>
