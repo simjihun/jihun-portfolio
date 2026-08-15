@@ -7,6 +7,11 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/vue@3.4.21/dist/vue.global.prod.js"></script>
+<!-- React 템플릿의 JSX를 iframe에 넣기 전에 이 페이지(부모)에서 미리 변환하는 데 사용한다.
+     iframe 안에 babel.min.js를 넣고 자동 스캔에 맡기는 방식은 srcdoc을 매번 새로 그리는
+     환경에서 DOMContentLoaded 타이밍이 어긋나 변환이 누락되는 경우가 있어, 부모에서
+     Babel.transform()으로 미리 순수 JS로 바꿔 넣는 방식으로 바꿨다(항상 안정적으로 동작). -->
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 <link rel="stylesheet" href="/css/base.css">
 <style>
 .we-toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
@@ -150,7 +155,7 @@
   });
 
   /* ===================================================
-     템플릿별 예제 — 처음 시작이 막막하지 않도록 언어/프레임워크별로 몇 개씩 미리 넣어둔다.
+     템플릿별 예제 — 처음 시작이 막막하지 않도록 언어/프레임워크별로 미리 넣어둔다.
      새 예제를 추가하려면 이 객체에 { name, html, css, js } 한 항목만 추가하면 된다.
      =================================================== */
   const EXAMPLES = {
@@ -172,6 +177,36 @@
         html: '<div class="box"></div>',
         css: 'body{background:#0b101b;display:flex;align-items:center;justify-content:center;height:100vh;margin:0}\n.box{width:60px;height:60px;background:#f2a93b;border-radius:12px;animation:bounce 1s infinite alternate}\n@keyframes bounce{from{transform:translateY(0)}to{transform:translateY(-40px)}}',
         js: ''
+      },
+      {
+        name: 'Fetch API로 데이터 가져오기',
+        html: '<button id="loadBtn">사용자 목록 불러오기</button>\n<ul id="list"></ul>',
+        css: 'body{font-family:sans-serif;padding:24px;background:#0b101b;color:#eef1f8}\nbutton{padding:8px 16px;border-radius:8px;border:0;background:#f2a93b;cursor:pointer;margin-bottom:12px}\nli{padding:4px 0}',
+        js: 'document.getElementById("loadBtn").addEventListener("click", async () => {\n  const list = document.getElementById("list");\n  list.innerHTML = "불러오는 중...";\n  try {\n    const res = await fetch("https://jsonplaceholder.typicode.com/users?_limit=5");\n    const users = await res.json();\n    list.innerHTML = users.map(u => `<li>${u.name} (${u.email})</li>`).join("");\n  } catch (e) {\n    list.innerHTML = "불러오기 실패: " + e.message;\n  }\n});'
+      },
+      {
+        name: 'LocalStorage 메모장',
+        html: '<textarea id="note" placeholder="메모를 입력하면 자동 저장됩니다" rows="6" style="width:100%;box-sizing:border-box"></textarea>\n<div id="status"></div>',
+        css: 'body{font-family:sans-serif;padding:24px;background:#0b101b;color:#eef1f8}\ntextarea{background:#161d2e;color:#eef1f8;border:1px solid #2a3348;border-radius:8px;padding:10px}\n#status{font-size:12px;color:#9aa4bb;margin-top:6px}',
+        js: 'const note = document.getElementById("note");\nconst status = document.getElementById("status");\nnote.value = localStorage.getItem("myNote") || "";\nnote.addEventListener("input", () => {\n  localStorage.setItem("myNote", note.value);\n  status.textContent = "저장됨 · " + new Date().toLocaleTimeString();\n});'
+      },
+      {
+        name: 'Flexbox 카드 레이아웃',
+        html: '<div class="cards">\n  <div class="card">카드 1</div>\n  <div class="card">카드 2</div>\n  <div class="card">카드 3</div>\n</div>',
+        css: 'body{background:#0b101b;padding:24px;margin:0;font-family:sans-serif}\n.cards{display:flex;gap:12px;flex-wrap:wrap}\n.card{flex:1 1 150px;background:#161d2e;border:1px solid #2a3348;border-radius:10px;padding:20px;color:#eef1f8;text-align:center}',
+        js: ''
+      },
+      {
+        name: 'CSS Grid 대시보드 레이아웃',
+        html: '<div class="grid">\n  <header>헤더</header>\n  <nav>사이드바</nav>\n  <main>본문</main>\n  <footer>푸터</footer>\n</div>',
+        css: 'body{margin:0;background:#0b101b;font-family:sans-serif;color:#eef1f8}\n.grid{display:grid;grid-template-columns:150px 1fr;grid-template-rows:60px 1fr 40px;height:100vh;gap:2px}\nheader{grid-column:1/3;background:#f2a93b;color:#131A2A;display:flex;align-items:center;padding:0 16px}\nnav{background:#161d2e;padding:16px}\nmain{background:#0f1522;padding:16px}\nfooter{grid-column:1/3;background:#161d2e;display:flex;align-items:center;padding:0 16px;font-size:12px;color:#9aa4bb}',
+        js: ''
+      },
+      {
+        name: '폼 검증',
+        html: '<form id="form">\n  <input id="email" type="text" placeholder="이메일">\n  <div id="msg"></div>\n  <button type="submit">제출</button>\n</form>',
+        css: 'body{font-family:sans-serif;padding:24px;background:#0b101b;color:#eef1f8}\ninput{padding:8px;border-radius:6px;border:1px solid #2a3348;background:#161d2e;color:#eef1f8;width:200px}\n#msg{font-size:12px;color:#f88;margin:6px 0}\nbutton{padding:8px 16px;border-radius:8px;border:0;background:#f2a93b;cursor:pointer}',
+        js: 'document.getElementById("form").addEventListener("submit", (e) => {\n  e.preventDefault();\n  const email = document.getElementById("email").value;\n  const msg = document.getElementById("msg");\n  const ok = /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email);\n  msg.textContent = ok ? "" : "올바른 이메일 형식이 아닙니다.";\n  msg.style.color = ok ? "#a5e0a5" : "#f88";\n  if (ok) alert("제출되었습니다: " + email);\n});'
       }
     ],
     VUE: [
@@ -186,6 +221,36 @@
         html: '<div id="app">\n  <input v-model="text" @keyup.enter="add" placeholder="할 일 입력 후 Enter">\n  <ul>\n    <li v-for="(t, i) in todos" :key="i">{{ t }} <button @click="todos.splice(i,1)">삭제</button></li>\n  </ul>\n</div>',
         css: 'body{font-family:sans-serif;padding:24px;background:#0b101b;color:#eef1f8}\nli{margin:6px 0}',
         js: 'const { createApp, ref } = Vue;\ncreateApp({\n  setup() {\n    const text = ref("");\n    const todos = ref([]);\n    function add() {\n      if (!text.value.trim()) return;\n      todos.value.push(text.value);\n      text.value = "";\n    }\n    return { text, todos, add };\n  }\n}).mount("#app");'
+      },
+      {
+        name: 'computed/watch 실시간 계산기',
+        html: '<div id="app">\n  <input v-model.number="a" type="number"> + <input v-model.number="b" type="number"> = {{ sum }}\n  <p>{{ message }}</p>\n</div>',
+        css: 'body{font-family:sans-serif;padding:24px;background:#0b101b;color:#eef1f8}\ninput{width:60px;padding:6px;border-radius:6px;border:1px solid #2a3348;background:#161d2e;color:#eef1f8}',
+        js: 'const { createApp, ref, computed, watch } = Vue;\ncreateApp({\n  setup() {\n    const a = ref(0);\n    const b = ref(0);\n    const sum = computed(() => a.value + b.value);\n    const message = ref("");\n    watch(sum, (newVal) => {\n      message.value = newVal > 100 ? "합계가 100을 넘었습니다!" : "";\n    });\n    return { a, b, sum, message };\n  }\n}).mount("#app");'
+      },
+      {
+        name: '탭 UI (v-if/v-show)',
+        html: '<div id="app">\n  <button v-for="t in tabs" :key="t" @click="active = t" :class="{on: active===t}">{{ t }}</button>\n  <div v-show="active===\'A\'">A 탭 내용입니다.</div>\n  <div v-show="active===\'B\'">B 탭 내용입니다.</div>\n  <div v-show="active===\'C\'">C 탭 내용입니다.</div>\n</div>',
+        css: 'body{font-family:sans-serif;padding:24px;background:#0b101b;color:#eef1f8}\nbutton{padding:6px 14px;margin-right:6px;border-radius:6px;border:1px solid #2a3348;background:#161d2e;color:#9aa4bb;cursor:pointer}\nbutton.on{background:#f2a93b;color:#131A2A;border-color:#f2a93b}',
+        js: 'const { createApp, ref } = Vue;\ncreateApp({\n  setup() {\n    const tabs = ["A", "B", "C"];\n    const active = ref("A");\n    return { tabs, active };\n  }\n}).mount("#app");'
+      },
+      {
+        name: '컴포넌트 분리 + props/emit',
+        html: '<div id="app">\n  <child-item v-for="n in items" :key="n" :label="n" @remove="remove(n)"></child-item>\n</div>',
+        css: 'body{font-family:sans-serif;padding:24px;background:#0b101b;color:#eef1f8}\n.item{display:flex;justify-content:space-between;padding:8px;background:#161d2e;border-radius:6px;margin-bottom:6px}\nbutton{border:0;background:transparent;color:#f88;cursor:pointer}',
+        js: 'const { createApp, ref } = Vue;\n\nconst ChildItem = {\n  props: ["label"],\n  emits: ["remove"],\n  template: \'<div class="item">{{ label }} <button @click="$emit(\\\'remove\\\')">삭제</button></div>\'\n};\n\ncreateApp({\n  components: { ChildItem },\n  setup() {\n    const items = ref(["사과", "바나나", "체리"]);\n    function remove(n) {\n      items.value = items.value.filter(i => i !== n);\n    }\n    return { items, remove };\n  }\n}).mount("#app");'
+      },
+      {
+        name: 'Fetch로 비동기 데이터 로딩',
+        html: '<div id="app">\n  <button @click="load" :disabled="loading">{{ loading ? "불러오는 중..." : "불러오기" }}</button>\n  <ul>\n    <li v-for="u in users" :key="u.id">{{ u.name }}</li>\n  </ul>\n</div>',
+        css: 'body{font-family:sans-serif;padding:24px;background:#0b101b;color:#eef1f8}\nbutton{padding:8px 16px;border-radius:8px;border:0;background:#f2a93b;cursor:pointer}',
+        js: 'const { createApp, ref } = Vue;\ncreateApp({\n  setup() {\n    const users = ref([]);\n    const loading = ref(false);\n    async function load() {\n      loading.value = true;\n      const res = await fetch("https://jsonplaceholder.typicode.com/users?_limit=5");\n      users.value = await res.json();\n      loading.value = false;\n    }\n    return { users, loading, load };\n  }\n}).mount("#app");'
+      },
+      {
+        name: 'Composition API 스톱워치',
+        html: '<div id="app">\n  <h2>{{ formatted }}</h2>\n  <button @click="toggle">{{ running ? "정지" : "시작" }}</button>\n  <button @click="reset">리셋</button>\n</div>',
+        css: 'body{font-family:sans-serif;padding:24px;background:#0b101b;color:#eef1f8;text-align:center}\nbutton{padding:8px 16px;margin:4px;border-radius:8px;border:0;background:#f2a93b;cursor:pointer}',
+        js: 'const { createApp, ref, computed, onUnmounted } = Vue;\ncreateApp({\n  setup() {\n    const seconds = ref(0);\n    const running = ref(false);\n    let timer = null;\n    const formatted = computed(() => {\n      const m = String(Math.floor(seconds.value / 60)).padStart(2, "0");\n      const s = String(seconds.value % 60).padStart(2, "0");\n      return m + ":" + s;\n    });\n    function toggle() {\n      running.value = !running.value;\n      if (running.value) timer = setInterval(() => seconds.value++, 1000);\n      else clearInterval(timer);\n    }\n    function reset() {\n      seconds.value = 0;\n      running.value = false;\n      clearInterval(timer);\n    }\n    onUnmounted(() => clearInterval(timer));\n    return { formatted, running, toggle, reset };\n  }\n}).mount("#app");'
       }
     ],
     REACT: [
@@ -200,6 +265,36 @@
         html: '<div id="root"></div>',
         css: 'body{font-family:sans-serif;padding:24px;background:#0b101b;color:#eef1f8}\nli{margin:6px 0}',
         js: 'const { useState } = React;\n\nfunction TodoApp() {\n  const [text, setText] = useState("");\n  const [todos, setTodos] = useState([]);\n\n  function add() {\n    if (!text.trim()) return;\n    setTodos([...todos, text]);\n    setText("");\n  }\n\n  return (\n    <div>\n      <input value={text} onChange={e => setText(e.target.value)}\n             onKeyUp={e => e.key === "Enter" && add()}\n             placeholder="할 일 입력 후 Enter" />\n      <ul>\n        {todos.map((t, i) => (\n          <li key={i}>{t} <button onClick={() => setTodos(todos.filter((_, j) => j !== i))}>삭제</button></li>\n        ))}\n      </ul>\n    </div>\n  );\n}\n\nReactDOM.createRoot(document.getElementById("root")).render(<TodoApp />);'
+      },
+      {
+        name: 'useEffect로 데이터 로딩',
+        html: '<div id="root"></div>',
+        css: 'body{font-family:sans-serif;padding:24px;background:#0b101b;color:#eef1f8}',
+        js: 'const { useState, useEffect } = React;\n\nfunction UserList() {\n  const [users, setUsers] = useState([]);\n  const [loading, setLoading] = useState(true);\n\n  useEffect(() => {\n    fetch("https://jsonplaceholder.typicode.com/users?_limit=5")\n      .then(res => res.json())\n      .then(data => {\n        setUsers(data);\n        setLoading(false);\n      });\n  }, []);\n\n  if (loading) return <p>불러오는 중...</p>;\n  return (\n    <ul>\n      {users.map(u => <li key={u.id}>{u.name}</li>)}\n    </ul>\n  );\n}\n\nReactDOM.createRoot(document.getElementById("root")).render(<UserList />);'
+      },
+      {
+        name: '커스텀 훅 (useToggle)',
+        html: '<div id="root"></div>',
+        css: 'body{font-family:sans-serif;padding:24px;background:#0b101b;color:#eef1f8}\nbutton{padding:8px 16px;border-radius:8px;border:0;background:#f2a93b;cursor:pointer}',
+        js: 'const { useState } = React;\n\nfunction useToggle(initial = false) {\n  const [value, setValue] = useState(initial);\n  const toggle = () => setValue(v => !v);\n  return [value, toggle];\n}\n\nfunction App() {\n  const [isOpen, toggleOpen] = useToggle(false);\n  return (\n    <div>\n      <button onClick={toggleOpen}>{isOpen ? "닫기" : "열기"}</button>\n      {isOpen && <p>내용이 열렸습니다!</p>}\n    </div>\n  );\n}\n\nReactDOM.createRoot(document.getElementById("root")).render(<App />);'
+      },
+      {
+        name: 'Context API로 상태 공유',
+        html: '<div id="root"></div>',
+        css: 'body{font-family:sans-serif;padding:24px;background:#0b101b;color:#eef1f8}\nbutton{padding:8px 16px;border-radius:8px;border:0;background:#f2a93b;cursor:pointer}',
+        js: 'const { useState, createContext, useContext } = React;\n\nconst ThemeContext = createContext(null);\n\nfunction ThemedButton() {\n  const { dark, setDark } = useContext(ThemeContext);\n  return (\n    <button onClick={() => setDark(!dark)}>\n      현재 테마: {dark ? "다크" : "라이트"} (클릭해서 전환)\n    </button>\n  );\n}\n\nfunction App() {\n  const [dark, setDark] = useState(true);\n  return (\n    <ThemeContext.Provider value={{ dark, setDark }}>\n      <ThemedButton />\n    </ThemeContext.Provider>\n  );\n}\n\nReactDOM.createRoot(document.getElementById("root")).render(<App />);'
+      },
+      {
+        name: '폼 상태 관리 + 검증',
+        html: '<div id="root"></div>',
+        css: 'body{font-family:sans-serif;padding:24px;background:#0b101b;color:#eef1f8}\ninput{padding:8px;border-radius:6px;border:1px solid #2a3348;background:#161d2e;color:#eef1f8}\nbutton{padding:8px 16px;border-radius:8px;border:0;background:#f2a93b;cursor:pointer;margin-left:6px}\n.err{color:#f88;font-size:12px}',
+        js: 'const { useState } = React;\n\nfunction SignupForm() {\n  const [email, setEmail] = useState("");\n  const [error, setError] = useState("");\n\n  function handleSubmit(e) {\n    e.preventDefault();\n    const ok = /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email);\n    setError(ok ? "" : "올바른 이메일 형식이 아닙니다.");\n    if (ok) alert("제출됨: " + email);\n  }\n\n  return (\n    <form onSubmit={handleSubmit}>\n      <input value={email} onChange={e => setEmail(e.target.value)} placeholder="이메일" />\n      <button type="submit">제출</button>\n      {error && <p className="err">{error}</p>}\n    </form>\n  );\n}\n\nReactDOM.createRoot(document.getElementById("root")).render(<SignupForm />);'
+      },
+      {
+        name: 'useRef로 포커스 관리',
+        html: '<div id="root"></div>',
+        css: 'body{font-family:sans-serif;padding:24px;background:#0b101b;color:#eef1f8}\ninput{padding:8px;border-radius:6px;border:1px solid #2a3348;background:#161d2e;color:#eef1f8}\nbutton{padding:8px 16px;border-radius:8px;border:0;background:#f2a93b;cursor:pointer;margin-left:6px}',
+        js: 'const { useRef } = React;\n\nfunction FocusInput() {\n  const inputRef = useRef(null);\n  function focus() {\n    inputRef.current.focus();\n  }\n  return (\n    <div>\n      <input ref={inputRef} placeholder="여기를 포커스" />\n      <button onClick={focus}>포커스 주기</button>\n    </div>\n  );\n}\n\nReactDOM.createRoot(document.getElementById("root")).render(<FocusInput />);'
       }
     ]
   };
@@ -272,8 +367,6 @@
 
       function onTemplateChange(){
         loadedFrom.value = '';
-        // React 템플릿은 JS 파인의 언어를 그대로 javascript로 두되(JSX 기본 지원 범위 내에서 문법 강조),
-        // 실행 시 Babel Standalone이 실제 트랜스파일을 담당한다.
         loadExample(currentExamples.value[0] && currentExamples.value[0].name);
       }
 
@@ -287,7 +380,12 @@
         run();
       }
 
-      /* ===== 실행 (미리보기 문서 생성) ===== */
+      /* ===== 실행 (미리보기 문서 생성) =====
+         React는 iframe 안에서 Babel이 자동으로 <script type="text/babel">을 스캔해 변환하는
+         방식 대신, 이 부모 페이지에 로드된 Babel Standalone으로 미리 순수 JS로 변환해서 넣는다
+         — iframe.srcdoc을 매번 새로 그리는 환경에서는 iframe 내부 DOMContentLoaded 타이밍이
+         어긋나 자동 스캔이 누락되는 경우가 있어(React 예제가 항상 빈 화면으로 보이던 원인),
+         변환을 우리가 직접 제어해 항상 순수 JS만 iframe에 넘기는 쪽이 안정적이다. */
       function buildDoc(){
         const { html, css, js } = getCode();
         const libScripts = libs.map(u => '<script src="' + u.replace(/"/g, '&quot;') + '"><' + '/script>').join('\n');
@@ -299,9 +397,15 @@
         } else if (template.value === 'REACT') {
           frameworkScripts =
             '<script src="https://unpkg.com/react@18/umd/react.production.min.js"><' + '/script>' +
-            '<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"><' + '/script>' +
-            '<script src="https://unpkg.com/@babel/standalone/babel.min.js"><' + '/script>';
-          jsTag = '<script type="text/babel" data-presets="react">' + js + '<' + '/script>';
+            '<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"><' + '/script>';
+          let transformed;
+          try {
+            transformed = Babel.transform(js, { presets: ['react'] }).code;
+          } catch (e) {
+            const errMsg = String(e.message || e).replace(/"/g, '\\"').replace(/\n/g, ' ');
+            transformed = 'document.body.innerHTML = "<pre style=\\"color:#f88;padding:16px;white-space:pre-wrap\\">JSX 문법 오류: ' + errMsg + '</pre>";';
+          }
+          jsTag = '<script>' + transformed + '<' + '/script>';
         } else {
           jsTag = '<script>' + js + '<' + '/script>';
         }
