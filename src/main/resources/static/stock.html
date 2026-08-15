@@ -14,8 +14,22 @@
 .down{color:#3182f6} /* 하락=파랑 */
 .flat{color:var(--mut)}
 
-.top-grid{display:grid;grid-template-columns:1fr 320px;gap:14px;margin-bottom:14px}
-@media (max-width:900px){ .top-grid{grid-template-columns:1fr} }
+/* ===== 상단 4개 패널(시장지표/주요일정/AI브리핑/실시간차트)을 하나의 그리드에 담아 order로
+   모바일 노출 순서를 자유롭게 조정한다. 데스크탑에서는 명시적 grid-column/row로 배치하고,
+   모바일에서는 명시적 배치를 풀고 order만으로 세로 1열 순서를 정한다(그리드에서 order는
+   auto-placement일 때만 순서에 영향을 준다). ===== */
+.stock-layout{display:grid;grid-template-columns:1fr 320px;gap:14px;margin-bottom:14px}
+.indicator-block{grid-column:1;grid-row:1}
+.calendar-block{grid-column:2;grid-row:1}
+.brief-block{grid-column:1/-1;grid-row:2}
+.rank-block{grid-column:1/-1;grid-row:3}
+@media (max-width:900px){
+  .stock-layout{display:flex;flex-direction:column;grid-template-columns:none}
+  .indicator-block{order:1}
+  .rank-block{order:2}
+  .calendar-block{order:3}
+  .brief-block{order:4}
+}
 
 .indicator-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px}
 .ind-card{background:var(--panel-2);border:1px solid var(--line);border-radius:12px;padding:12px 14px;display:flex;gap:10px;align-items:center}
@@ -24,6 +38,16 @@
 .ind-label{font-size:12px;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .ind-price{font-family:var(--mono);font-weight:700;font-size:15.5px;margin:2px 0}
 .ind-change{font-size:12.5px;font-weight:600}
+/* 시장 지표 카드: minmax(200px,1fr)가 모바일 폭보다 넓어 한 줄에 1개씩만 보였다.
+   모바일에서는 2열로 강제하고, 카드 안 스파크라인·폰트도 좁은 화면에 맞게 줄인다. */
+@media (max-width:600px){
+  .indicator-grid{grid-template-columns:repeat(2,1fr);gap:8px}
+  .ind-card{padding:8px 10px;gap:6px}
+  .ind-card canvas{width:38px;height:24px}
+  .ind-label{font-size:10.5px}
+  .ind-price{font-size:12.5px}
+  .ind-change{font-size:11px}
+}
 
 .cal-panel h2,.brief-panel h2,.rank-panel h2{display:flex;align-items:center;gap:8px}
 .cal-list{display:flex;flex-direction:column;gap:8px;max-height:260px;overflow-y:auto}
@@ -31,7 +55,6 @@
 .cal-row .d{color:var(--amber);font-family:var(--mono);flex-shrink:0}
 .cal-row .t{color:var(--ink)}
 
-.brief-panel{margin-bottom:14px}
 .brief-summary{font-size:14px;line-height:1.9;color:var(--ink);background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin-bottom:12px;white-space:pre-line}
 .brief-cols{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
 @media (max-width:900px){ .brief-cols{grid-template-columns:1fr} }
@@ -172,74 +195,74 @@
     <span>Java</span><span>Spring Boot</span><span>토스증권 Open API(OAuth2)</span><span>업비트 Open API</span><span>Gemini API</span><span>서버 TTL 캐시</span><span>Vanilla JS(FLIP 애니메이션)</span><span>Vue.js 3(종목 상세 팝업)</span>
   </div>
 
-  <!-- 상단: 지표 + 주요 일정 -->
-  <div class="top-grid">
-    <div class="panel">
+  <!-- 4개 패널(시장지표/주요일정/AI브리핑/실시간차트)을 한 그리드에 묶어 모바일 노출 순서를
+       CSS order로 제어한다(데스크탑: 지표+일정 나란히 → 브리핑 → 차트 / 모바일: 지표 → 차트 → 일정 → 브리핑) -->
+  <div class="stock-layout">
+    <div class="panel indicator-block">
       <h2>시장 지표</h2>
       <div class="indicator-grid" id="indicatorGrid"><div class="empty-msg">불러오는 중...</div></div>
     </div>
-    <div class="panel cal-panel">
+
+    <div class="panel cal-panel calendar-block">
       <h2>📅 주요 일정</h2>
       <div class="cal-list" id="calList"><div class="empty-msg">불러오는 중...</div></div>
     </div>
-  </div>
 
-  <!-- 중단: AI 브리핑 + 수급 + 주목 종목 -->
-  <div class="panel brief-panel">
-    <h2>🤖 AI 시황 브리핑 <span style="font-size:11.5px;color:var(--dim);font-weight:400" id="briefTime"></span></h2>
-    <div class="brief-summary" id="briefSummary">AI 브리핑을 생성하는 중입니다...</div>
-    <div class="brief-cols">
-      <div class="brief-box">
-        <h3>수급 · 외국인/기관 순매수 (일별)</h3>
-        <div id="flowBox"><div class="empty-msg">-</div></div>
+    <div class="panel brief-panel brief-block">
+      <h2>🤖 AI 시황 브리핑 <span style="font-size:11.5px;color:var(--dim);font-weight:400" id="briefTime"></span></h2>
+      <div class="brief-summary" id="briefSummary">AI 브리핑을 생성하는 중입니다...</div>
+      <div class="brief-cols">
+        <div class="brief-box">
+          <h3>수급 · 외국인/기관 순매수 (일별)</h3>
+          <div id="flowBox"><div class="empty-msg">-</div></div>
+        </div>
+        <div class="brief-box">
+          <h3>AI 주목 종목 (거래대금 상위 기반)</h3>
+          <div id="picksBox"><div class="empty-msg">-</div></div>
+        </div>
+        <div class="brief-box">
+          <h3>이번 주 체크포인트</h3>
+          <div id="weekBox"><div class="empty-msg">-</div></div>
+        </div>
       </div>
-      <div class="brief-box">
-        <h3>AI 주목 종목 (거래대금 상위 기반)</h3>
-        <div id="picksBox"><div class="empty-msg">-</div></div>
-      </div>
-      <div class="brief-box">
-        <h3>이번 주 체크포인트</h3>
-        <div id="weekBox"><div class="empty-msg">-</div></div>
-      </div>
+      <div class="disclaim">※ AI가 생성한 참고용 요약이며 투자 권유가 아닙니다. 투자 판단과 책임은 본인에게 있습니다.</div>
     </div>
-    <div class="disclaim">※ AI가 생성한 참고용 요약이며 투자 권유가 아닙니다. 투자 판단과 책임은 본인에게 있습니다.</div>
-  </div>
 
-  <!-- 하단: 실시간 차트 -->
-  <div class="panel rank-panel">
-    <h2>실시간 차트</h2>
-    <div class="rank-controls">
-      <div class="seg" id="countrySeg">
-        <button class="on" data-v="KR" onclick="setCountry('KR')"><img src="https://flagcdn.com/20x15/kr.png" alt=""> 국내</button>
-        <button data-v="US" onclick="setCountry('US')"><img src="https://flagcdn.com/20x15/us.png" alt=""> 미국</button>
+    <div class="panel rank-panel rank-block">
+      <h2>실시간 차트</h2>
+      <div class="rank-controls">
+        <div class="seg" id="countrySeg">
+          <button class="on" data-v="KR" onclick="setCountry('KR')"><img src="https://flagcdn.com/20x15/kr.png" alt=""> 국내</button>
+          <button data-v="US" onclick="setCountry('US')"><img src="https://flagcdn.com/20x15/us.png" alt=""> 미국</button>
+        </div>
+        <div class="seg" id="tabSeg">
+          <button class="on" data-v="amount" onclick="setTab('amount')">거래대금</button>
+          <button data-v="gainers" onclick="setTab('gainers')">급상승</button>
+          <button data-v="losers" onclick="setTab('losers')">급하락</button>
+        </div>
+        <div class="seg" id="favSeg" style="margin-left:auto">
+          <button data-v="fav" onclick="toggleFavoritesView()">★ 즐겨찾기</button>
+        </div>
+        <div class="refresh-btn">
+          <span id="refreshInfo"></span>
+          <button class="btn btn-ghost" style="padding:6px 14px;font-size:12.5px" onclick="loadRankings(true)">↻ 새로고침</button>
+        </div>
       </div>
-      <div class="seg" id="tabSeg">
-        <button class="on" data-v="amount" onclick="setTab('amount')">거래대금</button>
-        <button data-v="gainers" onclick="setTab('gainers')">급상승</button>
-        <button data-v="losers" onclick="setTab('losers')">급하락</button>
+      <div class="search-row">
+        <input id="searchInput" type="text" placeholder="종목명 검색 (예:삼성)" onkeyup="if(event.key==='Enter') doSearch()">
+        <button onclick="doSearch()">검색</button>
+        <button class="clear-btn" onclick="exitSearch()" title="검색 초기화 · 기본 랭킹으로">×</button>
       </div>
-      <div class="seg" id="favSeg" style="margin-left:auto">
-        <button data-v="fav" onclick="toggleFavoritesView()">★ 즐겨찾기</button>
+      <div class="table-scroll">
+        <table class="rank-table">
+          <thead><tr>
+            <th></th><th>#</th><th>종목명</th><th>현재가</th><th>등락률</th><th>거래대금</th><th>시가총액</th>
+          </tr></thead>
+          <tbody id="rankBody"><tr><td colspan="7"><div class="loading-row"><span class="spinner"></span>불러오는 중...</div></td></tr></tbody>
+        </table>
       </div>
-      <div class="refresh-btn">
-        <span id="refreshInfo"></span>
-        <button class="btn btn-ghost" style="padding:6px 14px;font-size:12.5px" onclick="loadRankings(true)">↻ 새로고침</button>
-      </div>
+      <div class="disclaim">거래대금 랭킹은 실시간, 급상승·급하락은 1일 기준입니다 (토스증권 Open API). 종목을 클릭하면 차트·호가·투자자별 매매동향·공매도 동향을 볼 수 있습니다. ★는 이 브라우저에만 저장되는 즐겨찾기입니다(로그인 기능이 없어 기기·브라우저를 바꾸면 유지되지 않습니다).</div>
     </div>
-    <div class="search-row">
-      <input id="searchInput" type="text" placeholder="종목명 검색 (예:삼성)" onkeyup="if(event.key==='Enter') doSearch()">
-      <button onclick="doSearch()">검색</button>
-      <button class="clear-btn" onclick="exitSearch()" title="검색 초기화 · 기본 랭킹으로">×</button>
-    </div>
-    <div class="table-scroll">
-      <table class="rank-table">
-        <thead><tr>
-          <th></th><th>#</th><th>종목명</th><th>현재가</th><th>등락률</th><th>거래대금</th><th>시가총액</th>
-        </tr></thead>
-        <tbody id="rankBody"><tr><td colspan="7"><div class="loading-row"><span class="spinner"></span>불러오는 중...</div></td></tr></tbody>
-      </table>
-    </div>
-    <div class="disclaim">거래대금 랭킹은 실시간, 급상승·급하락은 1일 기준입니다 (토스증권 Open API). 종목을 클릭하면 차트·호가·투자자별 매매동향·공매도 동향을 볼 수 있습니다. ★는 이 브라우저에만 저장되는 즐겨찾기입니다(로그인 기능이 없어 기기·브라우저를 바꾸면 유지되지 않습니다).</div>
   </div>
 </main>
 
