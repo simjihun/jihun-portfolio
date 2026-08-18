@@ -19,19 +19,29 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.9.4/Chart.min.js"></script>
 
 <style>
-/* AdminLTE의 skin-* 클래스는 body 태그에 직접 있어야 관련 선택자가 매칭된다(하위 div에 넣으면
-   .main-header/.main-sidebar 등 대부분의 스킨 규칙이 아예 적용되지 않는다) — 그래서 <body>에
-   hold-transition/skin-black/sidebar-mini를 직접 부여했다. 콘텐츠 영역·박스·표·폼 컨트롤 배경은
-   사이트 다크 테마(#0B101B 계열)에 맞춰 추가로 오버라이드한다. */
 body.skin-black { background: #0b101b; }
 .wrapper { background: #0b101b; min-height: 100vh; }
 .content-wrapper, .right-side { background: #0b101b !important; box-shadow: none; }
 .main-sidebar, .sidebar { background: #0b101b !important; box-shadow: none; }
-.main-header .navbar, .main-header .logo { background: #131a2a !important; border-bottom: 1px solid #232d45; box-shadow: none; }
-.main-header .logo { color: #f2a93b; }
-.main-header .navbar .sidebar-toggle { color: #cdd3e0; }
 
-.sidebar-menu > li.header { background: #0b101b; color: #7e8da9; font-size: 11.5px; }
+/* 헤더/사이드바 영역에 남아있던 밝은 색 테두리·그림자를 전부 다크 라인 색으로 강제 통일 */
+.main-header, .main-header * { box-shadow: none !important; }
+.main-header, .main-header .logo, .main-header .navbar { border-color: #232d45 !important; }
+.main-sidebar, .main-sidebar * { border-color: #232d45 !important; box-shadow: none !important; }
+.main-header .navbar, .main-header .logo { background: #131a2a !important; }
+.main-header .logo { border-right: 1px solid #232d45 !important; color: #f2a93b !important; font-weight: 700; }
+.main-header .navbar .sidebar-toggle,
+.main-header .navbar .sidebar-toggle:hover,
+.main-header .navbar .sidebar-toggle:focus { color: #eef1f8 !important; }
+
+/* 사이트 상단 메뉴(nav.js)의 드롭다운이 AdminLTE 헤더(z-index:1030)에 가려지지 않도록 위로 올림 */
+.nav-dropdown-menu { z-index: 2000 !important; }
+.main-header { z-index: 900 !important; }
+
+.content-header h1 { color: #eef1f8; }
+.content-header h1 small { color: #7e8da9; }
+
+.sidebar-menu > li.header { background: #0b101b; color: #eef1f8; font-size: 11.5px; font-weight: 600; letter-spacing: .3px; }
 .sidebar-menu > li > a { color: #cdd3e0; }
 .sidebar-menu > li > a:hover,
 .sidebar-menu > li.active > a { background: #1c2438; color: #f2a93b; border-left-color: #f2a93b; }
@@ -45,8 +55,11 @@ table.table { color: #cdd3e0; }
 .table > thead > tr > th,
 .table > tbody > tr > td { border-color: #232d45; }
 .table-bordered { border-color: #232d45; }
-.table-hover > tbody > tr:hover,
-.table-hover > tbody > tr.active { background: #1c2438; }
+.table-hover > tbody > tr:hover > td { background-color: #1c2438 !important; }
+/* Bootstrap 3의 .active 표 행은 td에 !important로 밝은 배경을 강제하므로, 같은 우선순위로 덮어써야 한다 */
+.table > tbody > tr.active > td,
+.table > tbody > tr.active > th { background-color: #23304d !important; color: #eef1f8 !important; }
+#serverListBody tr[data-server-id] { cursor: pointer; }
 
 .form-control { background: #0e1420; border: 1px solid #2a3348; color: #eef1f8; }
 .form-control:focus { border-color: #f2a93b; box-shadow: none; }
@@ -70,7 +83,6 @@ select.form-control option { background: #0e1420; }
 .modal-content { background: #131a2a; color: #cdd3e0; }
 .modal-header { border-bottom: 1px solid #232d45; }
 
-/* 리소스 현황 카드(5대 전체) */
 .res-card { flex: 1 1 190px; min-width: 180px; background: #0e1420; border: 1px solid #232d45; border-radius: 6px; padding: 10px 12px; cursor: pointer; }
 .res-card:hover { border-color: #f2a93b; }
 .res-card.active { border-color: #f2a93b; box-shadow: 0 0 0 1px #f2a93b inset; }
@@ -82,6 +94,8 @@ select.form-control option { background: #0e1420; }
 #scResultTable td, #scResultTable th { white-space: nowrap; font-family: 'JetBrains Mono', Consolas, monospace; font-size: 12px; }
 #scSqlHint { font-size: 11.5px; color: #7e8da9; margin-top: 6px; line-height: 1.6; }
 #scChartMeta { font-size: 11.5px; color: #7e8da9; }
+.sql-quick-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 12px; }
+.sql-quick-row label { color: #cdd3e0; font-size: 12px; margin: 0; }
 </style>
 </head>
 <body class="hold-transition skin-black sidebar-mini">
@@ -194,6 +208,17 @@ select.form-control option { background: #0e1420; }
           <h3 class="box-title">SQL 콘솔 — <span id="sqlServerLabel">-</span></h3>
         </div>
         <div class="box-body">
+
+          <div class="sql-quick-row">
+            <label>빠른 조회</label>
+            <select id="sqlTableSelect" class="form-control" style="max-width:260px;display:inline-block">
+              <option value="mms_practice_message_log">mms_practice_message_log</option>
+              <option value="mms_practice_server_config">mms_practice_server_config</option>
+            </select>
+            <button type="button" class="btn btn-default" id="sqlQuickAllBtn"><i class="fa fa-table"></i> 전체 조회</button>
+            <button type="button" class="btn btn-default" id="sqlQuickServerBtn"><i class="fa fa-filter"></i> 선택 서버만 조회</button>
+          </div>
+
           <div class="form-group">
             <textarea id="sqlInput" class="form-control" rows="3" style="font-family:'JetBrains Mono',Consolas,monospace;font-size:12.5px"
               placeholder="SELECT * FROM mms_practice_message_log WHERE server_id = 1"></textarea>
@@ -295,7 +320,6 @@ function renderSidebar() {
       + '</a></li>';
   }
   $('#serverSidebarMenu').html(html);
-  bindSelectTargets();
 }
 
 function renderSummary() {
@@ -323,7 +347,6 @@ function renderResourceGrid() {
       + '</div>';
   }
   $('#resourceGrid').html(html);
-  $('.res-card').on('click', function () { selectServer($(this).data('server-id')); });
 }
 
 function resBarHtml(label, color, serverId, kind) {
@@ -349,15 +372,14 @@ function renderServerTable() {
       + '<td>' + esc(s.envType) + '</td>'
       + '<td>' + statusLabelHtml(s.status) + '</td>'
       + '<td>'
-      +   '<button type="button" class="btn btn-xs btn-success" ' + (running ? 'disabled' : '') + ' onclick="controlServer(' + s.serverId + ',\'START\')">시작</button> '
-      +   '<button type="button" class="btn btn-xs btn-danger" ' + (running ? '' : 'disabled') + ' onclick="controlServer(' + s.serverId + ',\'STOP\')">중지</button> '
-      +   '<button type="button" class="btn btn-xs btn-default" ' + (running ? '' : 'disabled') + ' onclick="controlServer(' + s.serverId + ',\'RESTART\')">재시작</button>'
+      +   '<button type="button" class="btn btn-xs btn-success" ' + (running ? 'disabled' : '') + ' onclick="event.stopPropagation();controlServer(' + s.serverId + ',\'START\')">시작</button> '
+      +   '<button type="button" class="btn btn-xs btn-danger" ' + (running ? '' : 'disabled') + ' onclick="event.stopPropagation();controlServer(' + s.serverId + ',\'STOP\')">중지</button> '
+      +   '<button type="button" class="btn btn-xs btn-default" ' + (running ? '' : 'disabled') + ' onclick="event.stopPropagation();controlServer(' + s.serverId + ',\'RESTART\')">재시작</button>'
       + '</td>'
-      + '<td><button type="button" class="btn btn-xs btn-default" onclick="openLogModal(' + s.serverId + ',\'' + esc(s.serverAlias) + '\')">이력</button></td>'
+      + '<td><button type="button" class="btn btn-xs btn-default" onclick="event.stopPropagation();openLogModal(' + s.serverId + ',\'' + esc(s.serverAlias) + '\')">이력</button></td>'
       + '</tr>';
   }
   $('#serverListBody').html(rows);
-  bindSelectTargets();
 }
 
 function renderCombo() {
@@ -370,13 +392,18 @@ function renderCombo() {
   if (currentServerId) $('#serverSelectCombo').val(currentServerId);
 }
 
-function bindSelectTargets() {
-  $('.sc-select-target').off('click').on('click', function (e) {
-    e.preventDefault();
-    selectServer($(this).data('server-id'));
-  });
-}
-
+/* 사이드바/카드/콤보박스/표 전체를 이벤트 위임으로 한 번만 바인딩(재렌더링 시 중복 바인딩 방지) */
+$(document).on('click', '.sc-select-target', function (e) {
+  e.preventDefault();
+  e.stopPropagation();
+  selectServer($(this).data('server-id'));
+});
+$(document).on('click', '.res-card', function () {
+  selectServer($(this).data('server-id'));
+});
+$(document).on('click', '#serverListBody tr[data-server-id]', function () {
+  selectServer($(this).data('server-id'));
+});
 $('#serverSelectCombo').on('change', function () {
   selectServer($(this).val());
 });
@@ -549,14 +576,9 @@ function startChartPolling() {
 }
 
 /* ===== SQL 콘솔 ===== */
-$('#sqlRunBtn').on('click', function () {
-  var sql = $('#sqlInput').val().trim();
-  if (!sql) {
-    var ph = $('#sqlInput').attr('placeholder');
-    if (ph) sql = ph;
-  }
+function runSql(sql) {
   if (!sql) { alert('쿼리를 입력해주세요.'); return; }
-
+  $('#sqlInput').val(sql);
   $('#sqlResultArea').html('<div class="text-center" style="padding:16px"><i class="fa fa-spinner fa-spin"></i> 실행 중...</div>');
   $.ajax({
     url: API_BASE + '/query',
@@ -574,11 +596,31 @@ $('#sqlRunBtn').on('click', function () {
       $('#sqlResultArea').html('<div class="alert alert-danger" style="margin-bottom:0">요청 처리 중 오류가 발생했습니다.</div>');
     }
   });
+}
+
+$('#sqlRunBtn').on('click', function () {
+  var sql = $('#sqlInput').val().trim();
+  if (!sql) {
+    var ph = $('#sqlInput').attr('placeholder');
+    if (ph) sql = ph;
+  }
+  runSql(sql);
 });
 
 $('#sqlClearBtn').on('click', function () {
   $('#sqlInput').val('');
   $('#sqlResultArea').html('');
+});
+
+/* 테이블 선택 + 버튼 한 번으로 기본 SELECT 문을 만들어 곧바로 실행 */
+$('#sqlQuickAllBtn').on('click', function () {
+  var table = $('#sqlTableSelect').val();
+  runSql('SELECT * FROM ' + table + ' LIMIT 50');
+});
+$('#sqlQuickServerBtn').on('click', function () {
+  if (!currentServerId) { alert('먼저 서버를 선택해주세요.'); return; }
+  var table = $('#sqlTableSelect').val();
+  runSql('SELECT * FROM ' + table + ' WHERE server_id = ' + currentServerId + ' LIMIT 50');
 });
 
 function renderQueryResult(data) {
