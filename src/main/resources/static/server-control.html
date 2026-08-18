@@ -34,10 +34,11 @@ body.skin-black { background: #0b101b; }
 .main-header .navbar .sidebar-toggle:hover,
 .main-header .navbar .sidebar-toggle:focus { color: #eef1f8 !important; }
 
-/* 사이트 상단 메뉴(nav.js)의 topnav 자체를 새 스태킹 컨텍스트로 끌어올려, 그 안의 드롭다운이
-   AdminLTE 헤더(z-index:1030)에 절대 가려지지 않도록 한다. 드롭다운 z-index만 올리는 것으로는
-   부모(topnav)가 더 낮은 스태킹 컨텍스트에 갇혀 있어 부족했다. */
-.topnav { position: relative; z-index: 3000 !important; }
+/* 사이트 상단 메뉴(nav.js)의 .topnav는 원래 base.css에서 position:fixed다(body의
+   padding-top으로 그 높이만큼 미리 자리를 비워둠). fixed는 z-index 값과 무관하게 이미
+   별도 스태킹 컨텍스트를 만들므로 position은 건드리지 않고 z-index만 올려서, 그 안의
+   드롭다운이 AdminLTE 헤더(z-index:1030)에 가려지지 않게 한다. */
+.topnav { z-index: 3000 !important; }
 .main-header { z-index: 900 !important; }
 
 .content-header h1 { color: #eef1f8; }
