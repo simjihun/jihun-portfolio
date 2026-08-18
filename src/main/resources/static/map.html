@@ -614,7 +614,8 @@ function researchHere() {
   const center = map.getCenter();
   nearCoords = { lat: center.lat(), lng: center.lng() };
   distanceRefLabel = '이 지역';
-  if (!$('kw').value.trim() && !categoryFilter) $('kw').value = '맛집';
+  // 검색어를 임의로 채우지 않는다 — 검색어/카테고리가 이미 있으면 그 조건 그대로 이 지역 기준으로
+  // 다시 찾고, 아무것도 없으면 아무 일도 하지 않는다(performFoodSearch 자체가 그 경우 조용히 종료됨).
   performFoodSearch(1, true); // keepView=true: 지도를 다시 확대/축소하지 않음
 }
 
