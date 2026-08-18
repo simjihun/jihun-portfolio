@@ -59,4 +59,42 @@ public class ServerControlController {
     public ResultVo query(@RequestParam("sql") String sql) {
         return serverControlService.executeQuery(sql);
     }
+
+    // ===== INSERT/UPDATE 연습 전용 테이블 =====
+
+    @RequestMapping(value = "/template/list", method = RequestMethod.GET)
+    @ResponseBody
+    public ResultVo templateList() {
+        return ResultVo.success(serverControlService.getTemplateList());
+    }
+
+    @RequestMapping(value = "/template/insert", method = RequestMethod.POST)
+    @ResponseBody
+    public ResultVo templateInsert(PracticeTemplateVo vo) {
+        return serverControlService.insertTemplate(vo);
+    }
+
+    @RequestMapping(value = "/template/update", method = RequestMethod.POST)
+    @ResponseBody
+    public ResultVo templateUpdate(PracticeTemplateVo vo) {
+        return serverControlService.updateTemplate(vo);
+    }
+
+    @RequestMapping(value = "/schedule/list", method = RequestMethod.GET)
+    @ResponseBody
+    public ResultVo scheduleList() {
+        return ResultVo.success(serverControlService.getScheduleList());
+    }
+
+    @RequestMapping(value = "/schedule/insert", method = RequestMethod.POST)
+    @ResponseBody
+    public ResultVo scheduleInsert(PracticeScheduleVo vo) {
+        return serverControlService.insertSchedule(vo);
+    }
+
+    @RequestMapping(value = "/schedule/update", method = RequestMethod.POST)
+    @ResponseBody
+    public ResultVo scheduleUpdate(PracticeScheduleVo vo) {
+        return serverControlService.updateSchedule(vo);
+    }
 }
