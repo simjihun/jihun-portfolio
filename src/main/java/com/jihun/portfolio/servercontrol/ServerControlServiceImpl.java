@@ -18,7 +18,9 @@ public class ServerControlServiceImpl implements ServerControlService {
     private ServerControlDao serverControlDao;
 
     // ===== SQL 콘솔 화이트리스트 =====
-    private static final Set<String> ALLOWED_TABLES = Set.of("mms_practice_message_log", "mms_practice_server_config");
+    private static final Set<String> ALLOWED_TABLES = Set.of(
+        "mms_practice_message_log", "mms_practice_server_config",
+        "mms_practice_template", "mms_practice_schedule");
     private static final int MAX_SQL_LENGTH = 1000;
     private static final int MAX_RESULT_ROWS = 200;
 
@@ -166,5 +168,77 @@ public class ServerControlServiceImpl implements ServerControlService {
         } catch (Exception e) {
             return ResultVo.fail("쿼리 실행 중 오류가 발생했습니다: " + e.getMessage());
         }
+    }
+
+    // ===== INSERT/UPDATE 연습 전용 테이블 =====
+
+    @Override
+    public List<PracticeTemplateVo> getTemplateList() {
+        return serverControlDao.selectTemplateList();
+    }
+
+    @Override
+    public ResultVo insertTemplate(PracticeTemplateVo vo) {
+        if (vo.getTemplateName() == null || vo.getTemplateName().trim().isEmpty()) {
+            return ResultVo.fail("템플릿명을 입력해주세요.");
+        }
+        if (vo.getServerId() == null) {
+            return ResultVo.fail("서버를 선택해주세요.");
+        }
+        if (vo.getUseYn() == null || vo.getUseYn().trim().isEmpty()) {
+            vo.setUseYn("Y");
+        }
+        serverControlDao.insertTemplate(vo);
+        return ResultVo.success();
+    }
+
+    @Override
+    public ResultVo updateTemplate(PracticeTemplateVo vo) {
+        if (vo.getTemplateId() == null) {
+            return ResultVo.fail("수정할 템플릿을 찾을 수 없습니다.");
+        }
+        if (vo.getTemplateName() == null || vo.getTemplateName().trim().isEmpty()) {
+            return ResultVo.fail("템플릿명을 입력해주세요.");
+        }
+        serverControlDao.updateTemplate(vo);
+        return ResultVo.success();
+    }
+
+    @Override
+    public List<PracticeScheduleVo> getScheduleList() {
+        return serverControlDao.selectScheduleList();
+    }
+
+    @Override
+    public ResultVo insertSchedule(PracticeScheduleVo vo) {
+        if (vo.getScheduleName() == null || vo.getScheduleName().trim().isEmpty()) {
+            return ResultVo.fail("스케줄명을 입력해주세요.");
+        }
+        if (vo.getServerId() == null) {
+            return ResultVo.fail("서버를 선택해주세요.");
+        }
+        if (vo.getSendTime() == null || vo.getSendTime().trim().isEmpty()) {
+            return ResultVo.fail("발송 시간을 입력해주세요.");
+        }
+        if (vo.getRepeatType() == null || vo.getRepeatType().trim().isEmpty()) {
+            vo.setRepeatType("DAILY");
+        }
+        if (vo.getStatus() == null || vo.getStatus().trim().isEmpty()) {
+            vo.setStatus("ACTIVE");
+        }
+        serverControlDao.insertSchedule(vo);
+        return ResultVo.success();
+    }
+
+    @Override
+    public ResultVo updateSchedule(PracticeScheduleVo vo) {
+        if (vo.getScheduleId() == null) {
+            return ResultVo.fail("수정할 스케줄을 찾을 수 없습니다.");
+        }
+        if (vo.getScheduleName() == null || vo.getScheduleName().trim().isEmpty()) {
+            return ResultVo.fail("스케줄명을 입력해주세요.");
+        }
+        serverControlDao.updateSchedule(vo);
+        return ResultVo.success();
     }
 }
