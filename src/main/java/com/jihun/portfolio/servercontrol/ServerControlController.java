@@ -9,14 +9,6 @@ import org.springframework.web.bind.annotation.ResponseBody;
 
 import java.util.List;
 
-/**
- * 서버제어 연습용 컨트롤러.
- *
- * 요즘 흔한 @RestController + @GetMapping/@PostMapping 대신, 10년 전 Spring MVC에서
- * 자주 보이던 @Controller 클래스 + 메서드마다 @ResponseBody, @RequestMapping(value=...,
- * method=RequestMethod.xxx) 조합을 그대로 썼다. 옛날 프로젝트를 맡았을 때 이 스타일의
- * 코드를 읽고 고치는 데 익숙해지기 위한 연습.
- */
 @Controller
 @RequestMapping("/api/servercontrol")
 public class ServerControlController {
@@ -62,30 +54,9 @@ public class ServerControlController {
         return ResultVo.success(list);
     }
 
-    // ===== DB CRUD 연습 (더미 테이블) =====
-
-    @RequestMapping(value = "/dummy/list", method = RequestMethod.GET)
+    @RequestMapping(value = "/query", method = RequestMethod.POST)
     @ResponseBody
-    public ResultVo dummyList() {
-        List<PracticeRecordVo> list = serverControlService.getDummyList();
-        return ResultVo.success(list);
-    }
-
-    @RequestMapping(value = "/dummy/insert", method = RequestMethod.POST)
-    @ResponseBody
-    public ResultVo dummyInsert(PracticeRecordVo vo) {
-        return serverControlService.insertDummy(vo);
-    }
-
-    @RequestMapping(value = "/dummy/update", method = RequestMethod.POST)
-    @ResponseBody
-    public ResultVo dummyUpdate(PracticeRecordVo vo) {
-        return serverControlService.updateDummy(vo);
-    }
-
-    @RequestMapping(value = "/dummy/delete", method = RequestMethod.POST)
-    @ResponseBody
-    public ResultVo dummyDelete(@RequestParam("recordId") Long recordId) {
-        return serverControlService.deleteDummy(recordId);
+    public ResultVo query(@RequestParam("sql") String sql) {
+        return serverControlService.executeQuery(sql);
     }
 }
