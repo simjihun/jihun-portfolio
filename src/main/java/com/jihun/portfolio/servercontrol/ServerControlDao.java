@@ -7,12 +7,8 @@ import org.springframework.stereotype.Repository;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
-/**
- * 서버제어 DAO — MyBatis(iBatis) Mapper XML이나 JPA Repository 없이,
- * JdbcTemplate에 SQL을 직접 박아 넣는 방식이다. 10년 전 프로젝트 상당수가
- * (Mapper XML을 쓰지 않는 경우) 정확히 이런 모습이었다.
- */
 @Repository
 public class ServerControlDao {
 
@@ -75,27 +71,14 @@ public class ServerControlDao {
         jdbcTemplate.update(sql, vo.getServerId(), vo.getCpuUsage(), vo.getMemUsage(), vo.getDiskUsage());
     }
 
-    // ===== DB CRUD 연습용 더미 테이블 =====
+    // ===== SQL 콘솔 (화이트리스트 검증은 ServerControlServiceImpl에서 수행 후 호출) =====
 
-    public List<PracticeRecordVo> selectDummyList() {
-        String sql = "SELECT record_id, record_name, record_email, record_status, reg_date, upd_date "
-                   + "FROM practice_dummy_table ORDER BY record_id DESC";
-        return jdbcTemplate.query(sql, new BeanPropertyRowMapper<>(PracticeRecordVo.class));
-    }
-
-    public int insertDummyRecord(PracticeRecordVo vo) {
-        String sql = "INSERT INTO practice_dummy_table (record_name, record_email, record_status) VALUES (?, ?, ?)";
-        return jdbcTemplate.update(sql, vo.getRecordName(), vo.getRecordEmail(), vo.getRecordStatus());
-    }
-
-    public int updateDummyRecord(PracticeRecordVo vo) {
-        String sql = "UPDATE practice_dummy_table SET record_name = ?, record_email = ?, record_status = ?, upd_date = NOW() "
-                   + "WHERE record_id = ?";
-        return jdbcTemplate.update(sql, vo.getRecordName(), vo.getRecordEmail(), vo.getRecordStatus(), vo.getRecordId());
-    }
-
-    public int deleteDummyRecord(Long recordId) {
-        String sql = "DELETE FROM practice_dummy_table WHERE record_id = ?";
-        return jdbcTemplate.update(sql, recordId);
+    /**
+     * 검증이 끝난 SELECT 쿼리를 그대로 실행해 컬럼명을 키로 하는 Map 리스트로 돌려준다.
+     * 쿼리 자체의 안전성 검증은 여기서 하지 않는다 — 반드시 Service 계층의 화이트리스트
+     * 검사를 통과한 뒤에만 이 메서드를 호출해야 한다.
+     */
+    public List<Map<String, Object>> executeSelect(String sql) {
+        return jdbcTemplate.queryForList(sql);
     }
 }
