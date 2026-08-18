@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>서버제어 · hunit 포트폴리오</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/base.css">
+<!-- jQuery 1.12.4 — "10년 전" 시절 실제로 널리 쓰이던 버전. $.ajax 콜백 스타일을 그대로 연습한다. -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
+<!-- Chart.js 2.9.4 — v3 이후의 단일 스케일 API가 아닌, 그 이전(yAxes 배열) 옛날 옵션 문법을 쓴다. -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.9.4/Chart.min.js"></script>
+<style>
+/* =====================================================================
+   이 페이지만 사이트 기본(다크+앰버) 테마를 따르지 않고, 일부러 2010년대
+   중반 한국 사내 인트라넷/관제 화면 느낌(연회색 배경, 파란 포인트, 표 레이아웃,
+   각진 버튼)으로 꾸몄다 — "서버제어" 기능 자체가 옛날 Spring MVC 구조를 연습하는
+   목적이라, 화면도 그 시절 느낌을 내려는 의도적인 선택이다.
+   ===================================================================== */
+#scWrap{background:#eef0f2;color:#222;font-family:"맑은 고딕","Malgun Gothic",dotum,sans-serif;font-size:12px;padding:14px;margin:0 -9999px;padding-left:9999px;padding-right:9999px}
+#scWrap *{box-sizing:border-box}
+#scInner{max-width:1080px;margin:0 auto}
+
+.sc-banner{background:#2d5c9e;color:#fff;padding:10px 16px;font-size:15px;font-weight:bold;border-radius:2px;margin-bottom:2px}
+.sc-banner small{font-weight:normal;font-size:11px;opacity:.85;margin-left:8px}
+.sc-notice{background:#fff8db;border:1px solid #e2c65a;color:#6b5900;padding:8px 12px;font-size:11.5px;margin-bottom:12px;line-height:1.6}
+
+.sc-summary{display:table;width:100%;table-layout:fixed;border-collapse:collapse;margin-bottom:14px}
+.sc-summary-cell{display:table-cell;background:#fff;border:1px solid #c9cdd2;text-align:center;padding:12px 6px}
+.sc-summary-cell + .sc-summary-cell{border-left:0}
+.sc-summary-cell .num{font-size:22px;font-weight:bold;font-family:Consolas,monospace}
+.sc-summary-cell .lbl{font-size:11px;color:#666;margin-top:2px}
+.sc-summary-cell.c-total .num{color:#2d5c9e}
+.sc-summary-cell.c-run .num{color:#1a8a3d}
+.sc-summary-cell.c-stop .num{color:#c0392b}
+
+.sc-panel{background:#fff;border:1px solid #c9cdd2;margin-bottom:14px}
+.sc-panel-title{background:#dde3ea;border-bottom:1px solid #c9cdd2;padding:7px 10px;font-size:12.5px;font-weight:bold;color:#333}
+.sc-panel-body{padding:10px}
+
+table.sc-table{width:100%;border-collapse:collapse;font-size:11.5px}
+table.sc-table th{background:#e7eaee;border:1px solid #c9cdd2;padding:6px 5px;text-align:center;font-weight:bold;color:#444;white-space:nowrap}
+table.sc-table td{border:1px solid #d7dade;padding:6px 5px;text-align:center;vertical-align:middle}
+table.sc-table tbody tr:nth-child(even){background:#f6f8fa}
+table.sc-table tbody tr:hover{background:#fff3cf}
+table.sc-table td.al{text-align:left}
+
+.sc-badge{display:inline-block;padding:2px 8px;border-radius:2px;font-size:10.5px;font-weight:bold;color:#fff}
+.sc-badge.run{background:#1a8a3d}
+.sc-badge.stop{background:#c0392b}
+
+.sc-bar-wrap{width:64px;height:10px;background:#e2e5e9;border:1px solid #c9cdd2;display:inline-block;vertical-align:middle;position:relative}
+.sc-bar-fill{position:absolute;left:0;top:0;bottom:0;background:#4a90d9}
+.sc-bar-fill.warn{background:#e0a72b}
+.sc-bar-fill.danger{background:#c0392b}
+.sc-bar-txt{display:inline-block;width:36px;font-family:Consolas,monospace;font-size:11px;margin-left:4px;vertical-align:middle}
+
+.sc-btn{display:inline-block;padding:4px 9px;font-size:11px;border:1px solid #9aa4b0;background:linear-gradient(#fff,#e9edf0);color:#333;cursor:pointer;border-radius:2px;margin:1px}
+.sc-btn:hover{background:linear-gradient(#f5f7f8,#dde2e6)}
+.sc-btn:disabled{opacity:.45;cursor:default}
+.sc-btn.start{border-color:#1a8a3d;color:#1a8a3d}
+.sc-btn.stop{border-color:#c0392b;color:#c0392b}
+.sc-btn.restart{border-color:#2d5c9e;color:#2d5c9e}
+.sc-btn.primary{background:linear-gradient(#4a90d9,#2d5c9e);color:#fff;border-color:#234c85}
+.sc-btn.primary:hover{background:linear-gradient(#5a9ce0,#356bb0)}
+
+.sc-toolbar{margin-bottom:8px}
+.sc-select{padding:4px 6px;font-size:11.5px;border:1px solid #9aa4b0;background:#fff}
+
+#scChartBox{position:relative;height:260px}
+.sc-chart-legend{font-size:11px;color:#555;margin-top:6px}
+.sc-chart-legend span{display:inline-block;margin-right:14px}
+.sc-legend-dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:4px;vertical-align:middle}
+
+.sc-form-row{display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;align-items:center}
+.sc-form-row input[type=text]{padding:5px 7px;font-size:11.5px;border:1px solid #9aa4b0;background:#fff}
+.sc-form-row select{padding:5px 6px;font-size:11.5px;border:1px solid #9aa4b0;background:#fff}
+.sc-log-empty,.sc-empty{padding:16px;text-align:center;color:#888;font-size:11.5px}
+
+#scLogModalBg{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;place-items:center;z-index:400}
+#scLogModalBg.show{display:grid}
+#scLogModal{background:#fff;border:1px solid #9aa4b0;width:92%;max-width:520px;max-height:80vh;overflow-y:auto}
+#scLogModal .sc-panel-title{display:flex;justify-content:space-between;align-items:center}
+#scLogModal .sc-panel-title .x{cursor:pointer;font-weight:normal;color:#666}
+
+.sc-footnote{font-size:10.5px;color:#777;margin-top:6px;line-height:1.6}
+</style>
+</head>
+<body>
+<div id="site-nav"></div>
+
+<div id="scWrap">
+<div id="scInner">
+
+  <div class="sc-banner">서버 관제 시스템 (연습용) <small>Server Control Practice Console</small></div>
+  <div class="sc-notice">
+    ※ 실제 서버를 SSH로 제어하지 않는 시뮬레이션 페이지입니다. 버튼을 누르면 DB의 상태값만 바뀌고,
+    리소스 그래프는 서버 스케줄러가 주기적으로 생성한 더미 수치를 보여줍니다.
+    JDK 21 / Spring Boot 3.5 기반이지만, 10년 전 흔했던 Spring MVC(계층형 Controller→Service→DAO,
+    JdbcTemplate 직접 SQL) + jQuery Ajax 폴링 방식으로 일부러 코딩했습니다.
+  </div>
+
+  <div class="sc-summary">
+    <div class="sc-summary-cell c-total"><div class="num" id="sumTotal">-</div><div class="lbl">전체 서버</div></div>
+    <div class="sc-summary-cell c-run"><div class="num" id="sumRun">-</div><div class="lbl">가동중</div></div>
+    <div class="sc-summary-cell c-stop"><div class="num" id="sumStop">-</div><div class="lbl">중지됨</div></div>
+  </div>
+
+  <div class="sc-panel">
+    <div class="sc-panel-title">서버 목록 및 제어</div>
+    <div class="sc-panel-body">
+      <table class="sc-table">
+        <thead>
+          <tr>
+            <th>별칭</th><th>서버명</th><th>Host</th><th>OS</th><th>환경</th><th>상태</th>
+            <th>CPU</th><th>MEM</th><th>DISK</th><th>제어</th><th>이력</th>
+          </tr>
+        </thead>
+        <tbody id="serverListBody">
+          <tr><td colspan="11" class="sc-empty">불러오는 중...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="sc-panel">
+    <div class="sc-panel-title">실시간 리소스 차트 (5초 주기 갱신)</div>
+    <div class="sc-panel-body">
+      <div class="sc-toolbar">
+        서버 선택:
+        <select id="chartServerSelect" class="sc-select"></select>
+        <span id="chartUpdatedAt" style="color:#777;margin-left:10px"></span>
+      </div>
+      <div id="scChartBox"><canvas id="metricChart"></canvas></div>
+      <div class="sc-chart-legend">
+        <span><span class="sc-legend-dot" style="background:#4a90d9"></span>CPU</span>
+        <span><span class="sc-legend-dot" style="background:#1a8a3d"></span>MEM</span>
+        <span><span class="sc-legend-dot" style="background:#e0a72b"></span>DISK</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="sc-panel">
+    <div class="sc-panel-title">DB 제어 연습 (더미 테이블 CRUD)</div>
+    <div class="sc-panel-body">
+      <div class="sc-form-row">
+        <input type="hidden" id="dummyRecordId" value="">
+        <input type="text" id="dummyName" placeholder="이름" style="width:120px">
+        <input type="text" id="dummyEmail" placeholder="이메일" style="width:180px">
+        <select id="dummyStatus">
+          <option value="ACTIVE">ACTIVE</option>
+          <option value="INACTIVE">INACTIVE</option>
+        </select>
+        <button type="button" class="sc-btn primary" id="dummySubmitBtn">등록</button>
+        <button type="button" class="sc-btn" id="dummyResetBtn">취소</button>
+      </div>
+      <table class="sc-table">
+        <thead>
+          <tr><th>ID</th><th>이름</th><th>이메일</th><th>상태</th><th>등록일</th><th>수정일</th><th>관리</th></tr>
+        </thead>
+        <tbody id="dummyListBody">
+          <tr><td colspan="7" class="sc-empty">불러오는 중...</td></tr>
+        </tbody>
+      </table>
+      <div class="sc-footnote">
+        SELECT/INSERT/UPDATE/DELETE 전부 JdbcTemplate으로 직접 짠 SQL을 그대로 사용합니다
+        (com.jihun.portfolio.servercontrol.ServerControlDao). 이 표는 practice_dummy_table
+        전용이며 다른 기능과는 무관합니다.
+      </div>
+    </div>
+  </div>
+
+</div>
+</div>
+
+<div id="scLogModalBg">
+  <div id="scLogModal">
+    <div class="sc-panel-title">제어 이력 <span class="x" onclick="closeLogModal()">닫기 ✕</span></div>
+    <div class="sc-panel-body">
+      <table class="sc-table" id="logTable">
+        <thead><tr><th>일시</th><th>명령</th><th>결과</th><th>요청자</th></tr></thead>
+        <tbody id="logTableBody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script src="/js/nav.js"></script>
+<script>
+/* =====================================================================
+   서버제어 연습 페이지 스크립트.
+   최근 스타일(fetch + async/await, 화살표 함수, let/const)이 아니라, 일부러
+   10년 전 흔했던 jQuery $.ajax + 콜백 + var 선언 방식으로 작성했다.
+   ===================================================================== */
+var API_BASE = '/api/servercontrol';
+var serverListCache = [];
+var metricChartObj = null;
+var chartTimer = null;
+var currentChartServerId = null;
+
+function fmtPct(v) {
+  if (v === null || v === undefined) return '-';
+  return Number(v).toFixed(1) + '%';
+}
+
+function barClass(v) {
+  if (v >= 85) return 'danger';
+  if (v >= 65) return 'warn';
+  return '';
+}
+
+function statusBadgeHtml(status) {
+  if (status === 'RUNNING') {
+    return '<span class="sc-badge run">가동중</span>';
+  }
+  return '<span class="sc-badge stop">중지</span>';
+}
+
+function barHtml(value) {
+  var v = value === null || value === undefined ? 0 : Number(value);
+  var cls = barClass(v);
+  return '<span class="sc-bar-wrap"><span class="sc-bar-fill ' + cls + '" style="width:' + v + '%"></span></span>'
+    + '<span class="sc-bar-txt">' + fmtPct(v) + '</span>';
+}
+
+function esc(s) {
+  if (s === null || s === undefined) return '';
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+/* ===== 서버 목록 + 요약 카운트 ===== */
+function loadServerList() {
+  $.ajax({
+    url: API_BASE + '/list',
+    type: 'GET',
+    dataType: 'json',
+    success: function (res) {
+      if (res.resultCode !== '0000') {
+        alert(res.resultMsg);
+        return;
+      }
+      serverListCache = res.data || [];
+      renderServerList();
+      renderSummary();
+      refreshChartServerOptions();
+    },
+    error: function () {
+      $('#serverListBody').html('<tr><td colspan="11" class="sc-empty">목록을 불러오지 못했습니다.</td></tr>');
+    }
+  });
+}
+
+function renderSummary() {
+  var total = serverListCache.length;
+  var run = 0;
+  for (var i = 0; i < serverListCache.length; i++) {
+    if (serverListCache[i].status === 'RUNNING') run++;
+  }
+  $('#sumTotal').text(total);
+  $('#sumRun').text(run);
+  $('#sumStop').text(total - run);
+}
+
+function renderServerList() {
+  if (!serverListCache.length) {
+    $('#serverListBody').html('<tr><td colspan="11" class="sc-empty">등록된 서버가 없습니다.</td></tr>');
+    return;
+  }
+  var rows = '';
+  for (var i = 0; i < serverListCache.length; i++) {
+    var s = serverListCache[i];
+    var running = s.status === 'RUNNING';
+    rows += '<tr data-server-id="' + s.serverId + '">'
+      + '<td><b>' + esc(s.serverAlias) + '</b></td>'
+      + '<td class="al">' + esc(s.serverName) + '</td>'
+      + '<td>' + esc(s.hostIp) + ':' + esc(s.sshPort) + '</td>'
+      + '<td>' + esc(s.osType) + '</td>'
+      + '<td>' + esc(s.envType) + '</td>'
+      + '<td>' + statusBadgeHtml(s.status) + '</td>'
+      + '<td class="metric-cpu">-</td>'
+      + '<td class="metric-mem">-</td>'
+      + '<td class="metric-disk">-</td>'
+      + '<td>'
+      +   '<button type="button" class="sc-btn start" ' + (running ? 'disabled' : '') + ' onclick="controlServer(' + s.serverId + ',\'START\')">시작</button>'
+      +   '<button type="button" class="sc-btn stop" ' + (running ? '' : 'disabled') + ' onclick="controlServer(' + s.serverId + ',\'STOP\')">중지</button>'
+      +   '<button type="button" class="sc-btn restart" ' + (running ? '' : 'disabled') + ' onclick="controlServer(' + s.serverId + ',\'RESTART\')">재시작</button>'
+      + '</td>'
+      + '<td><button type="button" class="sc-btn" onclick="openLogModal(' + s.serverId + ',\'' + esc(s.serverAlias) + '\')">이력</button></td>'
+      + '</tr>';
+  }
+  $('#serverListBody').html(rows);
+  loadLatestMetricsForList();
+}
+
+/* 목록 화면의 CPU/MEM/DISK 칸은 각 서버의 "가장 최근 지표"만 가져와 채운다.
+   (실시간 차트는 아래 별도 섹션에서 선택한 서버 하나만 상세로 보여준다) */
+function loadLatestMetricsForList() {
+  for (var i = 0; i < serverListCache.length; i++) {
+    (function (serverId) {
+      $.ajax({
+        url: API_BASE + '/metrics',
+        type: 'GET',
+        data: { serverId: serverId },
+        dataType: 'json',
+        success: function (res) {
+          if (res.resultCode !== '0000') return;
+          var list = res.data || [];
+          if (!list.length) return;
+          var latest = list[list.length - 1];
+          var row = $('tr[data-server-id="' + serverId + '"]');
+          row.find('.metric-cpu').html(barHtml(latest.cpuUsage));
+          row.find('.metric-mem').html(barHtml(latest.memUsage));
+          row.find('.metric-disk').html(barHtml(latest.diskUsage));
+        }
+      });
+    })(serverListCache[i].serverId);
+  }
+}
+
+/* ===== 서버 제어 (시작/중지/재시작) ===== */
+function controlServer(serverId, actionType) {
+  var actionLabel = actionType === 'START' ? '시작' : (actionType === 'STOP' ? '중지' : '재시작');
+  if (!confirm('선택한 서버를 [' + actionLabel + '] 하시겠습니까?')) {
+    return;
+  }
+  $.ajax({
+    url: API_BASE + '/control',
+    type: 'POST',
+    data: { serverId: serverId, actionType: actionType },
+    dataType: 'json',
+    success: function (res) {
+      if (res.resultCode !== '0000') {
+        alert(res.resultMsg);
+        return;
+      }
+      alert(actionLabel + ' 명령이 정상 처리되었습니다.');
+      loadServerList();
+    },
+    error: function () {
+      alert('요청 처리 중 오류가 발생했습니다.');
+    }
+  });
+}
+
+/* ===== 제어 이력 모달 ===== */
+function openLogModal(serverId, alias) {
+  $('#scLogModal .sc-panel-title').contents().first().replaceWith('제어 이력 - ' + alias + ' ');
+  $.ajax({
+    url: API_BASE + '/logs',
+    type: 'GET',
+    data: { serverId: serverId },
+    dataType: 'json',
+    success: function (res) {
+      if (res.resultCode !== '0000') {
+        alert(res.resultMsg);
+        return;
+      }
+      var list = res.data || [];
+      if (!list.length) {
+        $('#logTableBody').html('<tr><td colspan="4" class="sc-log-empty">이력이 없습니다.</td></tr>');
+      } else {
+        var rows = '';
+        for (var i = 0; i < list.length; i++) {
+          var l = list[i];
+          rows += '<tr><td>' + esc(l.requestedAt) + '</td><td>' + esc(l.actionType) + '</td>'
+            + '<td>' + esc(l.actionResult) + '</td><td>' + esc(l.requestedBy) + '</td></tr>';
+        }
+        $('#logTableBody').html(rows);
+      }
+      $('#scLogModalBg').addClass('show');
+    }
+  });
+}
+function closeLogModal() {
+  $('#scLogModalBg').removeClass('show');
+}
+$(document).on('click', '#scLogModalBg', function (e) {
+  if (e.target.id === 'scLogModalBg') closeLogModal();
+});
+
+/* ===== 실시간(폴링) 차트 ===== */
+function refreshChartServerOptions() {
+  var select = $('#chartServerSelect');
+  var prevVal = select.val();
+  var options = '';
+  for (var i = 0; i < serverListCache.length; i++) {
+    var s = serverListCache[i];
+    options += '<option value="' + s.serverId + '">' + esc(s.serverAlias) + ' (' + esc(s.serverName) + ')</option>';
+  }
+  select.html(options);
+  if (prevVal && select.find('option[value="' + prevVal + '"]').length) {
+    select.val(prevVal);
+  }
+  currentChartServerId = select.val();
+  loadChartData();
+}
+$('#chartServerSelect').on('change', function () {
+  currentChartServerId = $(this).val();
+  loadChartData();
+});
+
+function loadChartData() {
+  if (!currentChartServerId) return;
+  $.ajax({
+    url: API_BASE + '/metrics',
+    type: 'GET',
+    data: { serverId: currentChartServerId },
+    dataType: 'json',
+    success: function (res) {
+      if (res.resultCode !== '0000') return;
+      var list = res.data || [];
+      renderChart(list);
+      $('#chartUpdatedAt').text('마지막 갱신: ' + new Date().toLocaleTimeString('ko-KR'));
+    }
+  });
+}
+
+function renderChart(list) {
+  var labels = [];
+  var cpuData = [];
+  var memData = [];
+  var diskData = [];
+  for (var i = 0; i < list.length; i++) {
+    var m = list[i];
+    var t = m.checkedAt ? m.checkedAt.substring(11, 16) : '';
+    labels.push(t);
+    cpuData.push(m.cpuUsage);
+    memData.push(m.memUsage);
+    diskData.push(m.diskUsage);
+  }
+
+  if (metricChartObj) {
+    metricChartObj.data.labels = labels;
+    metricChartObj.data.datasets[0].data = cpuData;
+    metricChartObj.data.datasets[1].data = memData;
+    metricChartObj.data.datasets[2].data = diskData;
+    metricChartObj.update();
+    return;
+  }
+
+  var ctx = document.getElementById('metricChart').getContext('2d');
+  metricChartObj = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: labels,
+      datasets: [
+        { label: 'CPU', data: cpuData, borderColor: '#4a90d9', backgroundColor: 'rgba(74,144,217,.08)', borderWidth: 2, pointRadius: 1, fill: true },
+        { label: 'MEM', data: memData, borderColor: '#1a8a3d', backgroundColor: 'rgba(26,138,61,.06)', borderWidth: 2, pointRadius: 1, fill: true },
+        { label: 'DISK', data: diskData, borderColor: '#e0a72b', backgroundColor: 'rgba(224,167,43,.06)', borderWidth: 2, pointRadius: 1, fill: true }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      legend: { display: false },
+      scales: {
+        yAxes: [{ ticks: { beginAtZero: true, max: 100, callback: function (v) { return v + '%'; } } }]
+      }
+    }
+  });
+}
+
+/* 5초마다 폴링 — WebSocket 없이, 10년 전에 흔했던 setInterval + Ajax 방식 그대로 */
+function startChartPolling() {
+  if (chartTimer) clearInterval(chartTimer);
+  chartTimer = setInterval(function () {
+    loadChartData();
+    loadLatestMetricsForList();
+  }, 5000);
+}
+
+/* ===== DB CRUD 연습 (더미 테이블) ===== */
+function loadDummyList() {
+  $.ajax({
+    url: API_BASE + '/dummy/list',
+    type: 'GET',
+    dataType: 'json',
+    success: function (res) {
+      if (res.resultCode !== '0000') {
+        $('#dummyListBody').html('<tr><td colspan="7" class="sc-empty">' + esc(res.resultMsg) + '</td></tr>');
+        return;
+      }
+      renderDummyList(res.data || []);
+    },
+    error: function () {
+      $('#dummyListBody').html('<tr><td colspan="7" class="sc-empty">목록을 불러오지 못했습니다.</td></tr>');
+    }
+  });
+}
+
+function renderDummyList(list) {
+  if (!list.length) {
+    $('#dummyListBody').html('<tr><td colspan="7" class="sc-empty">등록된 레코드가 없습니다.</td></tr>');
+    return;
+  }
+  var rows = '';
+  for (var i = 0; i < list.length; i++) {
+    var r = list[i];
+    rows += '<tr>'
+      + '<td>' + r.recordId + '</td>'
+      + '<td class="al">' + esc(r.recordName) + '</td>'
+      + '<td class="al">' + esc(r.recordEmail) + '</td>'
+      + '<td>' + esc(r.recordStatus) + '</td>'
+      + '<td>' + esc(r.regDate) + '</td>'
+      + '<td>' + (r.updDate ? esc(r.updDate) : '-') + '</td>'
+      + '<td>'
+      +   '<button type="button" class="sc-btn" onclick="editDummy(' + r.recordId + ',\'' + esc(r.recordName) + '\',\'' + esc(r.recordEmail || '') + '\',\'' + esc(r.recordStatus) + '\')">수정</button>'
+      +   '<button type="button" class="sc-btn stop" onclick="deleteDummy(' + r.recordId + ')">삭제</button>'
+      + '</td>'
+      + '</tr>';
+  }
+  $('#dummyListBody').html(rows);
+}
+
+function editDummy(id, name, email, status) {
+  $('#dummyRecordId').val(id);
+  $('#dummyName').val(name);
+  $('#dummyEmail').val(email);
+  $('#dummyStatus').val(status);
+  $('#dummySubmitBtn').text('수정');
+  $('html, body').animate({ scrollTop: $('#dummyName').offset().top - 100 }, 200);
+}
+
+function resetDummyForm() {
+  $('#dummyRecordId').val('');
+  $('#dummyName').val('');
+  $('#dummyEmail').val('');
+  $('#dummyStatus').val('ACTIVE');
+  $('#dummySubmitBtn').text('등록');
+}
+
+$('#dummyResetBtn').on('click', resetDummyForm);
+
+$('#dummySubmitBtn').on('click', function () {
+  var recordId = $('#dummyRecordId').val();
+  var name = $('#dummyName').val();
+  var email = $('#dummyEmail').val();
+  var status = $('#dummyStatus').val();
+
+  if (!name || name.length === 0) {
+    alert('이름을 입력해주세요.');
+    return;
+  }
+
+  var url, data;
+  if (recordId) {
+    url = API_BASE + '/dummy/update';
+    data = { recordId: recordId, recordName: name, recordEmail: email, recordStatus: status };
+  } else {
+    url = API_BASE + '/dummy/insert';
+    data = { recordName: name, recordEmail: email, recordStatus: status };
+  }
+
+  $.ajax({
+    url: url,
+    type: 'POST',
+    data: data,
+    dataType: 'json',
+    success: function (res) {
+      if (res.resultCode !== '0000') {
+        alert(res.resultMsg);
+        return;
+      }
+      resetDummyForm();
+      loadDummyList();
+    },
+    error: function () {
+      alert('저장 중 오류가 발생했습니다.');
+    }
+  });
+});
+
+function deleteDummy(recordId) {
+  if (!confirm('이 레코드를 삭제하시겠습니까?')) return;
+  $.ajax({
+    url: API_BASE + '/dummy/delete',
+    type: 'POST',
+    data: { recordId: recordId },
+    dataType: 'json',
+    success: function (res) {
+      if (res.resultCode !== '0000') {
+        alert(res.resultMsg);
+        return;
+      }
+      loadDummyList();
+    }
+  });
+}
+
+/* ===== 초기 구동 ===== */
+$(document).ready(function () {
+  loadServerList();
+  loadDummyList();
+  startChartPolling();
+  setInterval(function () { loadServerList(); }, 15000); // 서버 목록/상태도 15초마다 새로고침
+});
+</script>
+</body>
+</html>
