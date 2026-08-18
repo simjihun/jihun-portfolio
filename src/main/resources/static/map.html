@@ -253,13 +253,19 @@ async function initMap() {
     document.head.appendChild(s);
   });
 
-  // 네이버 지도 공식 마커 클러스터링 유틸(스크립트 하나짜리 유틸이라 별도 CDN에서 로드)
-  await new Promise((resolve, reject) => {
-    const s = document.createElement('script');
-    s.src = 'https://cdn.jsdelivr.net/gh/navermaps/marker-clustering@main/MarkerClustering.js';
-    s.onload = resolve; s.onerror = reject;
-    document.head.appendChild(s);
-  });
+  // 네이버 지도 공식 마커 클러스터링 유틸(스크립트 하나짜리 유틸이라 별도 CDN에서 로드).
+  // 이 라이브러리 로딩이 실패해도(CDN 장애 등) 지도 자체는 계속 정상 동작해야 하므로,
+  // 여기서만 예외를 잡아 클러스터링 없이 진행한다(마커가 클러스터링 없이 개별로 표시됨).
+  try {
+    await new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = 'https://cdn.jsdelivr.net/gh/navermaps/marker-tools.js@master/marker-clustering/src/MarkerClustering.js';
+      s.onload = resolve; s.onerror = reject;
+      document.head.appendChild(s);
+    });
+  } catch (e) {
+    console.warn('[map] 마커 클러스터링 라이브러리를 불러오지 못해 클러스터링 없이 진행합니다.', e);
+  }
 
   infoWindow = new naver.maps.InfoWindow({ anchorSkew: true, borderWidth: 0,
     backgroundColor: 'transparent', disableAnchor: false });
@@ -299,6 +305,9 @@ function buildClusterIcon(diameter, bg, fontSize) {
   };
 }
 function createFoodClusterer() {
+  // 라이브러리 로딩이 실패했으면(위 try/catch) MarkerClustering 전역이 없다 — 이 경우
+  // 클러스터링을 포기하고 null을 돌려주면, 마커는 renderFoodResults에서 지도에 직접 붙는다.
+  if (typeof MarkerClustering === 'undefined') return null;
   return new MarkerClustering({
     minClusterSize: 2,
     maxZoom: 13,
@@ -395,13 +404,14 @@ function renderFoodResults(places, page, pageableCount, isEnd, keepView) {
 
   places.forEach((p, i) => {
     const pos = new naver.maps.LatLng(+p.y, +p.x);
-    // attach=false: 클러스터러가 표시를 관리하므로 지도에 직접 붙이지 않는다
+    // 클러스터러가 있으면 클러스터러가 표시를 전담하도록 지도에 직접 붙이지 않고(attach=false),
+    // 클러스터러 로딩에 실패했으면(foodClusterer===null) 평소처럼 지도에 바로 붙인다.
     addMarker(pos, i + 1, () => {
       const html = `<div class="iw"><div class="name">${esc(p.place_name)}</div><div class="cat">${esc(p.category_name?.split(' > ').pop() ?? '')}</div><div class="addr">${esc(p.road_address_name || p.address_name)}</div></div>`;
       infoWindow.setContent(html);
       infoWindow.open(map, markers[i]);
       highlightItem(i, 'resultPanelFood');
-    }, undefined, false);
+    }, undefined, foodClusterer ? false : true);
   });
 
   if (mode === 'food' && foodClusterer) foodClusterer.setMarkers(markersFood);
