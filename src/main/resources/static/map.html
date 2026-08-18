@@ -597,7 +597,8 @@ function searchNear() {
       map.setCenter(new naver.maps.LatLng(lat, lng));
       map.setZoom(15);
     });
-    if (!$('kw').value.trim() && !categoryFilter) $('kw').value = '맛집';
+    // 검색어를 임의로 채우지 않는다 — 이미 검색어/카테고리가 있으면 그 조건 그대로 현위치 기준으로
+    // 다시 찾아주고, 아무것도 없으면 지도만 현위치로 옮기고 검색은 하지 않는다.
     performFoodSearch(1);
     btn.classList.remove('busy');
     btn.textContent = '📍 현위치';
