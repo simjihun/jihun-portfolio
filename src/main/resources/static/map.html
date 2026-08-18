@@ -46,6 +46,7 @@ main{padding-bottom:0}
 .result-item .url{font-size:11.5px;color:var(--blue);margin-top:2px;display:inline-block}
 .result-item .url:hover{text-decoration:underline}
 .result-item .price{font-family:var(--mono);font-weight:700;color:var(--green);font-size:14px;margin-top:4px}
+.result-item .dist{font-family:var(--mono);font-size:11px;color:var(--blue);margin-top:2px}
 .result-item .nogeo{color:var(--dim);font-size:11px;margin-top:3px}
 .empty-msg{color:var(--dim);font-size:13px;padding:20px;text-align:center}
 .paging{display:flex;gap:8px;justify-content:center;margin-top:4px;flex:none}
@@ -96,16 +97,18 @@ main{padding-bottom:0}
     <div class="filter-row" id="filterFood">
       <select id="catSel" onchange="onFilterChange()">
         <option value="">전체 카테고리</option>
-        <option value="FD6">음식점</option>
-        <option value="CE7">카페</option>
-        <option value="CS2">편의점</option>
-        <option value="MT1">대형마트</option>
+        <option value="FD6">🍴 음식점</option>
+        <option value="CE7">☕ 카페</option>
+        <option value="CS2">🏪 편의점</option>
+        <option value="MT1">🛒 대형마트</option>
       </select>
       <div class="sort-toggle">
         <button class="sort-btn on" id="sortAccuracy" onclick="setSortMode('accuracy')">정확도순</button>
         <button class="sort-btn" id="sortDistance" onclick="setSortMode('distance')">거리순</button>
       </div>
+      <span id="distRefLabel" style="font-size:11.5px;color:var(--mut)"></span>
     </div>
+    <div style="font-size:11px;color:var(--dim);margin-top:-6px" id="catHintFood">카테고리만 선택하면 검색어 없이도 주변에서 찾아드려요.</div>
 
     <!-- 부동산 검색바 -->
     <div class="search-bar" id="barEstate" style="display:none">
@@ -162,6 +165,7 @@ const esc = s => (s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>
 // 평점·영업시간은 카카오 Local API 응답 자체에 없는 필드라 필터로 넣지 않는다.
 let categoryFilter = '';
 let sortMode = 'accuracy'; // 'accuracy' | 'distance'
+let distanceRefLabel = ''; // 거리순 정렬 기준점 표시용('현위치' | '이 지역' | '지도 중심' | '')
 let foodClusterer = null;  // 네이버 지도 마커 클러스터링 인스턴스(맛집 지도 전용)
 
 /* ===== 지도별 마지막 위치 + 마지막 검색 결과 기억 (localStorage — 브라우저에 남는 쿠키 성격의 저장소) ===== */
@@ -335,6 +339,44 @@ function clearMarkers() {
   infoWindow && infoWindow.close();
 }
 
+/** 카카오 category_group_code → 표시용 이모지 (음식점/카페/편의점/대형마트, 그 외는 핀 아이콘) */
+function categoryEmoji(code) {
+  switch (code) {
+    case 'FD6': return '🍴';
+    case 'CE7': return '☕';
+    case 'CS2': return '🏪';
+    case 'MT1': return '🛒';
+    default: return '📍';
+  }
+}
+
+/** 미터 단위 거리를 "540m" / "1.2km" 형태로 표시 (카카오 응답의 distance 필드) */
+function fmtDistance(m) {
+  const meters = Number(m);
+  if (m == null || isNaN(meters)) return '';
+  return meters >= 1000 ? (meters / 1000).toFixed(1) + 'km' : Math.round(meters) + 'm';
+}
+
+/** 맛집 지도 전용 마커 — 카테고리 이모지 원 + 리스트 순번 배지를 아래에 붙인 2단 구성 */
+function addFoodMarker(pos, rank, catCode, onClick) {
+  const emoji = categoryEmoji(catCode);
+  const color = '#F2A93B';
+  const marker = new naver.maps.Marker({
+    map: foodClusterer ? null : map, // 클러스터러가 있으면 클러스터러가 표시를 전담
+    position: pos,
+    icon: {
+      content: `<div style="display:flex;flex-direction:column;align-items:center">
+        <div style="width:28px;height:28px;border-radius:50%;background:${color};display:flex;align-items:center;justify-content:center;font-size:14px;box-shadow:0 2px 6px rgba(0,0,0,.4);border:2px solid #0B101B">${emoji}</div>
+        <div style="background:#131A2A;color:${color};font-weight:800;font-size:10px;padding:1px 6px;border-radius:999px;margin-top:2px;border:1px solid ${color};white-space:nowrap">${rank}</div>
+      </div>`,
+      anchor: new naver.maps.Point(14, 14)
+    }
+  });
+  if (onClick) naver.maps.Event.addListener(marker, 'click', onClick);
+  markers.push(marker);
+  return marker;
+}
+
 /** 지도 마커 생성. color로 맛집(앰버)/부동산(블루)을 구분한다.
     attach=false면 지도에 직접 붙이지 않는다 — 클러스터러가 표시를 전담하는 맛집 지도용. */
 function addMarker(pos, label, onClick, color, attach) {
@@ -373,13 +415,20 @@ function fitBoundsCapped(bounds, padding) {
 /* ===== 맛집지도 필터/정렬 UI 핸들러 ===== */
 function onFilterChange() {
   categoryFilter = $('catSel').value;
-  if ($('kw').value.trim()) performFoodSearch(1);
+  triggerFoodResearchIfReady();
 }
 function setSortMode(next) {
   sortMode = next;
   $('sortAccuracy').classList.toggle('on', sortMode === 'accuracy');
   $('sortDistance').classList.toggle('on', sortMode === 'distance');
-  if ($('kw').value.trim()) performFoodSearch(1);
+  triggerFoodResearchIfReady();
+}
+/** 검색어가 있거나(일반 검색) 카테고리만 선택되어 있으면(카테고리 전용 검색) 재검색을 트리거한다. */
+function triggerFoodResearchIfReady() {
+  if ($('kw').value.trim() || categoryFilter) performFoodSearch(1);
+}
+function updateDistRefUI(label) {
+  $('distRefLabel').textContent = label ? ('📍 ' + label + ' 기준') : '';
 }
 
 /* ===================================================
@@ -395,26 +444,30 @@ function renderFoodResults(places, page, pageableCount, isEnd, keepView) {
   }
   panel.innerHTML = places.map((p, i) => `
     <div class="result-item" onclick="focusMarker(${i})" onmouseenter="previewMarker(${i})" onmouseleave="infoWindow.close()">
-      <div class="name">${i + 1}. ${esc(p.place_name)}</div>
+      <div class="name">${categoryEmoji(p.category_group_code)} ${i + 1}. ${esc(p.place_name)}</div>
       <div class="cat">${esc(p.category_name?.split(' > ').pop() ?? '')}</div>
       <div class="addr">${esc(p.road_address_name || p.address_name)}</div>
+      ${p.distance ? `<div class="dist">${fmtDistance(p.distance)}</div>` : ''}
       ${p.phone ? `<div class="phone">${esc(p.phone)}</div>` : ''}
       ${p.place_url ? `<a class="url" href="${p.place_url}" target="_blank" rel="noopener">카카오맵에서 보기 ↗</a>` : ''}
     </div>`).join('');
 
   places.forEach((p, i) => {
     const pos = new naver.maps.LatLng(+p.y, +p.x);
-    // 클러스터러가 있으면 클러스터러가 표시를 전담하도록 지도에 직접 붙이지 않고(attach=false),
-    // 클러스터러 로딩에 실패했으면(foodClusterer===null) 평소처럼 지도에 바로 붙인다.
-    addMarker(pos, i + 1, () => {
+    addFoodMarker(pos, i + 1, p.category_group_code, () => {
       const html = `<div class="iw"><div class="name">${esc(p.place_name)}</div><div class="cat">${esc(p.category_name?.split(' > ').pop() ?? '')}</div><div class="addr">${esc(p.road_address_name || p.address_name)}</div></div>`;
       infoWindow.setContent(html);
       infoWindow.open(map, markers[i]);
       highlightItem(i, 'resultPanelFood');
-    }, undefined, foodClusterer ? false : true);
+    });
   });
 
-  if (mode === 'food' && foodClusterer) foodClusterer.setMarkers(markersFood);
+  if (mode === 'food' && foodClusterer) {
+    foodClusterer.setMarkers(markersFood);
+    // setMarkers()만으로는 지도 뷰가 실제로 바뀌지 않으면(keepView=true인 "이 지역에서 재검색") 다시
+    // 그려지지 않는 라이브러리 특성이 있어, idle 이벤트를 한 번 더 강제로 쏴서 즉시 리드로우시킨다.
+    naver.maps.Event.trigger(mapFood, 'idle');
+  }
 
   // "이 지역에서 재검색"으로 온 경우는 사용자가 잡은 화면 범위를 그대로 유지하고,
   // 그 외(첫 검색/현위치)에는 결과가 다 보이도록 자동으로 범위를 맞춘다 (단, 과도한 확대는 제한).
@@ -448,20 +501,30 @@ function focusMarker(index) {
   highlightItem(index, 'resultPanelFood');
 }
 
-/** 통합 검색 함수. nearCoords 또는 거리순 정렬이 선택되어 있으면 좌표 기준으로 정렬 요청한다. */
+/** 통합 검색 함수. nearCoords 또는 거리순 정렬/카테고리 전용 검색이면 좌표를 함께 보낸다. */
 async function performFoodSearch(page = 1, keepView = false) {
   const kw = $('kw').value.trim();
-  if (!kw) return;
+  if (!kw && !categoryFilter) return; // 검색어도 카테고리도 없으면 검색할 게 없음
   let coords = nearCoords;
-  if (sortMode === 'distance' && !coords) {
-    // 거리순 정렬인데 기준 좌표가 없으면(현위치를 안 눌렀으면) 현재 지도 중심을 기준점으로 사용
+  let refLabel = distanceRefLabel;
+  if ((sortMode === 'distance' || categoryFilter) && !coords) {
+    // 거리순 정렬이거나 카테고리 전용 검색인데 기준 좌표가 없으면(현위치를 안 눌렀으면)
+    // 현재 지도 중심을 기준점으로 사용한다. 카테고리 전용 검색은 위치가 필수라 이 좌표가 반드시 필요하다.
     const c = map.getCenter();
     coords = { lat: c.lat(), lng: c.lng() };
+    refLabel = '지도 중심';
   }
+  updateDistRefUI((sortMode === 'distance' || (categoryFilter && !kw)) ? (refLabel || '지도 중심') : '');
+
   let url = `${API}/search?keyword=${encodeURIComponent(kw)}&page=${page}&size=15`;
   if (coords) url += `&lat=${coords.lat}&lng=${coords.lng}`;
   if (categoryFilter) url += `&categoryGroupCode=${categoryFilter}`;
   const data = await fetch(url).then(r => r.json());
+  if (data.error) {
+    $('resultPanelFood').innerHTML = `<div class="empty-msg">${esc(data.error)}</div>`;
+    $('pagingFood').innerHTML = '';
+    return;
+  }
   renderFoodResults(data.documents || [], page, data.meta?.pageable_count ?? 0, data.meta?.is_end, keepView);
   saveFoodState(kw, page, data);
   userDragged = false;
@@ -470,6 +533,7 @@ async function performFoodSearch(page = 1, keepView = false) {
 
 function searchFood(page = 1) {
   nearCoords = null; // 일반 검색은 전국 대상, 위치 제한 없음(거리순을 골랐다면 지도 중심을 기준으로 사용)
+  distanceRefLabel = '';
   performFoodSearch(page);
 }
 
@@ -480,11 +544,12 @@ function searchNear() {
   navigator.geolocation.getCurrentPosition(pos => {
     const { latitude: lat, longitude: lng } = pos.coords;
     nearCoords = { lat, lng };
+    distanceRefLabel = '현위치';
     moveMapSilently(() => {
       map.setCenter(new naver.maps.LatLng(lat, lng));
       map.setZoom(15);
     });
-    if (!$('kw').value.trim()) $('kw').value = '맛집';
+    if (!$('kw').value.trim() && !categoryFilter) $('kw').value = '맛집';
     performFoodSearch(1);
     btn.classList.remove('busy');
     btn.textContent = '📍 현위치';
@@ -499,7 +564,8 @@ function searchNear() {
 function researchHere() {
   const center = map.getCenter();
   nearCoords = { lat: center.lat(), lng: center.lng() };
-  if (!$('kw').value.trim()) $('kw').value = '맛집';
+  distanceRefLabel = '이 지역';
+  if (!$('kw').value.trim() && !categoryFilter) $('kw').value = '맛집';
   performFoodSearch(1, true); // keepView=true: 지도를 다시 확대/축소하지 않음
 }
 
@@ -628,6 +694,7 @@ function restoreFood() {
   if (!saved || !saved.places || !saved.places.length) return;
   $('kw').value = saved.keyword || '';
   nearCoords = saved.nearCoords || null;
+  distanceRefLabel = nearCoords ? '이전 검색 위치' : '';
   categoryFilter = saved.categoryFilter || '';
   sortMode = saved.sortMode || 'accuracy';
   $('catSel').value = categoryFilter;
@@ -635,6 +702,7 @@ function restoreFood() {
   $('sortDistance').classList.toggle('on', sortMode === 'distance');
   map = mapFood; markers = markersFood;
   renderFoodResults(saved.places, saved.page || 1, saved.pageableCount || 0, saved.isEnd, true);
+  updateDistRefUI((sortMode === 'distance' || (categoryFilter && !saved.keyword)) ? (distanceRefLabel || '지도 중심') : '');
 }
 function restoreEstate() {
   const saved = loadEstateState();
