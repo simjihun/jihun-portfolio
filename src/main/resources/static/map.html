@@ -168,7 +168,9 @@ let sortMode = 'accuracy'; // 'accuracy' | 'distance'
 let distanceRefLabel = ''; // 거리순 정렬 기준점 표시용('현위치' | '이 지역' | '지도 중심' | '')
 let foodClusterer = null;  // 네이버 지도 마커 클러스터링 인스턴스(맛집 지도 전용)
 
-/* ===== 지도별 마지막 위치 + 마지막 검색 결과 기억 (localStorage — 브라우저에 남는 쿠키 성격의 저장소) ===== */
+/* ===== 지도별 마지막 위치 + 마지막 검색 결과 기억 (localStorage — 브라우저에 남는 쿠키 성격의 저장소) =====
+   검색 상태 키에 :v2를 붙여, 예전 "맛집" 자동채움 버그가 있던 시절 저장된 캐시를 자동으로
+   무시하게 한다(브라우저마다 직접 지울 필요 없이 다음 접속부터 깨끗한 상태로 시작). */
 function saveView(key, center, zoom) {
   try { localStorage.setItem('mapView:' + key, JSON.stringify({ lat: center.lat(), lng: center.lng(), zoom })); } catch (e) {}
 }
@@ -180,7 +182,7 @@ function loadView(key) {
 }
 function saveFoodState(kw, page, data) {
   try {
-    localStorage.setItem('searchState:food', JSON.stringify({
+    localStorage.setItem('searchState:food:v2', JSON.stringify({
       keyword: kw, nearCoords, page, categoryFilter, sortMode,
       pageableCount: data.meta?.pageable_count ?? 0,
       isEnd: data.meta?.is_end,
@@ -189,7 +191,7 @@ function saveFoodState(kw, page, data) {
   } catch (e) {}
 }
 function loadFoodState() {
-  try { const raw = localStorage.getItem('searchState:food'); return raw ? JSON.parse(raw) : null; }
+  try { const raw = localStorage.getItem('searchState:food:v2'); return raw ? JSON.parse(raw) : null; }
   catch (e) { return null; }
 }
 function saveEstateState(lawdCd, dealYmd, keyword, data) {
@@ -753,6 +755,16 @@ function restoreFood() {
   map = mapFood; markers = markersFood;
   renderFoodResults(saved.places, saved.page || 1, saved.pageableCount || 0, saved.isEnd, true);
   updateDistRefUI((sortMode === 'distance' || (categoryFilter && !saved.keyword)) ? (distanceRefLabel || '지도 중심') : '');
+  // 페이지 로드 직후 세션 복원은 웹폰트 로딩 등으로 지도 컨테이너 크기가 아직 자리잡기 전에
+  // 마커가 추가될 수 있어(카테고리를 한 번이라도 바꾸면 그때는 레이아웃이 안정된 뒤라 정상 표시됨),
+  // 레이아웃이 안정된 뒤 한 번 더 리사이즈 + 클러스터러 재동기화를 강제한다.
+  setTimeout(() => {
+    naver.maps.Event.trigger(mapFood, 'resize');
+    if (foodClusterer) {
+      foodClusterer.setMarkers(markersFood);
+      naver.maps.Event.trigger(mapFood, 'idle');
+    }
+  }, 200);
 }
 function restoreEstate() {
   const saved = loadEstateState();
@@ -763,6 +775,7 @@ function restoreEstate() {
   const region = regions.find(r => r.code === saved.lawdCd);
   map = mapEstate; markers = markersEstate;
   renderEstateResults(saved.items, saved.count, saved.avgAmount, region);
+  setTimeout(() => naver.maps.Event.trigger(mapEstate, 'resize'), 200);
 }
 
 /* ===== 초기화: URL에 따라 기본 탭 결정 ===== */
