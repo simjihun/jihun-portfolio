@@ -16,6 +16,9 @@ public class WebConfig implements WebMvcConfigurer {
     public void addViewControllers(ViewControllerRegistry registry) {
         // 메시징
         registry.addViewController("/mms").setViewName("forward:/mms.html");
+        // 서버제어(연습용) — 10년 전 스타일 Spring MVC + JdbcTemplate + jQuery/Ajax 연습.
+        // 실제 서버는 없고 DB 상태값을 시뮬레이션한다(ServerControlServiceImpl 주석 참고).
+        registry.addViewController("/server-control").setViewName("forward:/server-control.html");
         // 뉴스
         registry.addViewController("/news").setViewName("forward:/news.html");
         // 지도 — 맛집/부동산을 하나의 통합 페이지에서 토글로 전환해 보여준다
