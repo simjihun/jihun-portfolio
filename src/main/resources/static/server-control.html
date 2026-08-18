@@ -24,9 +24,9 @@ body.skin-black { background: #0b101b; }
 .content-wrapper, .right-side { background: #0b101b !important; box-shadow: none; }
 .main-sidebar, .sidebar { background: #0b101b !important; box-shadow: none; }
 
-/* 헤더/사이드바 영역에 남아있던 밝은 색 테두리·그림자를 전부 다크 라인 색으로 강제 통일 */
+/* 헤더/사이드바 영역에 남아있던 밝은 색 테두리·그림자를 전부 제거 */
 .main-header, .main-header * { box-shadow: none !important; }
-.main-header, .main-header .logo, .main-header .navbar { border-color: #232d45 !important; }
+.main-header .navbar, .main-header .navbar * { border: none !important; }
 .main-sidebar, .main-sidebar * { border-color: #232d45 !important; box-shadow: none !important; }
 .main-header .navbar, .main-header .logo { background: #131a2a !important; }
 .main-header .logo { border-right: 1px solid #232d45 !important; color: #f2a93b !important; font-weight: 700; }
@@ -34,8 +34,10 @@ body.skin-black { background: #0b101b; }
 .main-header .navbar .sidebar-toggle:hover,
 .main-header .navbar .sidebar-toggle:focus { color: #eef1f8 !important; }
 
-/* 사이트 상단 메뉴(nav.js)의 드롭다운이 AdminLTE 헤더(z-index:1030)에 가려지지 않도록 위로 올림 */
-.nav-dropdown-menu { z-index: 2000 !important; }
+/* 사이트 상단 메뉴(nav.js)의 topnav 자체를 새 스태킹 컨텍스트로 끌어올려, 그 안의 드롭다운이
+   AdminLTE 헤더(z-index:1030)에 절대 가려지지 않도록 한다. 드롭다운 z-index만 올리는 것으로는
+   부모(topnav)가 더 낮은 스태킹 컨텍스트에 갇혀 있어 부족했다. */
+.topnav { position: relative; z-index: 3000 !important; }
 .main-header { z-index: 900 !important; }
 
 .content-header h1 { color: #eef1f8; }
@@ -56,7 +58,6 @@ table.table { color: #cdd3e0; }
 .table > tbody > tr > td { border-color: #232d45; }
 .table-bordered { border-color: #232d45; }
 .table-hover > tbody > tr:hover > td { background-color: #1c2438 !important; }
-/* Bootstrap 3의 .active 표 행은 td에 !important로 밝은 배경을 강제하므로, 같은 우선순위로 덮어써야 한다 */
 .table > tbody > tr.active > td,
 .table > tbody > tr.active > th { background-color: #23304d !important; color: #eef1f8 !important; }
 #serverListBody tr[data-server-id] { cursor: pointer; }
@@ -64,6 +65,7 @@ table.table { color: #cdd3e0; }
 .form-control { background: #0e1420; border: 1px solid #2a3348; color: #eef1f8; }
 .form-control:focus { border-color: #f2a93b; box-shadow: none; }
 select.form-control option { background: #0e1420; }
+label { color: #cdd3e0; font-weight: 600; font-size: 12px; }
 
 .btn-primary { background-color: #f2a93b; border-color: #d99226; color: #131a2a; font-weight: 600; }
 .btn-primary:hover, .btn-primary:focus { background-color: #ffbc55; border-color: #d99226; color: #131a2a; }
@@ -82,6 +84,7 @@ select.form-control option { background: #0e1420; }
 .main-footer { background: #0b101b; color: #7e8da9; border-top: 1px solid #232d45; }
 .modal-content { background: #131a2a; color: #cdd3e0; }
 .modal-header { border-bottom: 1px solid #232d45; }
+.modal-footer { border-top: 1px solid #232d45; }
 
 .res-card { flex: 1 1 190px; min-width: 180px; background: #0e1420; border: 1px solid #232d45; border-radius: 6px; padding: 10px 12px; cursor: pointer; }
 .res-card:hover { border-color: #f2a93b; }
@@ -92,10 +95,10 @@ select.form-control option { background: #0e1420; }
 
 #scResultTable-wrap { max-height: 320px; overflow: auto; }
 #scResultTable td, #scResultTable th { white-space: nowrap; font-family: 'JetBrains Mono', Consolas, monospace; font-size: 12px; }
-#scSqlHint { font-size: 11.5px; color: #7e8da9; margin-top: 6px; line-height: 1.6; }
 #scChartMeta { font-size: 11.5px; color: #7e8da9; }
 .sql-quick-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 12px; }
 .sql-quick-row label { color: #cdd3e0; font-size: 12px; margin: 0; }
+.cell-wrap { max-width: 320px; white-space: normal; }
 </style>
 </head>
 <body class="hold-transition skin-black sidebar-mini">
@@ -214,6 +217,8 @@ select.form-control option { background: #0e1420; }
             <select id="sqlTableSelect" class="form-control" style="max-width:260px;display:inline-block">
               <option value="mms_practice_message_log">mms_practice_message_log</option>
               <option value="mms_practice_server_config">mms_practice_server_config</option>
+              <option value="mms_practice_template">mms_practice_template</option>
+              <option value="mms_practice_schedule">mms_practice_schedule</option>
             </select>
             <button type="button" class="btn btn-default" id="sqlQuickAllBtn"><i class="fa fa-table"></i> 전체 조회</button>
             <button type="button" class="btn btn-default" id="sqlQuickServerBtn"><i class="fa fa-filter"></i> 선택 서버만 조회</button>
@@ -225,11 +230,47 @@ select.form-control option { background: #0e1420; }
           </div>
           <button type="button" class="btn btn-primary" id="sqlRunBtn"><i class="fa fa-play"></i> 실행</button>
           <button type="button" class="btn btn-default" id="sqlClearBtn">초기화</button>
-          <div id="scSqlHint">
-            조회 가능 테이블: <code>mms_practice_message_log</code>(server_id, phone_number, msg_type, send_status, sent_at),
-            <code>mms_practice_server_config</code>(server_id, config_key, config_value). SELECT 문만 실행됩니다.
-          </div>
           <div id="sqlResultArea" style="margin-top:14px"></div>
+        </div>
+      </div>
+
+      <div class="box box-solid">
+        <div class="box-header with-border">
+          <i class="fa fa-pencil-square-o"></i>
+          <h3 class="box-title">템플릿 관리 (INSERT/UPDATE 연습)</h3>
+          <div class="box-tools pull-right">
+            <button type="button" class="btn btn-primary btn-sm" onclick="openPracticeModal('template')"><i class="fa fa-plus"></i> 새 템플릿</button>
+          </div>
+        </div>
+        <div class="box-body table-responsive">
+          <table class="table table-bordered table-hover" style="margin-bottom:0">
+            <thead>
+              <tr><th>ID</th><th>서버</th><th>템플릿명</th><th>내용</th><th>사용여부</th><th>수정일</th><th>관리</th></tr>
+            </thead>
+            <tbody id="templateListBody">
+              <tr><td colspan="7" class="text-center">불러오는 중...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="box box-solid">
+        <div class="box-header with-border">
+          <i class="fa fa-calendar"></i>
+          <h3 class="box-title">발송 스케줄 (INSERT/UPDATE 연습)</h3>
+          <div class="box-tools pull-right">
+            <button type="button" class="btn btn-primary btn-sm" onclick="openPracticeModal('schedule')"><i class="fa fa-plus"></i> 새 스케줄</button>
+          </div>
+        </div>
+        <div class="box-body table-responsive">
+          <table class="table table-bordered table-hover" style="margin-bottom:0">
+            <thead>
+              <tr><th>ID</th><th>서버</th><th>스케줄명</th><th>발송시간</th><th>반복</th><th>상태</th><th>수정일</th><th>관리</th></tr>
+            </thead>
+            <tbody id="scheduleListBody">
+              <tr><td colspan="8" class="text-center">불러오는 중...</td></tr>
+            </tbody>
+          </table>
         </div>
       </div>
 
@@ -260,13 +301,33 @@ select.form-control option { background: #0e1420; }
   </div>
 </div>
 
+<div class="modal fade" id="practiceModal" tabindex="-1" role="dialog">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <button type="button" class="close" data-dismiss="modal" style="color:#cdd3e0"><span>&times;</span></button>
+        <h4 class="modal-title" id="practiceModalTitle">새 레코드</h4>
+      </div>
+      <div class="modal-body" id="practiceModalBody"></div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-default" data-dismiss="modal">취소</button>
+        <button type="button" class="btn btn-primary" id="practiceSaveBtn">저장</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script src="/js/nav.js"></script>
 <script>
 var API_BASE = '/api/servercontrol';
 var serverListCache = [];
+var templateListCache = [];
+var scheduleListCache = [];
 var metricChartObj = null;
 var chartTimer = null;
 var currentServerId = null;
+var practiceModalKind = null;
+var practiceModalRecordId = null;
 
 function esc(s) {
   if (s === null || s === undefined) return '';
@@ -392,7 +453,6 @@ function renderCombo() {
   if (currentServerId) $('#serverSelectCombo').val(currentServerId);
 }
 
-/* 사이드바/카드/콤보박스/표 전체를 이벤트 위임으로 한 번만 바인딩(재렌더링 시 중복 바인딩 방지) */
 $(document).on('click', '.sc-select-target', function (e) {
   e.preventDefault();
   e.stopPropagation();
@@ -436,7 +496,7 @@ function applyMetricToCard(serverId, kind, value) {
   $('.res-' + kind + '-' + serverId + '-bar').css('width', v + '%');
 }
 
-/* ===== 서버 선택(사이드바/표/카드/콤보박스 공통) ===== */
+/* ===== 서버 선택 ===== */
 function selectServer(serverId) {
   currentServerId = serverId;
   var server = findServer(serverId);
@@ -509,7 +569,7 @@ function openLogModal(serverId, alias) {
   });
 }
 
-/* ===== 리소스 추이 차트(선택된 서버 1대, 시계열) ===== */
+/* ===== 리소스 추이 차트 ===== */
 function loadChartData() {
   if (!currentServerId) return;
   $.ajax({
@@ -612,7 +672,6 @@ $('#sqlClearBtn').on('click', function () {
   $('#sqlResultArea').html('');
 });
 
-/* 테이블 선택 + 버튼 한 번으로 기본 SELECT 문을 만들어 곧바로 실행 */
 $('#sqlQuickAllBtn').on('click', function () {
   var table = $('#sqlTableSelect').val();
   runSql('SELECT * FROM ' + table + ' LIMIT 50');
@@ -655,9 +714,185 @@ function renderQueryResult(data) {
   $('#sqlResultArea').html(html);
 }
 
+/* ===== 템플릿 (INSERT/UPDATE 연습) ===== */
+function loadTemplateList() {
+  $.ajax({
+    url: API_BASE + '/template/list',
+    type: 'GET',
+    dataType: 'json',
+    success: function (res) {
+      if (res.resultCode !== '0000') return;
+      templateListCache = res.data || [];
+      renderTemplateList();
+    }
+  });
+}
+
+function renderTemplateList() {
+  if (!templateListCache.length) {
+    $('#templateListBody').html('<tr><td colspan="7" class="text-center">등록된 템플릿이 없습니다.</td></tr>');
+    return;
+  }
+  var rows = '';
+  for (var i = 0; i < templateListCache.length; i++) {
+    var t = templateListCache[i];
+    var server = findServer(t.serverId);
+    rows += '<tr>'
+      + '<td>' + t.templateId + '</td>'
+      + '<td>' + (server ? esc(server.serverAlias) : t.serverId) + '</td>'
+      + '<td>' + esc(t.templateName) + '</td>'
+      + '<td class="cell-wrap">' + esc(t.templateContent) + '</td>'
+      + '<td>' + esc(t.useYn) + '</td>'
+      + '<td>' + (t.updDate ? esc(t.updDate) : '-') + '</td>'
+      + '<td><button type="button" class="btn btn-xs btn-default" onclick="openPracticeModalById(\'template\',' + t.templateId + ')">수정</button></td>'
+      + '</tr>';
+  }
+  $('#templateListBody').html(rows);
+}
+
+/* ===== 발송 스케줄 (INSERT/UPDATE 연습) ===== */
+function loadScheduleList() {
+  $.ajax({
+    url: API_BASE + '/schedule/list',
+    type: 'GET',
+    dataType: 'json',
+    success: function (res) {
+      if (res.resultCode !== '0000') return;
+      scheduleListCache = res.data || [];
+      renderScheduleList();
+    }
+  });
+}
+
+function renderScheduleList() {
+  if (!scheduleListCache.length) {
+    $('#scheduleListBody').html('<tr><td colspan="8" class="text-center">등록된 스케줄이 없습니다.</td></tr>');
+    return;
+  }
+  var rows = '';
+  for (var i = 0; i < scheduleListCache.length; i++) {
+    var sch = scheduleListCache[i];
+    var server = findServer(sch.serverId);
+    rows += '<tr>'
+      + '<td>' + sch.scheduleId + '</td>'
+      + '<td>' + (server ? esc(server.serverAlias) : sch.serverId) + '</td>'
+      + '<td>' + esc(sch.scheduleName) + '</td>'
+      + '<td>' + esc(sch.sendTime) + '</td>'
+      + '<td>' + esc(sch.repeatType) + '</td>'
+      + '<td>' + esc(sch.status) + '</td>'
+      + '<td>' + (sch.updDate ? esc(sch.updDate) : '-') + '</td>'
+      + '<td><button type="button" class="btn btn-xs btn-default" onclick="openPracticeModalById(\'schedule\',' + sch.scheduleId + ')">수정</button></td>'
+      + '</tr>';
+  }
+  $('#scheduleListBody').html(rows);
+}
+
+/* ===== 템플릿/스케줄 공통 INSERT·UPDATE 모달 ===== */
+function openPracticeModalById(kind, id) {
+  var cache = kind === 'template' ? templateListCache : scheduleListCache;
+  var record = null;
+  for (var i = 0; i < cache.length; i++) {
+    var rid = kind === 'template' ? cache[i].templateId : cache[i].scheduleId;
+    if (String(rid) === String(id)) { record = cache[i]; break; }
+  }
+  openPracticeModal(kind, record);
+}
+
+function openPracticeModal(kind, record) {
+  practiceModalKind = kind;
+  practiceModalRecordId = record ? (kind === 'template' ? record.templateId : record.scheduleId) : null;
+
+  var serverOptions = '';
+  for (var i = 0; i < serverListCache.length; i++) {
+    var s = serverListCache[i];
+    var sel = record && String(record.serverId) === String(s.serverId) ? 'selected' : '';
+    serverOptions += '<option value="' + s.serverId + '" ' + sel + '>' + esc(s.serverAlias) + '</option>';
+  }
+
+  var body = '';
+  if (kind === 'template') {
+    $('#practiceModalTitle').text((record ? '템플릿 수정' : '새 템플릿'));
+    body += '<div class="form-group"><label>서버</label><select id="pfServerId" class="form-control">' + serverOptions + '</select></div>';
+    body += '<div class="form-group"><label>템플릿명</label><input type="text" id="pfTemplateName" class="form-control" value="' + (record ? esc(record.templateName) : '') + '"></div>';
+    body += '<div class="form-group"><label>내용</label><textarea id="pfTemplateContent" class="form-control" rows="3">' + (record ? esc(record.templateContent) : '') + '</textarea></div>';
+    body += '<div class="form-group"><label>사용여부</label><select id="pfUseYn" class="form-control">'
+      + '<option value="Y" ' + (!record || record.useYn === 'Y' ? 'selected' : '') + '>Y</option>'
+      + '<option value="N" ' + (record && record.useYn === 'N' ? 'selected' : '') + '>N</option>'
+      + '</select></div>';
+  } else {
+    $('#practiceModalTitle').text((record ? '스케줄 수정' : '새 스케줄'));
+    body += '<div class="form-group"><label>서버</label><select id="pfServerId" class="form-control">' + serverOptions + '</select></div>';
+    body += '<div class="form-group"><label>스케줄명</label><input type="text" id="pfScheduleName" class="form-control" value="' + (record ? esc(record.scheduleName) : '') + '"></div>';
+    body += '<div class="form-group"><label>발송시간 (HH:MM)</label><input type="text" id="pfSendTime" class="form-control" placeholder="09:00" value="' + (record ? esc(record.sendTime) : '') + '"></div>';
+    body += '<div class="form-group"><label>반복유형</label><select id="pfRepeatType" class="form-control">'
+      + ['DAILY', 'WEEKLY', 'ONCE'].map(function (v) {
+          return '<option value="' + v + '" ' + (record && record.repeatType === v ? 'selected' : '') + '>' + v + '</option>';
+        }).join('')
+      + '</select></div>';
+    body += '<div class="form-group"><label>상태</label><select id="pfStatus" class="form-control">'
+      + ['ACTIVE', 'PAUSED'].map(function (v) {
+          return '<option value="' + v + '" ' + (record && record.status === v ? 'selected' : '') + '>' + v + '</option>';
+        }).join('')
+      + '</select></div>';
+  }
+  $('#practiceModalBody').html(body);
+  $('#practiceModal').modal('show');
+}
+
+$('#practiceSaveBtn').on('click', function () {
+  var url, data;
+
+  if (practiceModalKind === 'template') {
+    data = {
+      serverId: $('#pfServerId').val(),
+      templateName: $('#pfTemplateName').val(),
+      templateContent: $('#pfTemplateContent').val(),
+      useYn: $('#pfUseYn').val()
+    };
+    if (!data.templateName) { alert('템플릿명을 입력해주세요.'); return; }
+    if (practiceModalRecordId) {
+      data.templateId = practiceModalRecordId;
+      url = API_BASE + '/template/update';
+    } else {
+      url = API_BASE + '/template/insert';
+    }
+  } else {
+    data = {
+      serverId: $('#pfServerId').val(),
+      scheduleName: $('#pfScheduleName').val(),
+      sendTime: $('#pfSendTime').val(),
+      repeatType: $('#pfRepeatType').val(),
+      status: $('#pfStatus').val()
+    };
+    if (!data.scheduleName) { alert('스케줄명을 입력해주세요.'); return; }
+    if (!data.sendTime) { alert('발송 시간을 입력해주세요.'); return; }
+    if (practiceModalRecordId) {
+      data.scheduleId = practiceModalRecordId;
+      url = API_BASE + '/schedule/update';
+    } else {
+      url = API_BASE + '/schedule/insert';
+    }
+  }
+
+  $.ajax({
+    url: url,
+    type: 'POST',
+    data: data,
+    dataType: 'json',
+    success: function (res) {
+      if (res.resultCode !== '0000') { alert(res.resultMsg); return; }
+      $('#practiceModal').modal('hide');
+      if (practiceModalKind === 'template') loadTemplateList(); else loadScheduleList();
+    },
+    error: function () { alert('저장 중 오류가 발생했습니다.'); }
+  });
+});
+
 /* ===== 초기 구동 ===== */
 $(document).ready(function () {
   loadServerList();
+  loadTemplateList();
+  loadScheduleList();
   startChartPolling();
   setInterval(function () { loadServerList(); }, 15000);
 });
