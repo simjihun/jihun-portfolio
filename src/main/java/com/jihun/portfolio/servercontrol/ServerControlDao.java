@@ -1,5 +1,6 @@
 package com.jihun.portfolio.servercontrol;
 
+import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -14,6 +15,11 @@ public class ServerControlDao {
 
     @Autowired
     private JdbcTemplate jdbcTemplate;
+
+    @PostConstruct
+    public void init() {
+        jdbcTemplate.setQueryTimeout(5); // SQL 콘솔에서 실행되는 쿼리는 5초로 제한
+    }
 
     // ===== 서버 마스터 =====
 
