@@ -45,7 +45,8 @@ public class MapController {
     /**
      * 장소 키워드 검색 (GET /api/map/search)
      * lat/lng가 함께 오면 해당 좌표 반경 20km 내에서 가까운 순으로 정렬한다. (현위치 검색용)
-     * 예) /api/map/search?keyword=삼겹살&lat=37.5&lng=127.0
+     * categoryGroupCode를 주면 카카오 공식 카테고리 그룹코드(FD6=음식점, CE7=카페 등)로 추가 필터링한다.
+     * 예) /api/map/search?keyword=삼겹살&lat=37.5&lng=127.0&categoryGroupCode=FD6
      */
     @GetMapping("/search")
     public ResponseEntity<String> search(
@@ -53,7 +54,8 @@ public class MapController {
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "15") int size,
             @RequestParam(required = false) Double lat,
-            @RequestParam(required = false) Double lng) {
+            @RequestParam(required = false) Double lng,
+            @RequestParam(required = false) String categoryGroupCode) {
 
         if (kakaoApiKey == null || kakaoApiKey.isBlank()) {
             return ResponseEntity.ok("{\"documents\":[],\"meta\":{\"total_count\":0},\"error\":\"KAKAO_API_KEY 미설정\"}");
@@ -63,6 +65,10 @@ public class MapController {
                     .append(URLEncoder.encode(keyword, StandardCharsets.UTF_8))
                     .append("&page=").append(page)
                     .append("&size=").append(Math.min(size, 15));
+            if (categoryGroupCode != null && !categoryGroupCode.isBlank()) {
+                // 카카오 Local API 공식 카테고리 그룹코드(FD6=음식점, CE7=카페 등)로 추가 필터링
+                url.append("&category_group_code=").append(categoryGroupCode);
+            }
             if (lat != null && lng != null) {
                 // 카카오 로컬 API: x=경도, y=위도, radius(m), sort=distance로 현재 위치 기준 정렬
                 url.append("&x=").append(lng).append("&y=").append(lat)
