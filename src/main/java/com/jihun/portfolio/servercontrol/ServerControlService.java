@@ -15,4 +15,16 @@ public interface ServerControlService {
     List<ServerMetricVo> getMetricHistory(Long serverId);
 
     ResultVo executeQuery(String sql);
+
+    List<PracticeTemplateVo> getTemplateList();
+
+    ResultVo insertTemplate(PracticeTemplateVo vo);
+
+    ResultVo updateTemplate(PracticeTemplateVo vo);
+
+    List<PracticeScheduleVo> getScheduleList();
+
+    ResultVo insertSchedule(PracticeScheduleVo vo);
+
+    ResultVo updateSchedule(PracticeScheduleVo vo);
 }
