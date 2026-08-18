@@ -303,7 +303,7 @@ function createMap(elId, key) {
 /** 확대 단계별 클러스터 원형 아이콘(카운트 뱃지) 3단계 — 결과가 많아질수록 큰 원으로 표시 */
 function buildClusterIcon(diameter, bg, fontSize) {
   return {
-    content: `<div style="cursor:pointer;width:${diameter}px;height:${diameter}px;line-height:${diameter}px;text-align:center;border-radius:50%;background:${bg};color:#131A2A;font-weight:700;font-size:${fontSize}px;border:2px solid #0B101B;box-shadow:0 2px 8px rgba(0,0,0,.4)"><span class="cluster-label">0</span></div>`,
+    content: `<div style="cursor:pointer;width:${diameter}px;height:${diameter}px;line-height:${diameter}px;text-align:center;border-radius:50%;background:${bg};color:#fff;font-weight:700;font-size:${fontSize}px;border:2px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.4)"><span class="cluster-label">0</span></div>`,
     size: new naver.maps.Size(diameter, diameter),
     anchor: new naver.maps.Point(diameter / 2, diameter / 2)
   };
@@ -314,15 +314,15 @@ function createFoodClusterer() {
   if (typeof MarkerClustering === 'undefined') return null;
   return new MarkerClustering({
     minClusterSize: 2,
-    maxZoom: 13,
+    maxZoom: 16, // 예전엔 13이라 그보다 가까이 확대하면 클러스터링이 꺼져 마커가 한꺼번에 몰려 보였음
     map: mapFood,
     markers: [],
     disableClickZoom: false,
-    gridSize: 110,
+    gridSize: 90,
     icons: [
-      buildClusterIcon(38, 'rgba(242,169,59,.9)', 12),
-      buildClusterIcon(50, 'rgba(242,169,59,.95)', 13),
-      buildClusterIcon(62, '#F2A93B', 14)
+      buildClusterIcon(30, 'rgba(255,59,48,.88)', 12),
+      buildClusterIcon(40, 'rgba(255,59,48,.94)', 13),
+      buildClusterIcon(50, '#FF3B30', 14)
     ],
     indexGenerator: [10, 30, 100],
     stylingFunction: function (clusterMarker, count) {
@@ -336,6 +336,7 @@ function clearMarkers() {
   markers.forEach(m => m.setMap(null));
   markers.length = 0; // 배열을 재할당하지 않고 비워야 mapFood/mapEstate용 배열과 동기화 유지
   if (mode === 'food' && foodClusterer) foodClusterer.setMarkers([]);
+  activeFoodMarker = null;
   infoWindow && infoWindow.close();
 }
 
@@ -357,28 +358,69 @@ function fmtDistance(m) {
   return meters >= 1000 ? (meters / 1000).toFixed(1) + 'km' : Math.round(meters) + 'm';
 }
 
-/** 맛집 지도 전용 마커 — 카테고리 이모지 원 + 리스트 순번 배지를 아래에 붙인 2단 구성 */
-function addFoodMarker(pos, rank, catCode, onClick) {
+/* ===== 맛집 지도 마커 — 네이버 지도 방식: 평소엔 작은 빨간 점, 호버/선택 시에만 카테고리
+   아이콘 + 상호명이 붙은 큰 마커로 바뀐다. 뭉쳐 있을 때도 점은 숫자 배지보다 훨씬 덜
+   어수선하고, 색도 지도 배경과 상관없이 눈에 띄는 빨간색을 그대로 쓴다. ===== */
+const FOOD_RED = '#FF3B30';
+
+function foodDotIcon() {
+  return {
+    content: `<div style="width:12px;height:12px;border-radius:50%;background:${FOOD_RED};border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.5)"></div>`,
+    size: new naver.maps.Size(12, 12),
+    anchor: new naver.maps.Point(6, 6)
+  };
+}
+function foodActiveIcon(catCode, name) {
   const emoji = categoryEmoji(catCode);
-  const color = '#F2A93B';
+  return {
+    content: `<div style="display:flex;flex-direction:column;align-items:center">
+      <div style="width:30px;height:30px;border-radius:50%;background:${FOOD_RED};display:flex;align-items:center;justify-content:center;font-size:15px;box-shadow:0 3px 8px rgba(0,0,0,.5);border:2px solid #fff">${emoji}</div>
+      <div style="background:#fff;color:#131A2A;font-weight:700;font-size:11px;padding:2px 8px;border-radius:6px;white-space:nowrap;box-shadow:0 2px 6px rgba(0,0,0,.4);margin-top:4px;max-width:160px;overflow:hidden;text-overflow:ellipsis">${esc(name)}</div>
+    </div>`,
+    size: new naver.maps.Size(160, 60),
+    anchor: new naver.maps.Point(15, 15) // 원의 중심이 실제 좌표를 가리키게
+  };
+}
+
+let activeFoodMarker = null; // 현재 클릭·선택되어 큰 아이콘으로 고정된 마커(리스트 hover 시 다른 마커도 잠깐 커지지만, 이 마커만 계속 유지됨)
+
+function setActiveFoodMarker(marker) {
+  if (activeFoodMarker && activeFoodMarker !== marker) {
+    activeFoodMarker.__active = false;
+    activeFoodMarker.setIcon(foodDotIcon());
+  }
+  marker.__active = true;
+  marker.setIcon(foodActiveIcon(marker.__catCode, marker.__name));
+  activeFoodMarker = marker;
+}
+
+/** 맛집 지도 전용 마커. 평소엔 점, 호버하면 잠깐 커졌다가, 클릭하면 선택 상태로 고정된다. */
+function addFoodMarker(pos, catCode, name, onClickOpenInfo) {
   const marker = new naver.maps.Marker({
     map: foodClusterer ? null : map, // 클러스터러가 있으면 클러스터러가 표시를 전담
     position: pos,
-    icon: {
-      content: `<div style="display:flex;flex-direction:column;align-items:center">
-        <div style="width:28px;height:28px;border-radius:50%;background:${color};display:flex;align-items:center;justify-content:center;font-size:14px;box-shadow:0 2px 6px rgba(0,0,0,.4);border:2px solid #0B101B">${emoji}</div>
-        <div style="background:#131A2A;color:${color};font-weight:800;font-size:10px;padding:1px 6px;border-radius:999px;margin-top:2px;border:1px solid ${color};white-space:nowrap">${rank}</div>
-      </div>`,
-      anchor: new naver.maps.Point(14, 14)
-    }
+    icon: foodDotIcon(),
+    zIndex: 100
   });
-  if (onClick) naver.maps.Event.addListener(marker, 'click', onClick);
+  marker.__catCode = catCode;
+  marker.__name = name;
+  marker.__active = false;
+
+  naver.maps.Event.addListener(marker, 'mouseover', () => {
+    if (!marker.__active) marker.setIcon(foodActiveIcon(catCode, name));
+  });
+  naver.maps.Event.addListener(marker, 'mouseout', () => {
+    if (!marker.__active) marker.setIcon(foodDotIcon());
+  });
+  naver.maps.Event.addListener(marker, 'click', () => {
+    setActiveFoodMarker(marker);
+    onClickOpenInfo();
+  });
   markers.push(marker);
   return marker;
 }
 
-/** 지도 마커 생성. color로 맛집(앰버)/부동산(블루)을 구분한다.
-    attach=false면 지도에 직접 붙이지 않는다 — 클러스터러가 표시를 전담하는 맛집 지도용. */
+/** 지도 마커 생성(부동산 전용). color로 가격 라벨 배경을 지정한다. */
 function addMarker(pos, label, onClick, color, attach) {
   const marker = new naver.maps.Marker({
     map: attach === false ? null : map,
@@ -398,10 +440,16 @@ function highlightItem(index, panelId) {
   document.querySelectorAll('#' + panelId + ' .result-item').forEach((el, i) => el.classList.toggle('on', i === index));
 }
 
-/** 마커 클릭 이벤트를 그대로 재사용해, 지도는 움직이지 않고 정보창만 미리 보여준다 (리스트 마우스오버용). */
+/** 리스트에 마우스를 올리면 해당 마커를 잠깐 크게 보여준다(클릭과 달리 선택 상태로 고정하지 않음). */
 function previewMarker(index) {
   const marker = markers[index];
-  if (marker) naver.maps.Event.trigger(marker, 'click');
+  if (marker) naver.maps.Event.trigger(marker, 'mouseover');
+}
+/** 리스트에서 마우스가 벗어나면 미리보기를 되돌린다(단, 클릭으로 선택된 마커는 그대로 유지). */
+function previewMarkerOut(index) {
+  const marker = markers[index];
+  if (marker) naver.maps.Event.trigger(marker, 'mouseout');
+  infoWindow && infoWindow.close();
 }
 
 /** 지도 범위에 맞춰 자동 확대하되, 결과가 몰려있어도 MAX_AUTO_ZOOM보다 더 확대되지 않게 제한한다. */
@@ -443,7 +491,7 @@ function renderFoodResults(places, page, pageableCount, isEnd, keepView) {
     return;
   }
   panel.innerHTML = places.map((p, i) => `
-    <div class="result-item" onclick="focusMarker(${i})" onmouseenter="previewMarker(${i})" onmouseleave="infoWindow.close()">
+    <div class="result-item" onclick="focusMarker(${i})" onmouseenter="previewMarker(${i})" onmouseleave="previewMarkerOut(${i})">
       <div class="name">${categoryEmoji(p.category_group_code)} ${i + 1}. ${esc(p.place_name)}</div>
       <div class="cat">${esc(p.category_name?.split(' > ').pop() ?? '')}</div>
       <div class="addr">${esc(p.road_address_name || p.address_name)}</div>
@@ -454,7 +502,7 @@ function renderFoodResults(places, page, pageableCount, isEnd, keepView) {
 
   places.forEach((p, i) => {
     const pos = new naver.maps.LatLng(+p.y, +p.x);
-    addFoodMarker(pos, i + 1, p.category_group_code, () => {
+    addFoodMarker(pos, p.category_group_code, p.place_name, () => {
       const html = `<div class="iw"><div class="name">${esc(p.place_name)}</div><div class="cat">${esc(p.category_name?.split(' > ').pop() ?? '')}</div><div class="addr">${esc(p.road_address_name || p.address_name)}</div></div>`;
       infoWindow.setContent(html);
       infoWindow.open(map, markers[i]);
