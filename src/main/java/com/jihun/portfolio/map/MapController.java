@@ -84,11 +84,11 @@ public class MapController {
                         .append("&page=").append(page)
                         .append("&size=").append(Math.min(size, 15));
                 if (hasCategory) {
-                    url.append("&category_group_code=").append(categoryGroupCode);
+                    sb.append("&category_group_code=").append(categoryGroupCode);
                 }
                 if (lat != null && lng != null) {
                     // 카카오 로컬 API: x=경도, y=위도, radius(m), sort=distance로 현재 위치 기준 정렬
-                    url.append("&x=").append(lng).append("&y=").append(lat)
+                    sb.append("&x=").append(lng).append("&y=").append(lat)
                             .append("&radius=20000&sort=distance");
                 }
                 url = sb.toString();
