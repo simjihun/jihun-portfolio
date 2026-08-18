@@ -19,87 +19,74 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.9.4/Chart.min.js"></script>
 
 <style>
-/* AdminLTE 기본 스킨은 콘텐츠 영역이 밝은 회색이라, 사이트 다크 테마(#0B101B 계열)에 맞춰
-   콘텐츠 영역·박스·표·폼 컨트롤 배경만 오버라이드한다. 레이아웃 구조(sidebar/box/small-box 등)는
-   AdminLTE 클래스를 그대로 사용한다. */
-#scRoot .content-wrapper,
-#scRoot .right-side {
-  background: #0b101b;
-}
-#scRoot .content-wrapper { color: #cdd3e0; }
-#scRoot .box {
-  background: #131a2a;
-  border-top: 3px solid #f2a93b;
-  box-shadow: none;
-}
-#scRoot .box-header { border-bottom: 1px solid #232d45; }
-#scRoot .box-title { color: #eef1f8; }
-#scRoot .box-body { color: #cdd3e0; }
+/* AdminLTE의 skin-* 클래스는 body 태그에 직접 있어야 관련 선택자가 매칭된다(하위 div에 넣으면
+   .main-header/.main-sidebar 등 대부분의 스킨 규칙이 아예 적용되지 않는다) — 그래서 <body>에
+   hold-transition/skin-black/sidebar-mini를 직접 부여했다. 콘텐츠 영역·박스·표·폼 컨트롤 배경은
+   사이트 다크 테마(#0B101B 계열)에 맞춰 추가로 오버라이드한다. */
+body.skin-black { background: #0b101b; }
+.wrapper { background: #0b101b; min-height: 100vh; }
+.content-wrapper, .right-side { background: #0b101b !important; box-shadow: none; }
+.main-sidebar, .sidebar { background: #0b101b !important; box-shadow: none; }
+.main-header .navbar, .main-header .logo { background: #131a2a !important; border-bottom: 1px solid #232d45; box-shadow: none; }
+.main-header .logo { color: #f2a93b; }
+.main-header .navbar .sidebar-toggle { color: #cdd3e0; }
 
-#scRoot .main-sidebar { background: #10152275; }
-#scRoot .sidebar { background: #101522; }
-#scRoot .main-header .logo { background: #131a2a; color: #f2a93b; border-bottom: 1px solid #232d45; }
-#scRoot .main-header .navbar { background: #131a2a; }
-#scRoot .sidebar-menu > li.header {
-  background: #0b101b;
-  color: #7e8da9;
-  font-size: 11.5px;
-}
-#scRoot .sidebar-menu > li > a { color: #cdd3e0; }
-#scRoot .sidebar-menu > li > a:hover,
-#scRoot .sidebar-menu > li.active > a {
-  background: #1c2438;
-  color: #f2a93b;
-  border-left-color: #f2a93b;
-}
-#scRoot .sidebar-menu li.active > a { border-left: 3px solid #f2a93b; }
+.sidebar-menu > li.header { background: #0b101b; color: #7e8da9; font-size: 11.5px; }
+.sidebar-menu > li > a { color: #cdd3e0; }
+.sidebar-menu > li > a:hover,
+.sidebar-menu > li.active > a { background: #1c2438; color: #f2a93b; border-left-color: #f2a93b; }
 
-#scRoot table.table { color: #cdd3e0; }
-#scRoot .table > thead > tr > th,
-#scRoot .table > tbody > tr > td {
-  border-color: #232d45;
-}
-#scRoot .table-bordered { border-color: #232d45; }
-#scRoot .table-hover > tbody > tr:hover { background: #1c2438; }
+.box { background: #131a2a; border-top: 3px solid #f2a93b; box-shadow: none; }
+.box-header { border-bottom: 1px solid #232d45; }
+.box-title { color: #eef1f8; }
+.box-body { color: #cdd3e0; }
 
-#scRoot .form-control {
-  background: #0e1420;
-  border: 1px solid #2a3348;
-  color: #eef1f8;
-}
-#scRoot .form-control:focus {
-  border-color: #f2a93b;
-  box-shadow: none;
-}
-#scRoot select.form-control option { background: #0e1420; }
+table.table { color: #cdd3e0; }
+.table > thead > tr > th,
+.table > tbody > tr > td { border-color: #232d45; }
+.table-bordered { border-color: #232d45; }
+.table-hover > tbody > tr:hover,
+.table-hover > tbody > tr.active { background: #1c2438; }
 
-#scRoot .btn-primary { background-color: #f2a93b; border-color: #d99226; color: #131a2a; font-weight: 600; }
-#scRoot .btn-primary:hover,
-#scRoot .btn-primary:focus { background-color: #ffbc55; border-color: #d99226; color: #131a2a; }
-#scRoot .btn-success { background-color: #2fbf71; border-color: #26a25f; }
-#scRoot .btn-danger { background-color: #f0555a; border-color: #d9464b; }
-#scRoot .btn-default { background-color: #1c2438; border-color: #2a3348; color: #cdd3e0; }
-#scRoot .btn-default:hover { background-color: #232d45; color: #eef1f8; }
-#scRoot .label-success { background-color: #2fbf71; }
-#scRoot .label-danger { background-color: #f0555a; }
-#scRoot .label-default { background-color: #2a3348; }
+.form-control { background: #0e1420; border: 1px solid #2a3348; color: #eef1f8; }
+.form-control:focus { border-color: #f2a93b; box-shadow: none; }
+select.form-control option { background: #0e1420; }
 
-#scRoot .small-box { border-radius: 6px; }
-#scRoot .small-box h3, #scRoot .small-box p { color: #131a2a; }
+.btn-primary { background-color: #f2a93b; border-color: #d99226; color: #131a2a; font-weight: 600; }
+.btn-primary:hover, .btn-primary:focus { background-color: #ffbc55; border-color: #d99226; color: #131a2a; }
+.btn-success { background-color: #2fbf71; border-color: #26a25f; }
+.btn-danger { background-color: #f0555a; border-color: #d9464b; }
+.btn-default { background-color: #1c2438; border-color: #2a3348; color: #cdd3e0; }
+.btn-default:hover { background-color: #232d45; color: #eef1f8; }
+.label-success { background-color: #2fbf71; }
+.label-danger { background-color: #f0555a; }
+
+.small-box { border-radius: 6px; }
+.small-box h3, .small-box p { color: #131a2a; }
+
+.progress { background: #0e1420; box-shadow: none; height: 6px; margin-bottom: 8px; }
+
+.main-footer { background: #0b101b; color: #7e8da9; border-top: 1px solid #232d45; }
+.modal-content { background: #131a2a; color: #cdd3e0; }
+.modal-header { border-bottom: 1px solid #232d45; }
+
+/* 리소스 현황 카드(5대 전체) */
+.res-card { flex: 1 1 190px; min-width: 180px; background: #0e1420; border: 1px solid #232d45; border-radius: 6px; padding: 10px 12px; cursor: pointer; }
+.res-card:hover { border-color: #f2a93b; }
+.res-card.active { border-color: #f2a93b; box-shadow: 0 0 0 1px #f2a93b inset; }
+.res-card .res-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.res-card .res-head b { color: #eef1f8; }
+.res-metric-label { font-size: 11px; color: #7e8da9; margin-bottom: 2px; }
 
 #scResultTable-wrap { max-height: 320px; overflow: auto; }
 #scResultTable td, #scResultTable th { white-space: nowrap; font-family: 'JetBrains Mono', Consolas, monospace; font-size: 12px; }
-
 #scSqlHint { font-size: 11.5px; color: #7e8da9; margin-top: 6px; line-height: 1.6; }
 #scChartMeta { font-size: 11.5px; color: #7e8da9; }
-
-#scRoot .main-footer { background: #0b101b; color: #7e8da9; border-top: 1px solid #232d45; }
 </style>
 </head>
-<body>
+<body class="hold-transition skin-black sidebar-mini">
 <div id="site-nav"></div>
 
-<div id="scRoot" class="hold-transition skin-black-light sidebar-mini">
 <div class="wrapper">
 
   <header class="main-header">
@@ -116,7 +103,7 @@
     <section class="sidebar">
       <ul class="sidebar-menu" id="serverSidebarMenu">
         <li class="header">서버 목록</li>
-        <li class="sc-loading-placeholder"><a href="#"><i class="fa fa-spinner fa-spin"></i> <span>불러오는 중...</span></a></li>
+        <li><a href="#"><i class="fa fa-spinner fa-spin"></i> <span>불러오는 중...</span></a></li>
       </ul>
     </section>
   </aside>
@@ -151,6 +138,16 @@
 
       <div class="box box-solid">
         <div class="box-header with-border">
+          <i class="fa fa-area-chart"></i>
+          <h3 class="box-title">서버 리소스 현황 (5초 주기 갱신)</h3>
+        </div>
+        <div class="box-body">
+          <div id="resourceGrid" style="display:flex;flex-wrap:wrap;gap:12px"></div>
+        </div>
+      </div>
+
+      <div class="box box-solid">
+        <div class="box-header with-border">
           <i class="fa fa-list"></i>
           <h3 class="box-title">서버 목록</h3>
         </div>
@@ -158,12 +155,11 @@
           <table class="table table-bordered table-hover" style="margin-bottom:0">
             <thead>
               <tr>
-                <th>별칭</th><th>서버명</th><th>Host</th><th>OS</th><th>환경</th><th>상태</th>
-                <th>CPU</th><th>MEM</th><th>DISK</th><th>제어</th><th>이력</th>
+                <th>별칭</th><th>서버명</th><th>Host</th><th>OS</th><th>환경</th><th>상태</th><th>제어</th><th>이력</th>
               </tr>
             </thead>
             <tbody id="serverListBody">
-              <tr><td colspan="11" class="text-center">불러오는 중...</td></tr>
+              <tr><td colspan="8" class="text-center">불러오는 중...</td></tr>
             </tbody>
           </table>
         </div>
@@ -171,11 +167,19 @@
 
       <div class="box box-solid">
         <div class="box-header with-border">
-          <i class="fa fa-area-chart"></i>
-          <h3 class="box-title">리소스 모니터링 — <span id="chartServerLabel">-</span></h3>
-          <div class="box-tools pull-right">
-            <span id="scChartMeta"></span>
-          </div>
+          <i class="fa fa-crosshairs"></i>
+          <h3 class="box-title">제어 대상 서버</h3>
+        </div>
+        <div class="box-body">
+          <select id="serverSelectCombo" class="form-control" style="max-width:280px;display:inline-block"></select>
+        </div>
+      </div>
+
+      <div class="box box-solid">
+        <div class="box-header with-border">
+          <i class="fa fa-line-chart"></i>
+          <h3 class="box-title">리소스 추이 — <span id="chartServerLabel">-</span></h3>
+          <div class="box-tools pull-right"><span id="scChartMeta"></span></div>
         </div>
         <div class="box-body">
           <div style="position:relative;height:280px">
@@ -213,12 +217,11 @@
   </footer>
 
 </div>
-</div>
 
 <div class="modal fade" id="scLogModal" tabindex="-1" role="dialog">
   <div class="modal-dialog" role="document">
-    <div class="modal-content" style="background:#131a2a;color:#cdd3e0">
-      <div class="modal-header" style="border-bottom:1px solid #232d45">
+    <div class="modal-content">
+      <div class="modal-header">
         <button type="button" class="close" data-dismiss="modal" style="color:#cdd3e0"><span>&times;</span></button>
         <h4 class="modal-title" id="scLogModalTitle">제어 이력</h4>
       </div>
@@ -255,7 +258,7 @@ function statusLabelHtml(status) {
   return '<span class="label label-danger">중지</span>';
 }
 
-/* ===== 서버 목록 / 사이드바 / 요약 ===== */
+/* ===== 서버 목록 로드 ===== */
 function loadServerList() {
   $.ajax({
     url: API_BASE + '/list',
@@ -266,13 +269,16 @@ function loadServerList() {
       serverListCache = res.data || [];
       renderSidebar();
       renderSummary();
+      renderResourceGrid();
       renderServerTable();
+      renderCombo();
       if (!currentServerId && serverListCache.length) {
         selectServer(serverListCache[0].serverId);
       }
+      loadLatestMetricsForList();
     },
     error: function () {
-      $('#serverListBody').html('<tr><td colspan="11" class="text-center">목록을 불러오지 못했습니다.</td></tr>');
+      $('#serverListBody').html('<tr><td colspan="8" class="text-center">목록을 불러오지 못했습니다.</td></tr>');
     }
   });
 }
@@ -283,16 +289,13 @@ function renderSidebar() {
     var s = serverListCache[i];
     var dotClass = s.status === 'RUNNING' ? 'bg-green' : 'bg-red';
     var activeClass = (String(s.serverId) === String(currentServerId)) ? 'active' : '';
-    html += '<li class="' + activeClass + '"><a href="#" data-server-id="' + s.serverId + '" class="sc-server-nav">'
+    html += '<li class="' + activeClass + '"><a href="#" data-server-id="' + s.serverId + '" class="sc-select-target">'
       + '<i class="fa fa-server"></i> <span>' + esc(s.serverAlias) + '</span>'
       + '<small class="label pull-right ' + dotClass + '">&nbsp;</small>'
       + '</a></li>';
   }
   $('#serverSidebarMenu').html(html);
-  $('.sc-server-nav').on('click', function (e) {
-    e.preventDefault();
-    selectServer($(this).data('server-id'));
-  });
+  bindSelectTargets();
 }
 
 function renderSummary() {
@@ -306,9 +309,31 @@ function renderSummary() {
   $('#sumStop').text(total - run);
 }
 
+/* ===== 5대 전체 리소스 현황 카드 ===== */
+function renderResourceGrid() {
+  var html = '';
+  for (var i = 0; i < serverListCache.length; i++) {
+    var s = serverListCache[i];
+    var activeClass = (String(s.serverId) === String(currentServerId)) ? 'active' : '';
+    html += '<div class="res-card ' + activeClass + '" data-server-id="' + s.serverId + '">'
+      + '<div class="res-head"><b>' + esc(s.serverAlias) + '</b>' + statusLabelHtml(s.status) + '</div>'
+      + resBarHtml('CPU', '#f2a93b', s.serverId, 'cpu')
+      + resBarHtml('MEM', '#2fbf71', s.serverId, 'mem')
+      + resBarHtml('DISK', '#3182f6', s.serverId, 'disk')
+      + '</div>';
+  }
+  $('#resourceGrid').html(html);
+  $('.res-card').on('click', function () { selectServer($(this).data('server-id')); });
+}
+
+function resBarHtml(label, color, serverId, kind) {
+  return '<div class="res-metric-label">' + label + ' <span class="res-' + kind + '-' + serverId + '-txt">-</span></div>'
+    + '<div class="progress"><div class="progress-bar res-' + kind + '-' + serverId + '-bar" style="width:0%;background:' + color + '"></div></div>';
+}
+
 function renderServerTable() {
   if (!serverListCache.length) {
-    $('#serverListBody').html('<tr><td colspan="11" class="text-center">등록된 서버가 없습니다.</td></tr>');
+    $('#serverListBody').html('<tr><td colspan="8" class="text-center">등록된 서버가 없습니다.</td></tr>');
     return;
   }
   var rows = '';
@@ -317,15 +342,12 @@ function renderServerTable() {
     var running = s.status === 'RUNNING';
     var rowClass = (String(s.serverId) === String(currentServerId)) ? 'active' : '';
     rows += '<tr class="' + rowClass + '" data-server-id="' + s.serverId + '">'
-      + '<td><a href="#" class="sc-row-select" data-server-id="' + s.serverId + '"><b>' + esc(s.serverAlias) + '</b></a></td>'
+      + '<td><a href="#" class="sc-select-target" data-server-id="' + s.serverId + '"><b>' + esc(s.serverAlias) + '</b></a></td>'
       + '<td>' + esc(s.serverName) + '</td>'
       + '<td>' + esc(s.hostIp) + ':' + esc(s.sshPort) + '</td>'
       + '<td>' + esc(s.osType) + '</td>'
       + '<td>' + esc(s.envType) + '</td>'
       + '<td>' + statusLabelHtml(s.status) + '</td>'
-      + '<td class="metric-cpu">-</td>'
-      + '<td class="metric-mem">-</td>'
-      + '<td class="metric-disk">-</td>'
       + '<td>'
       +   '<button type="button" class="btn btn-xs btn-success" ' + (running ? 'disabled' : '') + ' onclick="controlServer(' + s.serverId + ',\'START\')">시작</button> '
       +   '<button type="button" class="btn btn-xs btn-danger" ' + (running ? '' : 'disabled') + ' onclick="controlServer(' + s.serverId + ',\'STOP\')">중지</button> '
@@ -335,12 +357,29 @@ function renderServerTable() {
       + '</tr>';
   }
   $('#serverListBody').html(rows);
-  $('.sc-row-select').on('click', function (e) {
+  bindSelectTargets();
+}
+
+function renderCombo() {
+  var options = '';
+  for (var i = 0; i < serverListCache.length; i++) {
+    var s = serverListCache[i];
+    options += '<option value="' + s.serverId + '">' + esc(s.serverAlias) + ' (' + esc(s.serverName) + ')</option>';
+  }
+  $('#serverSelectCombo').html(options);
+  if (currentServerId) $('#serverSelectCombo').val(currentServerId);
+}
+
+function bindSelectTargets() {
+  $('.sc-select-target').off('click').on('click', function (e) {
     e.preventDefault();
     selectServer($(this).data('server-id'));
   });
-  loadLatestMetricsForList();
 }
+
+$('#serverSelectCombo').on('change', function () {
+  selectServer($(this).val());
+});
 
 function loadLatestMetricsForList() {
   for (var i = 0; i < serverListCache.length; i++) {
@@ -355,28 +394,38 @@ function loadLatestMetricsForList() {
           var list = res.data || [];
           if (!list.length) return;
           var latest = list[list.length - 1];
-          var row = $('tr[data-server-id="' + serverId + '"]');
-          row.find('.metric-cpu').text(fmtPct(latest.cpuUsage));
-          row.find('.metric-mem').text(fmtPct(latest.memUsage));
-          row.find('.metric-disk').text(fmtPct(latest.diskUsage));
+          applyMetricToCard(serverId, 'cpu', latest.cpuUsage);
+          applyMetricToCard(serverId, 'mem', latest.memUsage);
+          applyMetricToCard(serverId, 'disk', latest.diskUsage);
         }
       });
     })(serverListCache[i].serverId);
   }
 }
 
-/* ===== 서버 선택(사이드바/표 공통) — 리소스 차트 + SQL 콘솔 컨텍스트를 함께 전환 ===== */
+function applyMetricToCard(serverId, kind, value) {
+  var v = value === null || value === undefined ? 0 : Number(value);
+  $('.res-' + kind + '-' + serverId + '-txt').text(fmtPct(value));
+  $('.res-' + kind + '-' + serverId + '-bar').css('width', v + '%');
+}
+
+/* ===== 서버 선택(사이드바/표/카드/콤보박스 공통) ===== */
 function selectServer(serverId) {
   currentServerId = serverId;
   var server = findServer(serverId);
   var label = server ? server.serverAlias + ' (' + server.serverName + ')' : '-';
   $('#chartServerLabel').text(label);
   $('#sqlServerLabel').text(label);
+
   $('#serverSidebarMenu li').removeClass('active');
-  $('.sc-server-nav[data-server-id="' + serverId + '"]').closest('li').addClass('active');
+  $('.sc-select-target[data-server-id="' + serverId + '"]').closest('li').addClass('active');
   $('#serverListBody tr').removeClass('active');
-  $('tr[data-server-id="' + serverId + '"]').addClass('active');
-  if (server && !$('#sqlInput').val()) {
+  $('#serverListBody tr[data-server-id="' + serverId + '"]').addClass('active');
+  $('.res-card').removeClass('active');
+  $('.res-card[data-server-id="' + serverId + '"]').addClass('active');
+  $('#serverSelectCombo').val(serverId);
+
+  if (server) {
     $('#sqlInput').attr('placeholder', 'SELECT * FROM mms_practice_message_log WHERE server_id = ' + serverId);
   }
   loadChartData();
@@ -433,7 +482,7 @@ function openLogModal(serverId, alias) {
   });
 }
 
-/* ===== 실시간(폴링) 차트 ===== */
+/* ===== 리소스 추이 차트(선택된 서버 1대, 시계열) ===== */
 function loadChartData() {
   if (!currentServerId) return;
   $.ajax({
