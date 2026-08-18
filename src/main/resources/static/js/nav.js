@@ -10,6 +10,7 @@
     { type: 'link', href: '/map', label: '지도 API' },
     { type: 'link', href: '/editor', label: '웹 에디터' },
     { type: 'link', href: '/mms', label: 'MMS' },
+    { type: 'link', href: '/server-control', label: '서버제어' },
     { type: 'dropdown', href: '/game', label: '웹 게임', children: [
       { href: '/game', label: '웹게임' },
       { href: '/game/board', label: '보드게임' },
