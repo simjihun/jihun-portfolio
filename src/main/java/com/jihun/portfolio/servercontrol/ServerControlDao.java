@@ -87,4 +87,40 @@ public class ServerControlDao {
     public List<Map<String, Object>> executeSelect(String sql) {
         return jdbcTemplate.queryForList(sql);
     }
+
+    // ===== INSERT/UPDATE 연습 전용 테이블 (모달 폼을 통해서만 값이 들어온다) =====
+
+    public List<PracticeTemplateVo> selectTemplateList() {
+        String sql = "SELECT template_id, server_id, template_name, template_content, use_yn, reg_date, upd_date "
+                   + "FROM mms_practice_template ORDER BY template_id DESC";
+        return jdbcTemplate.query(sql, new BeanPropertyRowMapper<>(PracticeTemplateVo.class));
+    }
+
+    public int insertTemplate(PracticeTemplateVo vo) {
+        String sql = "INSERT INTO mms_practice_template (server_id, template_name, template_content, use_yn) VALUES (?, ?, ?, ?)";
+        return jdbcTemplate.update(sql, vo.getServerId(), vo.getTemplateName(), vo.getTemplateContent(), vo.getUseYn());
+    }
+
+    public int updateTemplate(PracticeTemplateVo vo) {
+        String sql = "UPDATE mms_practice_template SET server_id = ?, template_name = ?, template_content = ?, use_yn = ?, upd_date = NOW() "
+                   + "WHERE template_id = ?";
+        return jdbcTemplate.update(sql, vo.getServerId(), vo.getTemplateName(), vo.getTemplateContent(), vo.getUseYn(), vo.getTemplateId());
+    }
+
+    public List<PracticeScheduleVo> selectScheduleList() {
+        String sql = "SELECT schedule_id, server_id, schedule_name, send_time, repeat_type, status, reg_date, upd_date "
+                   + "FROM mms_practice_schedule ORDER BY schedule_id DESC";
+        return jdbcTemplate.query(sql, new BeanPropertyRowMapper<>(PracticeScheduleVo.class));
+    }
+
+    public int insertSchedule(PracticeScheduleVo vo) {
+        String sql = "INSERT INTO mms_practice_schedule (server_id, schedule_name, send_time, repeat_type, status) VALUES (?, ?, ?, ?, ?)";
+        return jdbcTemplate.update(sql, vo.getServerId(), vo.getScheduleName(), vo.getSendTime(), vo.getRepeatType(), vo.getStatus());
+    }
+
+    public int updateSchedule(PracticeScheduleVo vo) {
+        String sql = "UPDATE mms_practice_schedule SET server_id = ?, schedule_name = ?, send_time = ?, repeat_type = ?, status = ?, upd_date = NOW() "
+                   + "WHERE schedule_id = ?";
+        return jdbcTemplate.update(sql, vo.getServerId(), vo.getScheduleName(), vo.getSendTime(), vo.getRepeatType(), vo.getStatus(), vo.getScheduleId());
+    }
 }
