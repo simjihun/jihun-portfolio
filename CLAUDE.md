@@ -106,9 +106,9 @@ hunit.kr 사이트(메인화면·기능 페이지·게임 설명) 전부**에 �
 |---|---|---|---|
 | AI 뉴스 | `/news` | LIVE | 다중언론사 RSS, Gemini 매일 07시 브리핑(+배포 직후 DB 비어있으면 즉시 1회), 문자 2-그램 유사도 기반 근사중복 제거, 카테고리별 최소 1건+이미지 |
 | AI 주식 | `/stock` | LIVE | 토스증권 Open API+업비트+Gemini. 상세는 아래 참고 |
-| 지도 API | `/map` | LIVE | 맛집(카카오)+부동산(국토부) |
+| 지도 API | `/map` | LIVE | 맛집(카카오)+부동산(국토부). 상세는 아래 참고 |
 | MMS | `/mms` | LIVE | 워커 5개, 다중발송, 자정 초기화 |
-| 서버제어 | `/server-control` | LIVE | MMS 발송 인프라 5대 서버 상태 조회·제어, 리소스 폴링 차트, SQL 콘솔. 상세는 아래 참고 |
+| 서버제어 | `/server-control` | LIVE | MMS 발송 인프라 5대 서버 상태 조회·제어, 리소스 폴링 차트, SQL 콘솔, INSERT/UPDATE 연습 테이블. 상세는 아래 참고 |
 | 웹게임 | `/game` | LIVE(숫자야구·발리볼) | 발리볼: 물리 전부 클라이언트(Canvas+rAF), 서버는 결과만 저장. 랭킹 상시 노출 |
 | 보드게임 | `/game/board` | LIVE(오목·장기) | 장기: 알파베타 완전탐색 AI. 오목: 난이도/착수수/클리어시간 랭킹 |
 | 카드게임 | `/game/card` | LIVE(프리셀·클론다이크·스파이더) | 카드 로직 전부 프론트엔드, 카드 이미지는 자체 저장한 SVG 라이브러리(cardmeister.js). 상세는 아래 참고 |
@@ -125,17 +125,57 @@ hunit.kr 사이트(메인화면·기능 페이지·게임 설명) 전부**에 �
 - 프론트: 랭킹 테이블은 폴링마다 지우지 않고 심볼키로 재사용+FLIP 재정렬+변경셀 플래시. 국기는 flagcdn.com 이미지(이모지는 Windows에서 깨짐)
 - 서버설정 필요: `TOSS_CLIENT_ID/SECRET`, 토스 허용IP 등록
 
+## 지도 API 메모 (`/map`)
+
+- `com.jihun.portfolio.map`: `MapController`(맛집 검색, 카카오 Local API 프록시), `RealEstateController`(국토부
+  실거래가), `KakaoGeocodeService`(좌표 지오코딩), `RealEstateRegions`
+- 맛집 지도와 부동산 시세는 완전히 독립된 네이버 지도 인스턴스·마커 배열·리스트를 유지한다 — 탭을 옮겨도
+  서로의 검색 결과가 사라지지 않으며, 각자 마지막 뷰포트·검색 상태를 localStorage에 저장해 새로고침해도 복원된다
+- **카테고리 필터**: 카카오 공식 `category_group_code`(FD6=음식점, CE7=카페, CS2=편의점, MT1=대형마트)로
+  서버단 필터링. **검색어가 비어있고 카테고리만 선택된 경우 카카오 키워드검색(`keyword.json`) 대신 카테고리
+  검색(`category.json`)으로 자동 분기한다** — 편의점·마트처럼 이름에 검색어가 잘 안 붙는 카테고리를 키워드
+  검색과 결합하면(예: 검색창에 남아있던 "맛집" + 카테고리 CS2) 결과가 거의 안 나오는 문제가 있어서다.
+  카테고리 검색은 위치(x,y)가 필수라, 검색/현위치 버튼을 직접 눌렀을 때는 검색어·카테고리가 둘 다 비어있어도
+  현재 지도 중심 좌표를 붙여 항상 실행된다(`performFoodSearch`의 `forceSearch` 파라미터)
+- **검색어를 임의로 채우는 로직은 어디에도 두지 않는다(확정)**: 과거 현위치/재검색 버튼 클릭 시 빈 검색창에
+  "맛집"을 자동으로 채워 넣었다가, 카테고리가 편의점·마트로 확장되면서 그 기본값과 결합해 검색이 실패하는
+  문제가 반복적으로 발생해 전부 제거했다. 새 진입점을 추가할 때도 이 원칙을 유지할 것
+- **거리순 정렬**: 카카오 응답의 `distance`(m) 필드를 목록에 "540m"/"1.2km"로 표시하고, 필터 영역에
+  "현위치 기준"/"이 지역 기준"/"지도 중심 기준" 참조 라벨을 함께 노출
+- **마커 클러스터링**: 네이버 지도 공식 유틸(`navermaps/marker-tools.js` 저장소의
+  `marker-clustering/src/MarkerClustering.js`, jsDelivr GH 프록시로 로드) 사용 — 실제 렌더링 지도가 카카오맵이
+  아니라 네이버 지도이므로 카카오 클러스터러가 아닌 이 라이브러리를 쓴다. 로딩 실패에 대비해 try/catch로
+  감싸고, 실패 시(`MarkerClustering` 전역 없음) 클러스터링 없이 마커를 지도에 직접 붙이는 폴백 경로를 둠
+- **마커 디자인**: 네이버 지도 방식을 따라 평소엔 12px 빨간 점만 표시, 마우스오버/클릭 시에만 카테고리
+  이모지(🍴☕🏪🛒) 원형 아이콘 + 상호명 라벨로 커진다. 클릭한 마커는 선택 상태로 고정되고 다른 마커를
+  클릭하면 원래대로 돌아감(`setActiveFoodMarker`) — 마커가 많이 뭉쳤을 때 숫자 배지보다 훨씬 덜 어수선함
+- 부동산 마커는 별도 스타일(파란 가격 라벨, `#5AA2FF`) 유지, 아파트명+동 단위로 마커를 묶어 같은 단지는
+  마커 하나만 생성
+- `localStorage` 검색 상태 캐시 키에는 버전을 붙인다(`searchState:food:v2`) — 캐시 스키마나 기본 동작이
+  바뀌면 버전을 올려 예전 캐시를 자동으로 무시하게 할 것(사용자가 직접 캐시를 지울 필요 없게)
+- 페이지 로드 직후 localStorage 세션 복원 시, 지도 컨테이너 레이아웃이 아직 안정되기 전에 마커가 추가되어
+  핀이 화면에 안 뜨는 문제가 있었음 — 복원 직후 200ms 뒤 `resize` 이벤트를 강제로 한 번 더 발생시켜 재보정
+
 ## 서버제어 메모 (`/server-control`)
 
 - `com.jihun.portfolio.servercontrol`: 계층형 Controller→Service→DAO 구조, JPA 대신 `JdbcTemplate`으로 SQL을 직접 작성
 - `ServerVo`/`ServerMetricVo`/`ServerControlLogVo`: 서버 마스터, 리소스 지표 이력, 제어 이력
+- `PracticeTemplateVo`/`PracticeScheduleVo`: INSERT/UPDATE 연습 전용 테이블(`mms_practice_template`,
+  `mms_practice_schedule`)의 VO — 아래 참고
 - `ServerMetricScheduler`가 10초마다 가동중인 서버마다 CPU/MEM/DISK를 직전값 기반 랜덤워크로 갱신해 `admin_server_metric`에 적재 — 프론트는 5초 주기로 폴링해 Chart.js에 반영
 - 서버 제어(시작/중지/재시작)는 `admin_servers.status` 값을 갱신하고 `admin_server_control_log`에 이력을 남기는 방식으로 동작
 - **SQL 콘솔은 화이트리스트 기반으로 제한된 범위에서만 실행된다**: 사용자가 입력한 쿼리는 `SELECT`로
   시작하는지, 금지 키워드(INSERT/UPDATE/DELETE/DROP/ALTER/TRUNCATE/GRANT 등)를 포함하지 않는지, FROM/JOIN
-  대상 테이블이 허용 목록(`mms_practice_message_log`, `mms_practice_server_config`)에만 해당하는지를
-  `ServerControlServiceImpl.executeQuery()`에서 검사한 뒤 `JdbcTemplate.queryForList()`로 실행한다.
-  인증 없는 공개 페이지이므로 이 검증을 절대 느슨하게 하지 않는다(운영 테이블 접근·쓰기 계열 SQL 전부 차단).
+  대상 테이블이 허용 목록(`mms_practice_message_log`, `mms_practice_server_config`, `mms_practice_template`,
+  `mms_practice_schedule`)에만 해당하는지를 `ServerControlServiceImpl.executeQuery()`에서 검사한 뒤
+  `JdbcTemplate.queryForList()`로 실행한다. 인증 없는 공개 페이지이므로 이 검증을 절대 느슨하게 하지 않는다
+  (운영 테이블 접근·쓰기 계열 SQL 전부 차단). 콘솔 상단의 테이블 선택 드롭다운 + "전체 조회"/"선택 서버만
+  조회" 버튼으로 기본 SELECT 문을 직접 타이핑하지 않고도 만들어 실행할 수 있다
+- **INSERT/UPDATE는 SQL 콘솔이 아니라 전용 모달 폼으로만 한다**: `mms_practice_template`(MMS 템플릿)와
+  `mms_practice_schedule`(발송 스케줄) 두 테이블은 SQL 콘솔에서 조회는 되지만, 쓰기(INSERT/UPDATE)는 원본
+  SQL 문자열을 실행하지 않고 파라미터 바인딩된 `JdbcTemplate.update()`(`/api/servercontrol/template/*`,
+  `/api/servercontrol/schedule/*` 엔드포인트 + 모달 폼)로만 이루어진다. 기존 message_log/server_config
+  테이블은 계속 조회 전용으로 보호된다
 - 프론트는 Bootstrap 3 + AdminLTE 2 CDN 기반 레이아웃(사이드바 서버 목록 + 상단 요약 박스 + box 패널), 다크 톤으로 커스텀 오버라이드
 
 ## 웹게임 · 발리볼 메모 (`/game`, volleyball 탭)
@@ -281,6 +321,30 @@ CAPTCHA 우회나 DRM 크랙 도구를 만들지 않는 것과 같은 이유로,
 ## 최근 실수/함정
 
 - MOLIT API 신주소 `apis.data.go.kr`, 네이버 지오코딩 대신 카카오 키워드검색, 카카오 `pageable_count` 사용, 현위치검색엔 `x,y,radius,sort=distance` 필수
+- 지도 검색어가 비어있을 때의 기본값을 하드코딩(예: 항상 "맛집")하면, 카테고리가 늘어날수록(편의점·마트 등)
+  그 기본 키워드와 무관한 카테고리 조합에서 검색 결과가 급감하거나 0건이 되는 문제가 생긴다 — 키워드가
+  없을 때는 카카오 카테고리 전용 검색 API(`category.json`)로 분기하거나, 최소한 사용자 입력을 임의로
+  채우지 말고 명시적으로 위치 좌표만 붙여서 보낼 것(지도 API 메모의 "검색어를 임의로 채우는 로직" 참고)
+- 네이버 지도 마커 클러스터링 공식 유틸은 `navermaps/marker-clustering`이 아니라 `navermaps/marker-tools.js`
+  저장소의 `marker-clustering/src/MarkerClustering.js` 경로다 — CDN 경로 오타로 스크립트 로딩이 404 나면
+  그 뒤 `await` 체인이 전부 중단되어 지도 자체가 안 뜨는 심각한 장애로 이어질 수 있으니, 외부 스크립트
+  로딩은 항상 try/catch로 감싸 실패해도 핵심 기능(지도 표시)은 유지되게 할 것
+- localStorage에 저장하는 캐시 스키마나 기본 동작을 바꿀 때는 키 이름에 버전을 붙여라(`searchState:food`
+  → `searchState:food:v2`) — 그러지 않으면 예전 버그 시절 저장된 값이 사용자 브라우저에 계속 남아, 서버
+  코드는 고쳤는데도 캐시가 복원되면서 예전 증상이 재현된 것처럼 보인다
+- 페이지 로드 직후 localStorage에서 세션을 복원해 지도 마커를 그리는 경우, 웹폰트 로딩 등으로 레이아웃이
+  아직 자리잡기 전이라 지도 컨테이너 크기가 실제보다 작게 잡혀 마커 위치 계산이 어긋날 수 있다 — 복원
+  직후 곧바로 렌더링하는 것 외에, 약간의 지연(200ms 등) 후 한 번 더 리사이즈 이벤트를 강제로 쏴서 재보정할 것
+- 사이트 공통 상단 메뉴(`.topnav`)는 base.css에서 `position:fixed`다 — AdminLTE 같은 별도 UI 프레임워크를
+  페이지에 얹을 때 z-index 문제를 고치겠다고 position을 relative로 바꾸면, body의 padding-top(고정 헤더용으로
+  미리 비워둔 공간)이 그대로 빈 여백으로 남는다. fixed는 z-index 값과 무관하게 이미 별도 스태킹 컨텍스트를
+  만드므로, z-index만 조정하고 position은 건드리지 말 것
+- Bootstrap 3의 `.table > tbody > tr.active > td`는 `!important`로 배경색을 강제한다 — 커스텀 다크 테마에서
+  행 선택 하이라이트 색을 바꾸려면 `tr.active`가 아니라 `tr.active > td`(같은 우선순위 + `!important`)를
+  오버라이드해야 함
+- `StringBuilder`로 문자열을 이어붙이다가 실수로 다른 이름의 `String` 변수에 `.append()`를 호출하는 오타는
+  로컬에서 컴파일 확인 없이 커밋하면 CI에서만 발견된다(`cannot find symbol: method append`) — 여러 분기를
+  가진 URL/쿼리 조립 코드를 짤 때는 커밋 전에 변수명이 실제로 일관되게 쓰였는지 diff를 한 번 더 확인할 것
 - 외부 API는 반드시 타임아웃 명시
 - SVG `vector-effect="non-scaling-stroke"`는 얇은 선을 사실상 안 보이게 만듦 — 빼야 함
 - 이모지 국기는 Windows에서 깨짐 → flagcdn.com 이미지 사용
@@ -300,7 +364,9 @@ CAPTCHA 우회나 DRM 크랙 도구를 만들지 않는 것과 같은 이유로,
 - AWS/DB처럼 "관리자에게 유용한 실시간 정보"를 보여줄 때는, 이미 갖고 있는 자격증명(EC2 메타데이터, 앱의 DataSource)으로 되는 범위부터 먼저 구현하고, 새 자격증명(IAM 액세스키 등)이 필요한 부분은 보안 영향 범위를 설명하고 사용자 확인 후에 진행할 것
 - **인증 없는 공개 페이지에 자유 SQL 입력창을 둘 때는 반드시 화이트리스트로 제한할 것**: SELECT만 허용,
   금지 키워드 차단, FROM/JOIN 대상 테이블을 사전에 정해둔 목록으로만 제한. 운영 계정과 같은 커넥션을
-  쓰는 이상 "느낌만 내는" 용도라도 실제 운영 테이블이 조회되지 않도록 반드시 검증 로직을 넣는다(`server-control` 사례)
+  쓰는 이상 "느낌만 내는" 용도라도 실제 운영 테이블이 조회되지 않도록 반드시 검증 로직을 넣는다(`server-control` 사례).
+  INSERT/UPDATE처럼 데이터를 바꾸는 연습 기능은 SQL 콘솔에 맡기지 말고, 별도 연습용 테이블 + 파라미터
+  바인딩된 전용 엔드포인트/모달 폼으로 분리할 것(위 서버제어 메모 참고)
 - **새 페이지·기능을 추가할 때마다 "콘텐츠 작성 원칙"·"모바일 최적화 원칙"·"Gemini API 호출 정책" 절을 다시 확인할 것** — 특정 기업 어필성 문구나 주관적 형용사가 섞이지 않았는지, 게임 설명이 불릿 위주로 간결한지, 모바일 폭에서 깨지는 곳은 없는지, Gemini를 방문자 요청 시점에 직접 부르고 있지는 않은지 체크
 
 ## 환경변수
@@ -324,3 +390,5 @@ AWS Cost Explorer/Billing API용 IAM 액세스키는 아직 추가되지 않음(
 - 게임별 인메모리 대국상태 + 공통 `GameScore` 랭킹 패턴 유지(난이도별로 나눠야 하면 `gameType`에 접미사 부여, 예: `FREECELL_EASY`, `KLONDIKE_EASY`, `OMOK_EASY`, `SPIDER_EASY`)
 - 게임 카테고리(웹게임/보드게임/카드게임)별로 통합 허브 페이지(`game.html`/`board.html`/`cardgame.html`)를 두고, 그 안에서 탭으로 개별 게임을 확장. 카드 이미지 렌더링(cardmeister)과 카드 뒷면 이미지, CSS(`.fc-*` 클래스)는 카드게임 간에 공유해서 재사용
 - 설정 화면부터 랭킹보드를 상시 노출하는 2단(`.two-col`) 레이아웃을 모든 랭킹 보유 게임에 공통 적용
+- 지도처럼 여러 카테고리/조건으로 확장되는 검색 기능은 "빈 값일 때의 기본값"을 함부로 하드코딩하지 말 것 —
+  조건이 늘어날수록 그 기본값과 결합해 예상 못한 조합에서 실패할 수 있다(위 '지도 API 메모' 참고)
