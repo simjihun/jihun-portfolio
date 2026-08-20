@@ -10,8 +10,9 @@ Spring Boot 애플리케이션 하나에 기능별 패키지를 추가하는 구
 |---|---|---|
 | 🟢 LIVE | **AI 뉴스** | RSS 다중 언론사 자동 수집(ROME), 링크·제목 완전일치 + 문자 2-그램 유사도 기반 근사중복 제거, Gemini API 일일 브리핑 생성(스케줄러+DB 저장, 배포 직후엔 즉시 1회), OpenGraph 메타데이터 파싱(JSoup) 기반 기사 미리보기 |
 | 🟢 LIVE | **AI 주식** | 토스증권 Open API(OAuth2 Client Credentials, 전역 요청 스로틀링, TTL 캐시), 업비트 공개 API, Gemini API 시황 요약(하루 3회 스케줄러+DB 저장), 프론트엔드 FLIP 애니메이션 기반 실시간 테이블 갱신 |
-| 🟢 LIVE | **지도 API** | 카카오 Local API(키워드·반경 검색), 네이버 지도 SDK, 국토교통부 실거래가 공공데이터 API 연동 |
+| 🟢 LIVE | **지도 API** | 카카오 Local API(키워드·카테고리·반경 검색), 네이버 지도 SDK + 공식 마커 클러스터링, 국토교통부 실거래가 공공데이터 API 연동 |
 | 🟢 LIVE | **MMS** | 비동기 큐 + 멀티쓰레드 워커 풀(5개), 재시도 로직, 실시간 처리량 집계 |
+| 🟢 LIVE | **서버제어** | 계층형 MVC(Controller-Service-DAO) + JdbcTemplate, 화이트리스트 기반 SQL 조회 콘솔, 파라미터 바인딩 INSERT/UPDATE 연습 폼, 스케줄러 기반 리소스 지표 시뮬레이션 |
 | 🟢 LIVE | **웹게임** | 숫자야구(스트라이크/볼 판정), 발리볼(Canvas 기반 실시간 물리 시뮬레이션) |
 | 🟢 LIVE | **보드게임** | 오목(미니맥스 탐색 AI), 장기(알파베타 가지치기 완전탐색 AI, 궁성 대각선 이동 규칙) |
 | 🟢 LIVE | **카드게임** | 프리셀(서플무브 용량 계산), 클론다이크(점수 기반 힌트 탐색), 스파이더(무늬 수 기반 난이도) |
@@ -64,6 +65,32 @@ Spring Boot 애플리케이션 하나에 기능별 패키지를 추가하는 구
     엘리먼트를 재사용, FLIP 기법으로 순위 변동을 애니메이션 처리
 ```
 
+### 지도 API — 맛집 지도 + 부동산 시세
+
+```
+맛집 지도: 카카오 Local API 키워드검색(keyword.json) + 카테고리검색(category.json) 자동 분기
+    - category_group_code(음식점/카페/편의점/대형마트) 필터, 거리순 정렬 시 distance 필드 표시
+    - 검색어가 비어있고 카테고리만 선택된 경우 카테고리검색으로 전환(위치 기반)
+    - 네이버 지도 SDK + 공식 마커 클러스터링(navermaps/marker-tools.js) 마커 표시
+    - 마커는 평소 점 형태, 호버·클릭 시 카테고리 아이콘+상호명으로 확대 표시
+부동산 시세: 국토교통부 실거래가 공공데이터 API(XML 파싱) + 카카오 키워드검색
+    기반 좌표 지오코딩 + 네이버 지도 표시
+두 지도는 독립된 인스턴스로 동작하며 뷰포트·검색 상태를 localStorage에 유지
+```
+
+### 서버제어 — 화이트리스트 SQL 콘솔 + INSERT/UPDATE 연습 폼
+
+```
+[ServerControlDao] JdbcTemplate 기반 조회/제어(JPA 미사용), 계층형 Controller→Service→DAO
+[ServerMetricScheduler] 10초 주기로 가동중인 서버마다 CPU/MEM/DISK를 랜덤워크로 갱신,
+    프론트는 5초 주기 폴링으로 Chart.js 갱신
+[SQL 콘솔] SELECT 문·금지 키워드·FROM/JOIN 대상 테이블을 서버에서 화이트리스트 검증한
+    뒤에만 실행 — 인증 없는 공개 페이지이므로 조회 전용으로 엄격히 제한
+[INSERT/UPDATE 연습] 별도 연습용 테이블(mms_practice_template, mms_practice_schedule)에
+    한해 파라미터 바인딩된 JdbcTemplate.update() + 모달 폼으로만 쓰기 허용, 원본 SQL
+    문자열은 실행하지 않음
+```
+
 ### 웹게임 — 숫자야구·발리볼 (`/game`)
 
 ```
@@ -101,21 +128,12 @@ Spring Boot 애플리케이션 하나에 기능별 패키지를 추가하는 구
     K→A 같은 무늬 13장 연결 시 자동 완성. 난이도는 사용 무늬 수(1/2/4종)로 구분
 ```
 
-### 지도 API — 맛집 지도 + 부동산 시세
-
-```
-맛집 지도: 카카오 Local API(키워드·현위치 반경 검색) + 네이버 지도 SDK 마커 표시
-부동산 시세: 국토교통부 실거래가 공공데이터 API(XML 파싱) + 카카오 키워드검색
-    기반 좌표 지오코딩 + 네이버 지도 표시
-두 지도는 독립된 인스턴스로 동작하며 뷰포트·검색 상태를 localStorage에 유지
-```
-
 ## 기술 스택 & 인프라
 
 - **Backend**: Java 21, Spring Boot 3.5(Web, Data JPA, Validation, Scheduler), Logback
 - **DB**: MySQL(AWS RDS, `prod` 프로파일) / H2(로컬)
 - **외부 API**: 토스증권 Open API, 카카오 Local API, 네이버 지도 SDK, 국토교통부 실거래가 공공데이터 API, Google Gemini API, 업비트 공개 API, RSS(ROME)
-- **Frontend**: Vanilla JS + Chart.js(신규 기능은 Vue.js/React CDN 방식 우선 검토), Web Components(cardmeister 카드 렌더링), 공통 네비게이션(`nav.js`)
+- **Frontend**: Vanilla JS + Chart.js(신규 기능은 Vue.js/React CDN 방식 우선 검토), Web Components(cardmeister 카드 렌더링), Bootstrap 3 + AdminLTE 2(서버제어), 공통 네비게이션(`nav.js`)
 - **Infra**: AWS EC2(Amazon Linux 2023), nginx 리버스 프록시, Let's Encrypt HTTPS
 - **CI/CD**: GitHub Actions — push → 빌드 → EC2 배포 → 헬스체크
 - **개발 환경**: Eclipse IDE 2025-03(4.35.0)
@@ -144,10 +162,16 @@ com.jihun.portfolio
 │   ├── StockAiBriefingRepository.java
 │   └── StockController.java            # REST API (/api/stock/*)
 ├── map/             # 지도 API
-│   ├── MapController.java          # 맛집 검색(카카오)
+│   ├── MapController.java          # 맛집 검색(카카오 키워드/카테고리 검색 자동 분기)
 │   ├── RealEstateController.java   # 부동산 실거래 조회(국토부)
 │   ├── KakaoGeocodeService.java    # 좌표 지오코딩
 │   └── RealEstateRegions.java
+├── servercontrol/   # 서버제어
+│   ├── ServerControlController.java    # REST API (/api/servercontrol/*)
+│   ├── ServerControlService.java / ServerControlServiceImpl.java
+│   ├── ServerControlDao.java           # JdbcTemplate 기반 조회·제어·SQL 콘솔
+│   ├── ServerMetricScheduler.java      # 10초 주기 리소스 지표 시뮬레이션
+│   └── ServerVo / ServerMetricVo / ServerControlLogVo / PracticeTemplateVo / PracticeScheduleVo
 └── game/            # 웹게임·보드게임·카드게임 (공통 GameScore 랭킹 엔티티 공유)
     ├── domain/GameScore.java       # 게임 공용 랭킹 엔티티(gameType으로 구분)
     ├── repository/GameScoreRepository.java
@@ -180,7 +204,7 @@ mvn clean package
 | `SPRING_PROFILES_ACTIVE=prod` | 설정 시 RDS(MySQL), 미설정 시 H2로 동작 |
 | `DB_HOST` / `DB_NAME` / `DB_USER` / `DB_PASSWORD` | RDS 접속 정보 |
 | `GEMINI_API_KEY` | AI 뉴스·AI 주식 브리핑 생성(미설정 시 해당 기능만 비활성화) |
-| `KAKAO_API_KEY` | 맛집 검색, 부동산 좌표 지오코딩 |
+| `KAKAO_API_KEY` | 맛집 검색(키워드·카테고리), 부동산 좌표 지오코딩 |
 | `NAVER_MAP_CLIENT_ID` | 지도 표시(Maps JS) |
 | `REALESTATE_API_KEY` | 국토부 실거래가 조회 |
 | `TOSS_CLIENT_ID` / `TOSS_CLIENT_SECRET` | AI 주식 시세·랭킹 조회(허용 IP 등록 필요) |
